@@ -1,5 +1,6 @@
 package com.brandongcobb.patreonplugin.utils.listeners;
 
+import org.bukkit.scheduler.BukkitRunnable; // For creating scheduled tasks
 import java.sql.Connection;
 import java.sql.SQLException;
 import org.bukkit.event.EventHandler;
@@ -15,23 +16,36 @@ import java.sql.Connection; // For database connections
 public class PlayerJoinListener implements Listener {
 
 
-    private final PatreonPlugin plugin;
-    private UserManager userManager;
     private String createDate;
-
+    private final PatreonPlugin plugin;
     public PlayerJoinListener(PatreonPlugin plugin) {
         this.plugin = plugin;
-        this.userManager = new UserManager(plugin);
-    }
+    }//    private final PatreonPlugin plugin;
+//
+//    public PlayerJoinListener(PatreonPlugin plugin) {
+//        this.plugin = plugin;
+//        this.userManager = new UserManager(plugin);
+//    }
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         String username = event.getPlayer().getName();
         String minecraftId = event.getPlayer().getUniqueId().toString();
-
-        // Check if the user already exists in the database
-        if (!PatreonUser.userExists(minecraftId)) {
-            PatreonUser.createUser(createDate, 0L, 0, "", 1, minecraftId, "", 0, "", 0L, "", "", "", "");
-        }
+        String createDate = Instant.now().toString();
+    
+        // Run database operations asynchronously
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!PatreonUser.userExists(minecraftId)) {
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            PatreonUser.createUser(createDate, 0L, 0, "", 1, minecraftId, "", 0, "", 0L, "", "", "", "");
+                        }
+                    }.runTaskAsynchronously(PatreonPlugin.getPlugin(PatreonPlugin.class));
+                }
+            }
+        }.runTaskAsynchronously(PatreonPlugin.getPlugin(PatreonPlugin.class));
     }
 }

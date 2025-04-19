@@ -33,11 +33,6 @@ public class Config {
             try (InputStream inputStream = new FileInputStream(configFile)) {
                 Yaml yaml = new Yaml();
                 config = yaml.load(inputStream);
-                if (promptForYesNo("Do you want to change any settings? (yes/no): ", true)) {
-                    modifyApiKeys();
-                    promptAdditionalConfig();
-                    saveConfig();
-                }
             } catch (IOException e) {
                 e.printStackTrace();
             }

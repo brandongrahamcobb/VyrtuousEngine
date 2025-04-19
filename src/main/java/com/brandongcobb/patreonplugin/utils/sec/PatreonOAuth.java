@@ -13,7 +13,6 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.brandongcobb.patreonplugin.utils.sec.TokenResponse;
 import java.io.IOException;
 import java.io.IOException;
 import java.net.HttpURLConnection;
@@ -27,6 +26,7 @@ import com.github.jasminb.jsonapi.JSONAPIDocument;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
+import com.brandongcobb.patreonplugin.utils.handlers.PatreonUser;
 
 public class PatreonOAuth {
     private final JavaPlugin plugin;
@@ -36,34 +36,14 @@ public class PatreonOAuth {
     private static String redirectUri;
     private String minecraftId;
 
-    public PatreonOAuth(JavaPlugin plugin, String client_id, String clientSecret, String redirectUri) {
+    public PatreonOAuth(JavaPlugin plugin, String clientId, String clientSecret, String redirectUri) {
         this.plugin = plugin;
         this.clientId = clientId;
         this.clientSecret = clientSecret;
         this.redirectUri = redirectUri;
     }
 
-//    public void handleOAuthCallback(String code, String platform, String username) {
-//        try {
-//            accessToken = exchangeToken(code); // Implemented previously
-//            PatreonAPI apiClient = new PatreonAPI(accessToken);
-//            JSONAPIDocument<User> userResponse = apiClient.fetchUser();
-//            User user = userResponse.get();
-//            // Create or update user in the database
-////            addUser(user.getFullName(), platform);
-//            // Also update specific details as needed, e.g., Patreon ID
-//            if (!userExists(minecraftId)) {
-//                addUserToDatabase(user, username, minecraftId); // Linking new user from Patreon
-//            } else {
-//            // If the user already exists, update the patreon ID
-//                updateUserPatreonId(user.getId(), minecraftId);
-//            }
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//    }
-
-    public String getAuthorizationUrl() {
+    public static String getAuthorizationUrl() {
         return "https://www.patreon.com/oauth2/authorize?response_type=code&client_id=" + clientId +
                 "&redirect_uri=" + redirectUri + "&scope=identity%20campaigns";
     }
@@ -83,24 +63,13 @@ public class PatreonOAuth {
                 .build();
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
-                System.out.println("Failed to get token: " + response.code() + " - " + response.body().string());
+                System.out.println("Failed to get token: " + response.code() + " - " + response.body());
                 return null;
             }
             String json = response.body().string();
-            JsonObject obj = JsonParser.parseString(json).getAsJsonObject();
+            JsonElement jsonElement = JsonParser.parseString(json);
+            JsonObject obj = jsonElement.getAsJsonObject();
             return obj.get("access_token").getAsString();
         }
-    }
-
-    private String parseAccessToken(String jsonResponse) {
-        ObjectMapper objectMapper = new ObjectMapper();
-        String accessToken = "";
-        try {
-            TokenResponse tokenResponse = objectMapper.readValue(jsonResponse, TokenResponse.class);
-            accessToken = tokenResponse.getAccessToken(); // Get the access token from the POJO
-        } catch (IOException e) {
-            e.printStackTrace(); // Handle exceptions as needed
-        }
-        return accessToken;
     }
 }

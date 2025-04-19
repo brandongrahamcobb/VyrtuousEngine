@@ -17,10 +17,18 @@ import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
-
+import com.github.jasminb.jsonapi.JSONAPIDocument;
+import com.patreon.resources.User;
+import com.google.gson.JsonObject;
 import com.patreon.PatreonAPI;
 import org.bukkit.Bukkit; // For Bukkit API
 import org.bukkit.entity.Player; // For Player entity
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.Timer;
+import java.util.TimerTask;
 import org.bukkit.plugin.java.JavaPlugin; // For main plugin class
 import org.bukkit.configuration.file.FileConfiguration; // For configuration handling
 import java.sql.Connection; // For database connections
@@ -36,6 +44,7 @@ public final class PatreonPlugin extends JavaPlugin {
     public static String accessToken;
     public static Config configMaster;
     public Connection connection;
+    public String createDate;
     public long discordId;
     public int exp;
     public String factionName;
@@ -61,24 +70,45 @@ public final class PatreonPlugin extends JavaPlugin {
     private FileConfiguration config;
 
 
+    private boolean listeningForCallback = false;
+    private Timer callbackTimer;
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
+        if (label.equalsIgnoreCase("patreon")) {
+            if (listeningForCallback) {
+                sender.sendMessage("Already listening for callback.");
+                return true;
+            }
+            String authUrl = PatreonOAuth.getAuthorizationUrl();
+            sender.sendMessage("Please visit the following URL to authorize: " + authUrl);
+            callbackTimer = new Timer();
+            callbackTimer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    listeningForCallback = false;
+                    sender.sendMessage("Listening for OAuth callback has timed out.");
+                }
+            }, 600000); // 10 minutes
+            return true;
+        }
+        return false;
+    }
+
     public void onEnable() {
         plugin = this;
         this.configMaster = configMaster;
         this.createConfig();
         this.createData();
-        this.connectDatabase();
-        try {
-            this.connection = getConnection();
-        } catch (SQLException e) {}
         this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
-        this.patreonOAuth = new PatreonOAuth(plugin,
-                                             configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("client_id"),
-                                             configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("client_secret"),
-                                             configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("redirect_uri"));
-        this.userManager = new UserManager(plugin);
-        this.patreonUser = new PatreonUser(configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("api_key"),
+        connectDatabase(() -> {
+            this.patreonOAuth = new PatreonOAuth(plugin,
+                                                 configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("client_id"),
+                                                 configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("client_secret"),
+                                                 configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("redirect_uri"));
+            this.userManager = new UserManager(plugin);
+            this.patreonUser = new PatreonUser(configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("api_key"),
                                           configMaster,
-                                          connection,
                                           discordId,
                                           exp,
                                           factionName,
@@ -95,11 +125,51 @@ public final class PatreonPlugin extends JavaPlugin {
                                           patreonVanity,
                                           plugin,
                                           userManager
-        );
+            );
+        });
     }
 
     private void executeMinecraftCommand(String command) {
         Bukkit.dispatchCommand(Bukkit.getConsoleSender(), command);
+    }
+
+    public void handleOAuthCallback(String code) {
+        try {
+            if (!listeningForCallback) {
+                getLogger().warning("No OAuth flow is currently active.");
+                return;
+            }         
+            // Process the received code
+            accessToken = PatreonOAuth.exchangeCodeForToken(code);
+            PatreonAPI apiClient = new PatreonAPI(accessToken);
+            JSONAPIDocument<User> userResponse = apiClient.fetchUser();
+            User user = userResponse.get();
+            JsonObject userData = PatreonUser.getUserPledgeInfo();
+            try {
+                PatreonUser patreonUser = PatreonUser.loadPatreonUser(userData);
+                String userAbout = patreonUser.getPatreonAbout();
+                int userAmountCents = patreonUser.getPatreonAmountCents();
+                String userEmail = patreonUser.getPatreonEmail();
+                long userId = patreonUser.getPatreonId();
+                String userName = patreonUser.getPatreonName();
+                String userStatus = patreonUser.getPatreonStatus();
+                String userTier = patreonUser.getPatreonTier();
+                String userVanity = patreonUser.getPatreonVanity();
+                if (PatreonUser.userExists(String.valueOf(userId))) {
+                    // Create a new user since they do not exist
+                    PatreonUser.createUser(createDate, 0L, 0, "", 1, "", userAbout, userAmountCents, userEmail, userId, userName, userStatus, userTier, userVanity);
+                }
+                startPledgeCheck();
+            } catch (SQLException e) {}
+            userManager.consolidateUsers();
+            listeningForCallback = false;
+            if (callbackTimer != null) {
+                callbackTimer.cancel();
+                callbackTimer = null;
+            }
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private void startPledgeCheck() {
@@ -133,75 +203,100 @@ public final class PatreonPlugin extends JavaPlugin {
         }.runTaskTimer(this, 0L, 1200L); // Run every 60 seconds (1200 ticks)
     }
 
-    private void connectDatabase() {
-       this.getLogger().log(Level.INFO, "Initializing PostgreSQL connection pool...");
-       String host = this.getConfig().getString("postgres_host", "jdbc:postgresql://localhost");
-       String db = this.getConfig().getString("postgres_db", "lucy");
-       String user = this.getConfig().getString("postgres_user", "postgres");
-       String password = this.getConfig().getString("postgres_password", "");
-       String port = this.getConfig().getString("postgres_port", "5432");
-       HikariConfig config = new HikariConfig();
-       config.setJdbcUrl(String.format("%s:%s/%s", host, port, db));
-       config.setUsername(user);
-       config.setPassword(password);
-       config.setDriverClassName("org.postgresql.Driver");
-       this.dataSource = new HikariDataSource(config);
-       this.getLogger().log(Level.INFO, "PostgreSQL connection pool initialized.");
+    private void connectDatabase(Runnable afterConnect) {
+        this.getLogger().log(Level.INFO, "Initializing PostgreSQL connection pool...");
+    
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                String host = getConfig().getString("postgres_host", "jdbc:postgresql://localhost");
+                String db = getConfig().getString("postgres_db", "lucy");
+                String user = getConfig().getString("postgres_user", "postgres");
+                String password = getConfig().getString("postgres_password", "");
+                String port = getConfig().getString("postgres_port", "5432");
+    
+                String jdbcUrl = String.format("%s:%s/%s", host, port, db);
+                getLogger().info("Connecting to: " + jdbcUrl);
+    
+                HikariConfig hikariConfig = new HikariConfig();
+                hikariConfig.setJdbcUrl(jdbcUrl);
+                hikariConfig.setUsername(user);
+                hikariConfig.setPassword(password);
+                hikariConfig.setDriverClassName("org.postgresql.Driver");
+    
+                try {
+                    dataSource = new HikariDataSource(hikariConfig);
+                    getLogger().log(Level.INFO, "PostgreSQL connection pool initialized.");
+    
+                    new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            afterConnect.run(); // Execute after connection is confirmed, back on main thread
+                        }
+                    }.runTask(PatreonPlugin.this);
+                } catch (Exception e) {
+                    getLogger().log(Level.SEVERE, "Failed to initialize PostgreSQL connection pool!", e);
+                }
+            }
+        }.runTaskAsynchronously(this);
     }
 
     public Connection getConnection() throws SQLException {
-       if (this.dataSource == null) {
-          throw new SQLException("DataSource not initialized");
-       } else {
-          return this.dataSource.getConnection();
-       }
+        if (this.dataSource == null) {
+            throw new SQLException("DataSource not initialized");
+        } else {
+            return this.dataSource.getConnection();
+        }
     }
 
     public void closeDatabase() {
-       if (this.dataSource != null && !this.dataSource.isClosed()) {
-          this.dataSource.close();
-       }
+        if (this.dataSource != null && !this.dataSource.isClosed()) {
+            this.dataSource.close();
+        }
     }
 
     private void createData() {
-       this.dataF = new File(this.getDataFolder(), "data.yml");
-       if (!this.dataF.exists()) {
-          this.dataF.getParentFile().mkdirs();
-          this.saveResource("data.yml", false);
-       }
-       this.data = new YamlConfiguration();
-       try {
-          this.data.load(this.dataF);
-       } catch (InvalidConfigurationException | IOException var2) {
-          var2.printStackTrace();
-       }
+        this.dataF = new File(this.getDataFolder(), "data.yml");
+        if (!this.dataF.exists()) {
+            this.dataF.getParentFile().mkdirs();
+            this.saveResource("data.yml", false);
+        }
+        this.data = new YamlConfiguration();
+        try {
+            this.data.load(this.dataF);
+        } catch (InvalidConfigurationException | IOException var2) {
+            var2.printStackTrace();
+        }
     }
 
     public void saveData() {
-       try {
-          this.data.save(this.dataF);
-       } catch (IOException var2) {
-         var2.printStackTrace();
-       }
+        try {
+           this.data.save(this.dataF);
+        } catch (IOException var2) {
+          var2.printStackTrace();
+        }
     }
 
-    private void createConfig() {
-       File configf = new File(this.getDataFolder(), "config.yml");
-       if (!configf.exists()) {
-          configf.getParentFile().mkdirs();
-          this.saveResource("config.yml", false);
-       }
-       this.config = new YamlConfiguration();
-       try {
-          this.config.load(configf);
-       } catch (InvalidConfigurationException | IOException var3) {
-          var3.printStackTrace();
-       }
+     private void createConfig() {
+        File configf = new File(this.getDataFolder(), "config.yml");
+        if (!configf.exists()) {
+           configf.getParentFile().mkdirs();
+           this.saveResource("config.yml", false);
+        }
+        this.config = new YamlConfiguration();
+        try {
+           this.config.load(configf);
+        } catch (InvalidConfigurationException | IOException var3) {
+           var3.printStackTrace();
+        }
     }
 
     public void onDisable() {
-       this.closeDatabase();
-       this.getLogger().log(Level.INFO, "PostgreSQL Example plugin disabled.");
+        this.closeDatabase();
+        this.getLogger().log(Level.INFO, "PostgreSQL Example plugin disabled.");
+        if (callbackTimer != null) {
+            callbackTimer.cancel();
+        }
     }
 
 

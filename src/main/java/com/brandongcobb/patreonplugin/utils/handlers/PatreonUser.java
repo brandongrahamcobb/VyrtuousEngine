@@ -48,32 +48,30 @@ import java.time.Instant;
 public class PatreonUser {
 
     private static String accessToken;
-    private Config configMaster;
-    private static Connection connection;
-
-    private String createDate;
-    private long discordId;
-    private int exp;
-    private String factionName;
-    private int level;
+    private static Config configMaster;
+    private Connection connection;
+    private static String createDate;
+    private static long discordId;
+    private static int exp;
+    private static String factionName;
+    private static int level;
     private static String minecraftId;
     private static PatreonPlugin plugin;
-    private PatreonAPI patreonApi;
-    private String patreonAbout;
-    private int patreonAmountCents;
-    private String patreonEmail;
-    private long patreonId;
-    private String patreonName;
+    private static PatreonAPI patreonApi;
+    private static String patreonAbout;
+    private static int patreonAmountCents;
+    private static String patreonEmail;
+    private static long patreonId;
+    private static String patreonName;
     private PatreonOAuth patreonOAuth;
-    private String patreonStatus;
-    private String patreonTier;
-    private String patreonVanity;
-    private UserManager userManager;
+    private static String patreonStatus;
+    private static String patreonTier;
+    private static String patreonVanity;
+    private static UserManager userManager;
 
-    public PatreonUser(String accessToken, Config configMaster, Connection connection, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, PatreonAPI patreonApi, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity, PatreonPlugin plugin, UserManager userManager) {
+    public PatreonUser(String accessToken, Config configMaster, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, PatreonAPI patreonApi, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity, PatreonPlugin plugin, UserManager userManager) {
         this.accessToken = accessToken;
         this.configMaster = configMaster;
-        this.connection = connection;
         this.createDate = Instant.now().toString();
         this.discordId = discordId;
         this.exp = exp;
@@ -99,7 +97,7 @@ public class PatreonUser {
                 create_date, discord_id, exp, faction_name, level, minecraft_id,
                 patreon_about, patreon_amount_cents, patreon_email,
                 patreon_id, patreon_name, patreon_status, patreon_tier, patreon_vanity
-            ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE SET
                 create_date = EXCLUDED.create_date,
                 discord_id = EXCLUDED.discord_id,
@@ -116,7 +114,7 @@ public class PatreonUser {
                 patreon_tier = EXCLUDED.patreon_tier,
                 patreon_vanity = EXCLUDED.patreon_vanity
         """;
-        try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+        try (PreparedStatement stmt = plugin.getConnection().prepareStatement(sql)) {
             stmt.setString(1, createDate);
             stmt.setLong(2, discordId);
             stmt.setInt(3, exp);
@@ -135,39 +133,39 @@ public class PatreonUser {
         } catch (SQLException ioe){}
     }
 
-    private String getPatreonAbout() {
+    public String getPatreonAbout() {
         return patreonAbout;
     }
 
-    private int getPatreonAmountCents() {
+    public int getPatreonAmountCents() {
         return patreonAmountCents;
     }
 
-    private String getPatreonEmail() {
+    public String getPatreonEmail() {
         return patreonEmail;
     }
 
-    private long getPatreonId() {
+    public long getPatreonId() {
         return patreonId;
     }
 
-    private String getPatreonName() {
+    public String getPatreonName() {
         return patreonName;
     }
 
-    private String getPatreonStatus() {
+    public String getPatreonStatus() {
         return patreonStatus;
     }
 
-    private String getPatreonTier() {
+    public String getPatreonTier() {
         return patreonTier;
     }
 
-    private String getPatreonVanity() {
+    public String getPatreonVanity() {
         return patreonVanity; // Assuming you added this field
     }
 
-    private JsonObject getUserPledgeInfo() {
+    public static JsonObject getUserPledgeInfo() {
         OkHttpClient client = new OkHttpClient();
         Request request = new Request.Builder()
                 .url("https://www.patreon.com/api/oauth2/v2/identity?include=memberships.currently_entitled_tiers&fields[user]=full_name,email,vanity,about&fields[member]=patron_status,currently_entitled_amount_cents&fields[tier]=title,amount_cents")
@@ -184,31 +182,7 @@ public class PatreonUser {
         return null;
     }
 
-    private void handleOAuthCallback(String code) {
-        try {
-            PatreonAPI apiClient = new PatreonAPI(accessToken);
-            JSONAPIDocument<User> userResponse = apiClient.fetchUser();
-            User user = userResponse.get();
-            JsonObject userData = getUserPledgeInfo();
-            try {
-                PatreonUser patreonUser = loadPatreonUser(userData);
-                String userAbout = patreonUser.getPatreonAbout();
-                int userAmountCents = patreonUser.getPatreonAmountCents();
-                String userEmail = patreonUser.getPatreonEmail();
-                long userId = patreonUser.getPatreonId();
-                String userName = patreonUser.getPatreonName();
-                String userStatus = patreonUser.getPatreonStatus();
-                String userTier = patreonUser.getPatreonTier();
-                String userVanity = patreonUser.getPatreonVanity();
-                createUser(createDate, 0L, 0, "", 1, "", userAbout, userAmountCents, userEmail, userId, userName, userStatus, userTier, userVanity);
-            } catch (SQLException e) {}
-            userManager.consolidateUsers();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-    }
-
-    private PatreonUser loadPatreonUser(JsonObject userData) throws SQLException {
+    public static PatreonUser loadPatreonUser(JsonObject userData) throws SQLException {
         JsonObject user = userData.getAsJsonObject("data");
         JsonObject attributes = user.getAsJsonObject("attributes");
         long patreonId = Long.parseLong(user.get("id").getAsString());
@@ -233,7 +207,6 @@ public class PatreonUser {
         }
         PatreonUser patreonUser = new PatreonUser(configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("api_key"),
                                           configMaster,
-                                          connection,
                                           discordId,
                                           exp,
                                           factionName,
@@ -256,8 +229,8 @@ public class PatreonUser {
 
     public static boolean userExists(String patreonId) {
          try (Connection connection = plugin.getConnection();
-             PreparedStatement stmt = connection.prepareStatement("SELECT COUNT(*) FROM users WHERE minecraft_id = ?")) {
-             stmt.setString(1, minecraftId);
+             PreparedStatement stmt = connection.prepareStatement("SELECT COUNT(*) FROM users WHERE patreon_id = ?")) {
+             stmt.setString(1, patreonId);
              ResultSet rs = stmt.executeQuery();
              if (rs.next()) {
                  return rs.getInt(1) > 0; // Returns true if count is greater than 0

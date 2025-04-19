@@ -1,0 +1,10 @@
+com/brandongcobb/patreonplugin/Config.class
+com/brandongcobb/patreonplugin/PatreonPlugin$1.class
+com/brandongcobb/patreonplugin/utils/inc/Helpers.class
+com/brandongcobb/patreonplugin/utils/sec/TokenResponse.class
+com/brandongcobb/patreonplugin/utils/sec/PatreonOAuth.class
+com/brandongcobb/patreonplugin/utils/handlers/PatreonUser.class
+com/brandongcobb/patreonplugin/ConfigSection.class
+com/brandongcobb/patreonplugin/PatreonPlugin.class
+com/brandongcobb/patreonplugin/utils/handlers/UserManager.class
+com/brandongcobb/patreonplugin/utils/listeners/PlayerJoinListener.class

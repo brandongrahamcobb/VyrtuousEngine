@@ -3,6 +3,9 @@ package com.brandongcobb.patreonplugin.utils.listeners;
 import org.bukkit.scheduler.BukkitRunnable; // For creating scheduled tasks
 import java.sql.Connection;
 import java.sql.SQLException;
+import org.bukkit.Bukkit; // For Bukkit API
+import org.bukkit.entity.Player; // For Player entity
+import java.util.UUID;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
@@ -34,18 +37,20 @@ public class PlayerJoinListener implements Listener {
         String createDate = Instant.now().toString();
     
         // Run database operations asynchronously
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                if (!PatreonUser.userExists(minecraftId)) {
-                     new BukkitRunnable() {
-                        @Override
-                         public void run() {
-                            PatreonUser.createUser(createDate, 0L, 0, "", 1, minecraftId, "", 0, "", 0L, "", "", "", "");
-                         }
-                    }.runTaskAsynchronously(PatreonPlugin.getPlugin(PatreonPlugin.class));
-                }
-            }
-        }.runTaskAsynchronously(PatreonPlugin.getPlugin(PatreonPlugin.class));
+        if (!PatreonUser.userExists(minecraftId)) {
+            PatreonUser.createUser(createDate, 0L, 0, "", 1, minecraftId, "", 0, "", 0L, "", "", "", "", () -> {
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                            // Actions to perform after user creation, e.g., notifying player
+                        Player player = Bukkit.getPlayer(UUID.fromString(minecraftId));
+                        if (player != null) {
+                             player.sendMessage("You have been registered with Patreon.");
+                        }
+                    }
+                }.runTaskAsynchronously(plugin);
+
+            });
+        }
     }
 }

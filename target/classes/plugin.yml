@@ -1,6 +1,10 @@
 name: PatreonPlugin
 version: 0.1
-main: com.brandongcobb.patreonPlugin.PatreonPlugin
+main: com.brandongcobb.patreonplugin.PatreonPlugin
 api-version: 1.0
 website: www.github.com/brandongrahamcobb
-commands: []
+commands:
+  patreon:
+    description:
+    usage: /patreon
+    permission: patreon

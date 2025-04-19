@@ -97,13 +97,17 @@ public class PatreonUser {
         this.userManager = userManager;
     }
 
-    public static void createUser(String createDate, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity) {
+    public static void createUser(String createDate, long discordId, int exp, String factionName, int level, 
+                                   String minecraftId, String patreonAbout, int patreonAmountCents, 
+                                   String patreonEmail, long patreonId, String patreonName, 
+                                   String patreonStatus, String patreonTier, String patreonVanity,
+                                   Runnable callback) {
         String sql = """
             INSERT INTO users (
                 create_date, discord_id, exp, faction_name, level, minecraft_id,
                 patreon_about, patreon_amount_cents, patreon_email,
                 patreon_id, patreon_name, patreon_status, patreon_tier, patreon_vanity
-            ) VALUES ( ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT (id) DO UPDATE SET
                 create_date = EXCLUDED.create_date,
                 discord_id = EXCLUDED.discord_id,
@@ -118,25 +122,37 @@ public class PatreonUser {
                 patreon_name = EXCLUDED.patreon_name,
                 patreon_status = EXCLUDED.patreon_status,
                 patreon_tier = EXCLUDED.patreon_tier,
-                patreon_vanity = EXCLUDED.patreon_vanity
+                patreon_vanity = EXCLUDED.patreon_vanity;
         """;
-        try (PreparedStatement stmt = plugin.getConnection().prepareStatement(sql)) {
-            stmt.setString(1, createDate);
-            stmt.setLong(2, discordId);
-            stmt.setInt(3, exp);
-            stmt.setString(4, factionName);
-            stmt.setInt(5, level);
-            stmt.setString(6, minecraftId);
-            stmt.setString(7, patreonAbout);
-            stmt.setInt(8, patreonAmountCents);
-            stmt.setString(9, patreonEmail);
-            stmt.setLong(10, patreonId);
-            stmt.setString(11, patreonName);
-            stmt.setString(12, patreonStatus);
-            stmt.setString(13, patreonTier);
-            stmt.setString(14, patreonVanity);
-            stmt.executeUpdate();
-        } catch (SQLException ioe){}
+    
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                try (Connection connection = plugin.getConnection();
+                    PreparedStatement stmt = connection.prepareStatement(sql)) {
+                    stmt.setString(1, createDate);
+                    stmt.setLong(2, discordId);
+                    stmt.setInt(3, exp);
+                    stmt.setString(4, factionName);
+                    stmt.setInt(5, level);
+                    stmt.setString(6, minecraftId);
+                    stmt.setString(7, patreonAbout);
+                    stmt.setInt(8, patreonAmountCents);
+                    stmt.setString(9, patreonEmail);
+                    stmt.setLong(10, patreonId);
+                    stmt.setString(11, patreonName);
+                    stmt.setString(12, patreonStatus);
+                    stmt.setString(13, patreonTier);
+                    stmt.setString(14, patreonVanity);
+                    stmt.executeUpdate();
+                    
+                    // Run the callback on the main thread after the database operation
+                    Bukkit.getScheduler().runTask(plugin, callback);
+                } catch (SQLException e) {
+                    e.printStackTrace();
+                }
+            }
+        }.runTaskAsynchronously(plugin);
     }
 
     private static final String API_URL = "https://www.patreon.com/api/oauth2/v2/identity" +

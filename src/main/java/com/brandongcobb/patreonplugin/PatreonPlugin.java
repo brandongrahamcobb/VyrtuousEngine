@@ -157,7 +157,14 @@ public final class PatreonPlugin extends JavaPlugin {
           //      String userVanity = patreonUser.getPatreonVanity();
             if (PatreonUser.userExists(String.valueOf(userId))) {
                 // Create a new user since they do not exist
-                PatreonUser.createUser(createDate, 0L, 0, "", 1, "", "", userAmountCents, "", userId, "", "", "", "");
+                PatreonUser.createUser(createDate, 0L, 0, "", 1, "", "", userAmountCents, "", userId, "", "", "", "", () -> {
+                     new BukkitRunnable() {
+                        @Override
+                        public void run() {
+                            Bukkit.getPlayer(UUID.fromString(minecraftId)).sendMessage("You have been created as a Patreon user.");
+                        }
+                    }.runTaskAsynchronously(plugin);
+                });
             }
             startPledgeCheck();
             userManager.consolidateUsers();

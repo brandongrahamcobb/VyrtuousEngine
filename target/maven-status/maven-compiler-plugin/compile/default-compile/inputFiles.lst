@@ -1,6 +1,6 @@
 /home/spawd/Vystopia/modules/PatreonPlugin/src/main/java/com/brandongcobb/patreonplugin/utils/listeners/PlayerJoinListener.java
-/home/spawd/Vystopia/modules/PatreonPlugin/src/main/java/com/brandongcobb/patreonplugin/utils/sec/TokenResponse.java
 /home/spawd/Vystopia/modules/PatreonPlugin/src/main/java/com/brandongcobb/patreonplugin/utils/sec/PatreonOAuth.java
+/home/spawd/Vystopia/modules/PatreonPlugin/src/main/java/com/brandongcobb/patreonplugin/OAuthServer.java
 /home/spawd/Vystopia/modules/PatreonPlugin/src/main/java/com/brandongcobb/patreonplugin/utils/handlers/UserManager.java
 /home/spawd/Vystopia/modules/PatreonPlugin/src/main/java/com/brandongcobb/patreonplugin/ConfigSection.java
 /home/spawd/Vystopia/modules/PatreonPlugin/src/main/java/com/brandongcobb/patreonplugin/Config.java

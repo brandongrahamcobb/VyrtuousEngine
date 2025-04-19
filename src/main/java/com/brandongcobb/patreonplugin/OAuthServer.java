@@ -7,8 +7,8 @@ public class OAuthServer {
 
     public OAuthServer(PatreonPlugin plugin) {
         this.plugin = plugin;
-        Spark.port(4567); // or any port you wish to use
-        Spark.get("/oauth/callback", (req, res) -> {
+        Spark.port(8000); // or any port you wish to use
+        Spark.get("/oauth/patreon_callback", (req, res) -> {
             String code = req.queryParams("code");
             plugin.handleOAuthCallback(code); // Pass the code to your plugin
             res.status(200);

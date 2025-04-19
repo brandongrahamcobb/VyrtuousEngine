@@ -38,11 +38,11 @@ public class PlayerJoinListener implements Listener {
             @Override
             public void run() {
                 if (!PatreonUser.userExists(minecraftId)) {
-                    new BukkitRunnable() {
+                     new BukkitRunnable() {
                         @Override
-                        public void run() {
+                         public void run() {
                             PatreonUser.createUser(createDate, 0L, 0, "", 1, minecraftId, "", 0, "", 0L, "", "", "", "");
-                        }
+                         }
                     }.runTaskAsynchronously(PatreonPlugin.getPlugin(PatreonPlugin.class));
                 }
             }

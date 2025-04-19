@@ -2,6 +2,7 @@ package com.brandongcobb.patreonplugin;
 
 import com.brandongcobb.patreonplugin.Config;
 import com.brandongcobb.patreonplugin.utils.listeners.PlayerJoinListener;
+import com.brandongcobb.patreonplugin.OAuthServer;
 import com.brandongcobb.patreonplugin.utils.sec.PatreonOAuth;
 import com.brandongcobb.patreonplugin.utils.handlers.UserManager;
 import com.brandongcobb.patreonplugin.utils.handlers.PatreonUser;
@@ -50,6 +51,7 @@ public final class PatreonPlugin extends JavaPlugin {
     public String factionName;
     public int level;
     public String minecraftId;
+    public OAuthServer oAuthServer;
     public String patreonAbout;
     public int patreonAmountCents;
     public PatreonAPI patreonApi;
@@ -76,10 +78,11 @@ public final class PatreonPlugin extends JavaPlugin {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (label.equalsIgnoreCase("patreon")) {
-            if (listeningForCallback) {
+            if (this.listeningForCallback) {
                 sender.sendMessage("Already listening for callback.");
                 return true;
             }
+            this.listeningForCallback = true;
             String authUrl = PatreonOAuth.getAuthorizationUrl();
             sender.sendMessage("Please visit the following URL to authorize: " + authUrl);
             callbackTimer = new Timer();
@@ -100,6 +103,8 @@ public final class PatreonPlugin extends JavaPlugin {
         this.configMaster = configMaster;
         this.createConfig();
         this.createData();
+        this.oAuthServer = new OAuthServer(plugin);
+        this.oAuthServer.start();
         this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
         connectDatabase(() -> {
             this.patreonOAuth = new PatreonOAuth(plugin,
@@ -136,31 +141,25 @@ public final class PatreonPlugin extends JavaPlugin {
     public void handleOAuthCallback(String code) {
         try {
             if (!listeningForCallback) {
-                getLogger().warning("No OAuth flow is currently active.");
+                getLogger().warning("No OAuth flow is wcurrently active.");
                 return;
-            }         
+            }
             // Process the received code
             accessToken = PatreonOAuth.exchangeCodeForToken(code);
-            PatreonAPI apiClient = new PatreonAPI(accessToken);
-            JSONAPIDocument<User> userResponse = apiClient.fetchUser();
-            User user = userResponse.get();
-            JsonObject userData = PatreonUser.getUserPledgeInfo();
-            try {
-                PatreonUser patreonUser = PatreonUser.loadPatreonUser(userData);
-                String userAbout = patreonUser.getPatreonAbout();
-                int userAmountCents = patreonUser.getPatreonAmountCents();
-                String userEmail = patreonUser.getPatreonEmail();
-                long userId = patreonUser.getPatreonId();
-                String userName = patreonUser.getPatreonName();
-                String userStatus = patreonUser.getPatreonStatus();
-                String userTier = patreonUser.getPatreonTier();
-                String userVanity = patreonUser.getPatreonVanity();
-                if (PatreonUser.userExists(String.valueOf(userId))) {
-                    // Create a new user since they do not exist
-                    PatreonUser.createUser(createDate, 0L, 0, "", 1, "", userAbout, userAmountCents, userEmail, userId, userName, userStatus, userTier, userVanity);
-                }
-                startPledgeCheck();
-            } catch (SQLException e) {}
+            System.out.println(accessToken);
+            long userId = Long.parseLong(String.valueOf(PatreonUser.getCurrentUserId(accessToken)));
+            int userAmountCents = Integer.parseInt(String.valueOf(PatreonUser.getCurrentPatreonAmountCents(accessToken)));
+  //              String userEmail = patreonUser.getPatreonEmail();
+//                long userId = patreonUser.getPatreonId();
+    //            String userName = patreonUser.getPatreonName();
+      //          String userStatus = patreonUser.getPatreonStatus();
+        //        String userTier = patreonUser.getPatreonTier();
+          //      String userVanity = patreonUser.getPatreonVanity();
+            if (PatreonUser.userExists(String.valueOf(userId))) {
+                // Create a new user since they do not exist
+                PatreonUser.createUser(createDate, 0L, 0, "", 1, "", "", userAmountCents, "", userId, "", "", "", "");
+            }
+            startPledgeCheck();
             userManager.consolidateUsers();
             listeningForCallback = false;
             if (callbackTimer != null) {
@@ -178,7 +177,7 @@ public final class PatreonPlugin extends JavaPlugin {
             public void run() {
                 try {
                     String sql = "SELECT patreon_amount_cents FROM users WHERE minecraft_id = ?";
-                    try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+                    try (PreparedStatement stmt = plugin.getConnection().prepareStatement(sql)) {
                         stmt.setString(1, minecraftId);
                         ResultSet rs = stmt.executeQuery();
                         if (rs.next()) {
@@ -297,6 +296,7 @@ public final class PatreonPlugin extends JavaPlugin {
         if (callbackTimer != null) {
             callbackTimer.cancel();
         }
+        oAuthServer.stop();
     }
 
 

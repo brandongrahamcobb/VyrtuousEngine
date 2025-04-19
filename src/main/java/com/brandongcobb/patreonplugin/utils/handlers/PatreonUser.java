@@ -17,6 +17,7 @@ import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.plugin.java.JavaPlugin;
+import java.util.List;
 
 import okhttp3.FormBody;
 import okhttp3.OkHttpClient;
@@ -28,6 +29,11 @@ import com.patreon.PatreonAPI;
 import com.patreon.resources.User;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.patreon.PatreonAPI;
+import com.patreon.resources.User;
+import com.patreon.resources.Campaign;
+
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.github.jasminb.jsonapi.JSONAPIDocument;
@@ -133,6 +139,72 @@ public class PatreonUser {
         } catch (SQLException ioe){}
     }
 
+    private static final String API_URL = "https://www.patreon.com/api/oauth2/v2/identity" +
+            "?include=memberships&fields[member]=currently_entitled_amount_cents";
+
+    public static long getCurrentUserId(String accessToken) {
+        OkHttpClient client = new OkHttpClient();
+
+        Request request = new Request.Builder()
+                .url(API_URL)
+                .addHeader("Authorization", "Bearer " + accessToken)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                System.out.println("Failed to fetch Patreon user info: " + response.code());
+                return 0L;
+            }
+
+            String body = response.body().string();
+            JsonObject root = JsonParser.parseString(body).getAsJsonObject();
+            JsonObject data = root.getAsJsonObject("data");
+
+            JsonObject result = new JsonObject();
+            patreonId = Long.parseLong(data.get("id").getAsString());
+            return patreonId;
+        } catch (IOException e) {
+            e.printStackTrace();
+            return 0L;
+        }
+    }
+
+    public static int getCurrentPatreonAmountCents(String accessToken) {
+        OkHttpClient client = new OkHttpClient();
+
+        Request request = new Request.Builder()
+                .url(API_URL)
+                .addHeader("Authorization", "Bearer " + accessToken)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                System.out.println("Failed to fetch Patreon user info: " + response.code());
+                return 0;
+            }
+
+            String body = response.body().string();
+            JsonObject root = JsonParser.parseString(body).getAsJsonObject();
+            JsonObject data = root.getAsJsonObject("data");
+            JsonObject result = new JsonObject();
+            JsonArray included = root.getAsJsonArray("included");
+            if (included != null) {
+                for (JsonElement el : included) {
+                    JsonObject obj = el.getAsJsonObject();
+                    if (obj.get("type").getAsString().equals("member")) {
+                        JsonObject attr = obj.getAsJsonObject("attributes");
+                        patreonAmountCents = attr.get("currently_entitled_amount_cents").getAsInt();
+                        break;
+                    }
+                }
+            }
+            return Integer.parseInt(String.valueOf(patreonAmountCents));
+        } catch (IOException e) {
+            e.printStackTrace();
+            return 0;
+        }
+    }
+
     public String getPatreonAbout() {
         return patreonAbout;
     }
@@ -165,72 +237,10 @@ public class PatreonUser {
         return patreonVanity; // Assuming you added this field
     }
 
-    public static JsonObject getUserPledgeInfo() {
-        OkHttpClient client = new OkHttpClient();
-        Request request = new Request.Builder()
-                .url("https://www.patreon.com/api/oauth2/v2/identity?include=memberships.currently_entitled_tiers&fields[user]=full_name,email,vanity,about&fields[member]=patron_status,currently_entitled_amount_cents&fields[tier]=title,amount_cents")
-                .addHeader("Authorization", "Bearer " + accessToken)
-                .build();
-        try (Response response = client.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                System.out.println("Failed to get user info: " + response.code() + " - " + response.body().string());
-                return null;
-            }
-            String json = response.body().string();
-            return JsonParser.parseString(json).getAsJsonObject();
-        } catch (IOException ioe) {}
-        return null;
-    }
-
-    public static PatreonUser loadPatreonUser(JsonObject userData) throws SQLException {
-        JsonObject user = userData.getAsJsonObject("data");
-        JsonObject attributes = user.getAsJsonObject("attributes");
-        long patreonId = Long.parseLong(user.get("id").getAsString());
-        String name = attributes.has("full_name") ? attributes.get("full_name").getAsString() : "Unknown";
-        String email = attributes.has("email") ? attributes.get("email").getAsString() : null;
-        String vanity = attributes.has("vanity") ? attributes.get("vanity").getAsString() : null;
-        String about = attributes.has("about") ? attributes.get("about").getAsString() : null;
-        String status = null;
-        String tier = null;
-        int amountCents = 0;
-        JsonArray included = userData.getAsJsonArray("included");
-        if (included != null) {
-            for (JsonElement element : included) {
-                JsonObject obj = element.getAsJsonObject();
-                if (obj.get("type").getAsString().equals("member")) {
-                    status = obj.getAsJsonObject("attributes").get("patron_status").getAsString();
-                    amountCents = obj.getAsJsonObject("attributes").get("currently_entitled_amount_cents").getAsInt();
-                } else if (obj.get("type").getAsString().equals("tier")) {
-                    tier = obj.getAsJsonObject("attributes").get("title").getAsString();
-                }
-            }
-        }
-        PatreonUser patreonUser = new PatreonUser(configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("api_key"),
-                                          configMaster,
-                                          discordId,
-                                          exp,
-                                          factionName,
-                                          level,
-                                          minecraftId,
-                                          patreonAbout,
-                                          patreonAmountCents,
-                                          patreonApi,
-                                          patreonEmail,
-                                          patreonId,
-                                          patreonName,
-                                          patreonStatus,
-                                          patreonTier,
-                                          patreonVanity,
-                                          plugin,
-                                          userManager
-        );
-        return patreonUser;
-    }
-
-    public static boolean userExists(String patreonId) {
+    public static boolean userExists(String minecraftId) {
          try (Connection connection = plugin.getConnection();
-             PreparedStatement stmt = connection.prepareStatement("SELECT COUNT(*) FROM users WHERE patreon_id = ?")) {
-             stmt.setString(1, patreonId);
+             PreparedStatement stmt = connection.prepareStatement("SELECT COUNT(*) FROM users WHERE minecraft_id = ?")) {
+             stmt.setString(1, minecraftId);
              ResultSet rs = stmt.executeQuery();
              if (rs.next()) {
                  return rs.getInt(1) > 0; // Returns true if count is greater than 0

@@ -1,5 +1,6 @@
 package com.brandongcobb.patreonplugin;
 
+import java.util.function.Consumer;
 import com.brandongcobb.patreonplugin.Config;
 import com.brandongcobb.patreonplugin.utils.listeners.PlayerJoinListener;
 import com.brandongcobb.patreonplugin.OAuthServer;
@@ -39,13 +40,18 @@ import java.sql.SQLException; // For SQL exceptions
 import java.util.UUID; // For handling player UUIDs
 import org.bukkit.scheduler.BukkitRunnable; // For creating scheduled tasks
 import java.util.logging.Level; // For logging
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.sql.Timestamp;
 
 public final class PatreonPlugin extends JavaPlugin {
 
     public static String accessToken;
     public static Config configMaster;
-    public Connection connection;
-    public String createDate;
+    public static Connection[] conn;
+    public static Connection[] connection;
+    public LocalDateTime createDate = LocalDateTime.now();
+    public Timestamp timestamp = Timestamp.valueOf(createDate);
     public long discordId;
     public int exp;
     public String factionName;
@@ -108,12 +114,12 @@ public final class PatreonPlugin extends JavaPlugin {
         this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
         connectDatabase(() -> {
             this.patreonOAuth = new PatreonOAuth(plugin,
-                                                 configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("client_id"),
+                                             configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("client_id"),
                                                  configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("client_secret"),
                                                  configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("redirect_uri"));
             this.userManager = new UserManager(plugin);
             this.patreonUser = new PatreonUser(configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("api_key"),
-                                          configMaster,
+                                         configMaster,
                                           discordId,
                                           exp,
                                           factionName,
@@ -130,6 +136,7 @@ public final class PatreonPlugin extends JavaPlugin {
                                           patreonVanity,
                                           plugin,
                                           userManager
+
             );
         });
     }
@@ -141,72 +148,58 @@ public final class PatreonPlugin extends JavaPlugin {
     public void handleOAuthCallback(String code) {
         try {
             if (!listeningForCallback) {
-                getLogger().warning("No OAuth flow is wcurrently active.");
+                getLogger().warning("No OAuth flow is currently active.");
                 return;
             }
-            // Process the received code
             accessToken = PatreonOAuth.exchangeCodeForToken(code);
-            System.out.println(accessToken);
             long userId = Long.parseLong(String.valueOf(PatreonUser.getCurrentUserId(accessToken)));
             int userAmountCents = Integer.parseInt(String.valueOf(PatreonUser.getCurrentPatreonAmountCents(accessToken)));
-  //              String userEmail = patreonUser.getPatreonEmail();
-//                long userId = patreonUser.getPatreonId();
-    //            String userName = patreonUser.getPatreonName();
-      //          String userStatus = patreonUser.getPatreonStatus();
-        //        String userTier = patreonUser.getPatreonTier();
-          //      String userVanity = patreonUser.getPatreonVanity();
-            if (PatreonUser.userExists(String.valueOf(userId))) {
-                // Create a new user since they do not exist
-                PatreonUser.createUser(createDate, 0L, 0, "", 1, "", "", userAmountCents, "", userId, "", "", "", "", () -> {
-                     new BukkitRunnable() {
-                        @Override
-                        public void run() {
-                            Bukkit.getPlayer(UUID.fromString(minecraftId)).sendMessage("You have been created as a Patreon user.");
-                        }
-                    }.runTaskAsynchronously(plugin);
-                });
-            }
-            startPledgeCheck();
-            userManager.consolidateUsers();
-            listeningForCallback = false;
-            if (callbackTimer != null) {
-                callbackTimer.cancel();
-                callbackTimer = null;
-            }
+    
+            // Call userExists with a Consumer<Boolean>
+            PatreonUser.userExists(String.valueOf(userId), exists -> {
+                if (!exists) {
+                    // Create the user since they do not exist
+                    PatreonUser.createUser(timestamp, 0L, 0, "", 1, "", "", userAmountCents, "", userId, "", "", "", "", () -> {
+                        Bukkit.getPlayer(UUID.fromString(minecraftId)).sendMessage("You have been created as a Patreon user.");
+                    });
+                }
+                listeningForCallback = false; // Reset the callback flag
+                if (callbackTimer != null) {
+                    callbackTimer.cancel();
+                    callbackTimer = null;
+                }
+            });
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
 
     private void startPledgeCheck() {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                try {
-                    String sql = "SELECT patreon_amount_cents FROM users WHERE minecraft_id = ?";
-                    try (PreparedStatement stmt = plugin.getConnection().prepareStatement(sql)) {
-                        stmt.setString(1, minecraftId);
-                        ResultSet rs = stmt.executeQuery();
-                        if (rs.next()) {
-                            int pledgeAmount = rs.getInt("patreon_amount_cents");
-                            if (pledgeAmount > patreonAmountCents) {
-                                Player player = Bukkit.getPlayer(UUID.fromString(minecraftId)); // Retrieve the player by their UUID
-                                if (pledgeAmount >= 1500) { // $15.00 for Diamond
-                                   executeMinecraftCommand("mangadd diamond " + player.getName());
-                                } else  if (pledgeAmount >= 1000) { // $10.00 for Gold
-                                   executeMinecraftCommand("mangadd gold " + player.getName());
-                                } else if (pledgeAmount >= 500) { // $5.00 for Iron
-                                  executeMinecraftCommand("mangadd iron " + player.getName());
-                                } else {
-                                }
-                            }
+         String sql = "SELECT patreon_amount_cents FROM users WHERE minecraft_id = ?";
+         plugin.getConnection(connection -> {
+             if (connection != null) {
+                 try (PreparedStatement stmt = connection.prepareStatement(sql)) {
+                     stmt.setString(1, minecraftId);
+                     ResultSet rs = stmt.executeQuery();
+                     if (rs.next()) {
+                         int pledgeAmount = rs.getInt("patreon_amount_cents");
+                         if (pledgeAmount > patreonAmountCents) {
+                             Player player = Bukkit.getPlayer(UUID.fromString(minecraftId)); // Retrieve the player by their UUID
+                             if (pledgeAmount >= 1500) { // $15.00 for Diamond 
+                                 executeMinecraftCommand("mangadd diamond " + player.getName());
+                             } else  if (pledgeAmount >= 1000) { // $10.00 for Gold
+                                 executeMinecraftCommand("mangadd gold " + player.getName());
+                             } else if (pledgeAmount >= 500) { // $5.00 for Iron
+                                 executeMinecraftCommand("mangadd iron " + player.getName());
+                             } else {
+                             }
                         }
                     }
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
             }
-        }.runTaskTimer(this, 0L, 1200L); // Run every 60 seconds (1200 ticks)
+        });
     }
 
     private void connectDatabase(Runnable afterConnect) {
@@ -229,6 +222,7 @@ public final class PatreonPlugin extends JavaPlugin {
                 hikariConfig.setUsername(user);
                 hikariConfig.setPassword(password);
                 hikariConfig.setDriverClassName("org.postgresql.Driver");
+                hikariConfig.setLeakDetectionThreshold(2000);
     
                 try {
                     dataSource = new HikariDataSource(hikariConfig);
@@ -241,18 +235,44 @@ public final class PatreonPlugin extends JavaPlugin {
                         }
                     }.runTask(PatreonPlugin.this);
                 } catch (Exception e) {
-                    getLogger().log(Level.SEVERE, "Failed to initialize PostgreSQL connection pool!", e);
+                    getLogger().log(Level.SEVERE, "Failed to initialize PostgreSQL wconnection pool!", e);
                 }
             }
         }.runTaskAsynchronously(this);
     }
 
-    public Connection getConnection() throws SQLException {
-        if (this.dataSource == null) {
-            throw new SQLException("DataSource not initialized");
-        } else {
-            return this.dataSource.getConnection();
-        }
+    public void getConnection(Consumer<Connection> callback) {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                Connection[] conn = {null}; // Use an array to hold the connection
+                try {
+                    if (dataSource == null) {
+                        getLogger().warning("DataSource not initialized");
+                        // Invoke callback with null to handle error in the calling method
+                        Bukkit.getScheduler().runTask(plugin, () -> callback.accept(null));
+                        return;
+                    }
+                    conn[0] = dataSource.getConnection(); // Get the connection
+                    
+                    // Pass the connection to the callback on the main thread
+                    Bukkit.getScheduler().runTask(plugin, () -> callback.accept(conn[0]));
+                } catch (SQLException e) {
+                    e.printStackTrace(); // Handle potential SQLException
+                    // Invoke callback with null to indicate failure
+                    Bukkit.getScheduler().runTask(plugin, () -> callback.accept(null));
+                } finally {
+                    // Close the connection if it was obtained, in case callback does not use it
+                    if (conn[0] != null) {
+                        try {
+                            conn[0].close();
+                        } catch (SQLException e) {
+                            e.printStackTrace(); // Handle exception on close
+                        }
+                    }
+                }
+            }
+        }.runTaskAsynchronously(plugin); // Run asynchronously
     }
 
     public void closeDatabase() {

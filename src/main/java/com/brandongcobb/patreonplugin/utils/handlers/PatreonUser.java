@@ -1,6 +1,8 @@
 package com.brandongcobb.patreonplugin.utils.handlers;
 
+import java.util.function.Consumer;
 import com.brandongcobb.patreonplugin.Config;
+import java.sql.Timestamp;
 import com.brandongcobb.patreonplugin.utils.listeners.PlayerJoinListener;
 import com.brandongcobb.patreonplugin.PatreonPlugin;
 import com.brandongcobb.patreonplugin.utils.sec.PatreonOAuth;
@@ -48,15 +50,16 @@ import java.util.UUID; // For handling player UUIDs
 import org.bukkit.scheduler.BukkitRunnable; // For creating scheduled tasks
 import java.util.logging.Level; // For logging
 import java.sql.Connection; // For database connections
-
-import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class PatreonUser {
 
     private static String accessToken;
     private static Config configMaster;
-    private Connection connection;
-    private static String createDate;
+    private static Connection[] conn;
+    private static Connection connection;
+    private static LocalDateTime createDate = LocalDateTime.now();
     private static long discordId;
     private static int exp;
     private static String factionName;
@@ -73,12 +76,12 @@ public class PatreonUser {
     private static String patreonStatus;
     private static String patreonTier;
     private static String patreonVanity;
-    private static UserManager userManager;
+    private static Timestamp timestamp = Timestamp.valueOf(createDate);
+   private static UserManager userManager;
 
     public PatreonUser(String accessToken, Config configMaster, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, PatreonAPI patreonApi, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity, PatreonPlugin plugin, UserManager userManager) {
         this.accessToken = accessToken;
         this.configMaster = configMaster;
-        this.createDate = Instant.now().toString();
         this.discordId = discordId;
         this.exp = exp;
         this.factionName = factionName;
@@ -94,12 +97,13 @@ public class PatreonUser {
         this.patreonTier = patreonTier;
         this.patreonVanity = patreonVanity;
         this.plugin = plugin;
+        this.timestamp = timestamp;
         this.userManager = userManager;
     }
 
-    public static void createUser(String createDate, long discordId, int exp, String factionName, int level, 
-                                   String minecraftId, String patreonAbout, int patreonAmountCents, 
-                                   String patreonEmail, long patreonId, String patreonName, 
+    public static void createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level,
+                                   String minecraftId, String patreonAbout, int patreonAmountCents,
+                                   String patreonEmail, long patreonId, String patreonName,
                                    String patreonStatus, String patreonTier, String patreonVanity,
                                    Runnable callback) {
         String sql = """
@@ -124,13 +128,11 @@ public class PatreonUser {
                 patreon_tier = EXCLUDED.patreon_tier,
                 patreon_vanity = EXCLUDED.patreon_vanity;
         """;
-    
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                try (Connection connection = plugin.getConnection();
-                    PreparedStatement stmt = connection.prepareStatement(sql)) {
-                    stmt.setString(1, createDate);
+        plugin.getConnection(connection -> {
+            if (connection != null) {
+                try {
+                    PreparedStatement stmt = connection.prepareStatement(sql);
+                    stmt.setTimestamp(1, timestamp);
                     stmt.setLong(2, discordId);
                     stmt.setInt(3, exp);
                     stmt.setString(4, factionName);
@@ -145,14 +147,22 @@ public class PatreonUser {
                     stmt.setString(13, patreonTier);
                     stmt.setString(14, patreonVanity);
                     stmt.executeUpdate();
-                    
-                    // Run the callback on the main thread after the database operation
-                    Bukkit.getScheduler().runTask(plugin, callback);
+                    try {
+                        new BukkitRunnable() {
+                            @Override
+                            public void run() {
+                                // Run the callback on the main thread after the database operation
+                                Bukkit.getScheduler().runTask(plugin, callback);
+                            }
+                        }.runTaskAsynchronously(plugin); // Run asynchronously
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }
             }
-        }.runTaskAsynchronously(plugin);
+        });
     }
 
     private static final String API_URL = "https://www.patreon.com/api/oauth2/v2/identity" +
@@ -253,17 +263,22 @@ public class PatreonUser {
         return patreonVanity; // Assuming you added this field
     }
 
-    public static boolean userExists(String minecraftId) {
-         try (Connection connection = plugin.getConnection();
-             PreparedStatement stmt = connection.prepareStatement("SELECT COUNT(*) FROM users WHERE minecraft_id = ?")) {
-             stmt.setString(1, minecraftId);
-             ResultSet rs = stmt.executeQuery();
-             if (rs.next()) {
-                 return rs.getInt(1) > 0; // Returns true if count is greater than 0
-             }
-         } catch (SQLException e) {
-             e.printStackTrace(); // Handle SQL exceptions
-         }
-         return false; // Default return false if any issue or user does not exist
-     }
+    public static void userExists(String minecraftId, Consumer<Boolean> callback) {
+        plugin.getConnection(connection -> {
+            boolean exists = false; // Default to false
+            if (connection != null) {
+                try (PreparedStatement stmt = connection.prepareStatement("SELECT COUNT(*) FROM users WHERE minecraft_id = ?")) {
+                    stmt.setString(1, minecraftId);
+                    ResultSet rs = stmt.executeQuery();
+                    if (rs.next()) {
+                        exists = rs.getInt(1) > 0; // Set true if count is greater than 0
+                    }
+                } catch (Exception e) {
+                    e.printStackTrace(); // Handle exceptions
+                }
+            }
+            // Call the callback with the result
+            callback.accept(exists);
+        });
+    }
 }

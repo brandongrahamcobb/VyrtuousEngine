@@ -1,5 +1,6 @@
 package com.brandongcobb.patreonplugin.utils.listeners;
 
+import java.time.format.DateTimeFormatter;
 import org.bukkit.scheduler.BukkitRunnable; // For creating scheduled tasks
 import java.sql.Connection;
 import java.sql.SQLException;
@@ -13,8 +14,11 @@ import com.brandongcobb.patreonplugin.utils.handlers.UserManager;
 import com.brandongcobb.patreonplugin.PatreonPlugin;
 import com.brandongcobb.patreonplugin.utils.handlers.PatreonUser;
 import java.sql.PreparedStatement;
+
+import java.time.LocalDateTime;
 import java.time.Instant;
 import java.sql.Connection; // For database connections
+import java.sql.Timestamp;
 
 public class PlayerJoinListener implements Listener {
 
@@ -32,25 +36,23 @@ public class PlayerJoinListener implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        String username = event.getPlayer().getName();
         String minecraftId = event.getPlayer().getUniqueId().toString();
-        String createDate = Instant.now().toString();
+        LocalDateTime createDate = LocalDateTime.now();
+        Timestamp timestamp = Timestamp.valueOf(createDate);
     
         // Run database operations asynchronously
-        if (!PatreonUser.userExists(minecraftId)) {
-            PatreonUser.createUser(createDate, 0L, 0, "", 1, minecraftId, "", 0, "", 0L, "", "", "", "", () -> {
-                new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                            // Actions to perform after user creation, e.g., notifying player
-                        Player player = Bukkit.getPlayer(UUID.fromString(minecraftId));
-                        if (player != null) {
-                             player.sendMessage("You have been registered with Patreon.");
-                        }
-                    }
-                }.runTaskAsynchronously(plugin);
-
-            });
-        }
+        PatreonUser.userExists(minecraftId, exists -> {
+            if (!exists) {
+                PatreonUser.createUser(timestamp, 0L, 0, "", 1, minecraftId, "", 0, "", 0L, "", "", "", "", () -> {
+                    Bukkit.getPlayer(UUID.fromString(minecraftId)).sendMessage("You have been registered with Patreon.");
+                });
+            } else {
+                // Handle the case where the user already exists
+                Player player = Bukkit.getPlayer(UUID.fromString(minecraftId));
+                if (player != null) {
+                    player.sendMessage("Welcome back!");
+                }
+            }
+        });
     }
 }

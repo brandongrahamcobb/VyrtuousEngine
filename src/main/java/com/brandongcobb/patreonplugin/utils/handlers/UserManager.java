@@ -20,46 +20,53 @@ public class UserManager {
 //    private final Map<String, String> userTiers; // Mapping of player UUID to their donation tier
 
     private static PatreonPlugin plugin;
-    private static Connection conn;
     private static Connection connection;
+    private static Connection incomingConnection;
 
     public UserManager(PatreonPlugin plugin) {
         this.plugin = plugin;
+        this.connection = plugin.connection;
     }
 
     public void consolidateUsers() {
-        plugin.getConnection(conn -> {
-            if (conn != null) {
+        plugin.getConnection(connection -> {
+            if (connection != null) {
                 String findDuplicatesSql = "SELECT MIN(id) AS min_id, " +
                                         "discord_id, minecraft_id, patreon_id " +
                                         "FROM users " +
                                         "GROUP BY discord_id, minecraft_id, patreon_id " +
                                         "HAVING COUNT(*) > 1";
-                try (PreparedStatement findDuplicatesStmt = conn.prepareStatement(findDuplicatesSql);
-                    ResultSet rs = findDuplicatesStmt.executeQuery()) {
+                try (PreparedStatement findDuplicatesStmt = connection.prepareStatement(findDuplicatesSql)) {
+                    ResultSet rs = findDuplicatesStmt.executeQuery();
                     while (rs.next()) {
                         long minId = rs.getLong("min_id"); // Keep the smallest `id` as the main entry
                         Long discordId = rs.getLong("discord_id");
                         String minecraftId = rs.getString("minecraft_id");
                         Long patreonId = rs.getLong("patreon_id");
-              // Consolidate users that match
-                        consolidateDuplicateUsers(conn, minId, discordId, minecraftId, patreonId);
+           // Consolidate users that match
+                        consolidateDuplicateUsers(connection, minId, discordId, minecraftId, patreonId);
                     }
                 } catch (SQLException e) {
-                e.printStackTrace(); // Handle potential SQLException from closing
+                    e.printStackTrace(); // Handle potential SQLException from closing
+                } finally {
+                    try {
+                        connection.close(); // Close the connection after use
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         });
     }
 
-    private void consolidateDuplicateUsers(Connection connection, long mainId, long discordId, String minecraftId, long patreonId) {
+    private void consolidateDuplicateUsers(Connection incomingConnection, long mainId, long discordId, String minecraftId, long patreonId) {
         String consolidateSql = "UPDATE users SET " +
                                "discord_id = CASE WHEN discord_id IS NULL THEN ? ELSE discord_id END, " +
                                 "minecraft_id = CASE WHEN minecraft_id IS NULL THEN ? ELSE minecraft_id END, " +
                                 "patreon_id = CASE WHEN patreon_id IS NULL THEN ? ELSE patreon_id END " +
                                 "WHERE discord_id = ? OR minecraft_id = ? OR patreon_id = ? " +
                                "AND id != ?"; // Make sure we're not updating the main entry
-        try (PreparedStatement consolidateStmt = connection.prepareStatement(consolidateSql)) {
+        try (PreparedStatement consolidateStmt = incomingConnection.prepareStatement(consolidateSql)) {
             consolidateStmt.setLong(1, discordId);
             consolidateStmt.setString(2, minecraftId);
             consolidateStmt.setLong(3, patreonId);
@@ -73,7 +80,7 @@ public class UserManager {
         }
         // Now delete duplicates
         String deleteDuplicatesSql = "DELETE FROM users WHERE discord_id = ? OR minecraft_id = ? OR patreon_id = ? AND id != ?";
-        try (PreparedStatement deleteStmt = connection.prepareStatement(deleteDuplicatesSql)) {
+        try (PreparedStatement deleteStmt = incomingConnection.prepareStatement(deleteDuplicatesSql)) {
             deleteStmt.setLong(1, discordId);
             deleteStmt.setString(2, minecraftId);
             deleteStmt.setLong(3, patreonId);

@@ -160,6 +160,12 @@ public class PatreonUser {
                     }
                 } catch (SQLException e) {
                     e.printStackTrace();
+                } finally {
+                    try {
+                        connection.close(); // Close the connection after use
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
                 }
             }
         });
@@ -265,20 +271,30 @@ public class PatreonUser {
 
     public static void userExists(String minecraftId, Consumer<Boolean> callback) {
         plugin.getConnection(connection -> {
-            boolean exists = false; // Default to false
-            if (connection != null) {
-                try (PreparedStatement stmt = connection.prepareStatement("SELECT COUNT(*) FROM users WHERE minecraft_id = ?")) {
-                    stmt.setString(1, minecraftId);
-                    ResultSet rs = stmt.executeQuery();
-                    if (rs.next()) {
-                        exists = rs.getInt(1) > 0; // Set true if count is greater than 0
+            try {
+                boolean exists = false; // Default to false
+                if (connection != null) {
+                    try (PreparedStatement stmt = connection.prepareStatement("SELECT COUNT(*) FROM users WHERE minecraft_id = ?")) {
+                        stmt.setString(1, minecraftId);
+                        ResultSet rs = stmt.executeQuery();
+                        if (rs.next()) {
+                            exists = rs.getInt(1) > 0; // Set true if count is greater than 0
+                        }
+                    } catch (Exception e) {
+                        e.printStackTrace(); // Handle exceptions
                     }
-                } catch (Exception e) {
-                    e.printStackTrace(); // Handle exceptions
+                }
+            // Call the callback with the result
+                callback.accept(exists);
+            } catch (Exception e) {
+                e.printStackTrace();
+            } finally {
+                try {
+                    connection.close(); // Close the connection after use
+                } catch (SQLException e) {
+                    e.printStackTrace();
                 }
             }
-            // Call the callback with the result
-            callback.accept(exists);
         });
     }
 }

@@ -49,7 +49,7 @@ public final class PatreonPlugin extends JavaPlugin {
     public static String accessToken;
     public static Config configMaster;
     public static Connection[] conn;
-    public static Connection[] connection;
+    public static Connection connection;
     public LocalDateTime createDate = LocalDateTime.now();
     public Timestamp timestamp = Timestamp.valueOf(createDate);
     public long discordId;
@@ -254,6 +254,7 @@ public final class PatreonPlugin extends JavaPlugin {
                         return;
                     }
                     conn[0] = dataSource.getConnection(); // Get the connection
+                    getLogger().log(Level.INFO, "PostgreSQL connection opened.");
                     
                     // Pass the connection to the callback on the main thread
                     Bukkit.getScheduler().runTask(plugin, () -> callback.accept(conn[0]));
@@ -262,12 +263,13 @@ public final class PatreonPlugin extends JavaPlugin {
                     // Invoke callback with null to indicate failure
                     Bukkit.getScheduler().runTask(plugin, () -> callback.accept(null));
                 } finally {
-                    // Close the connection if it was obtained, in case callback does not use it
+                 // Close the Connection only if it is not used in the callback
                     if (conn[0] != null) {
                         try {
-                            conn[0].close();
+                            conn[0].close(); // Ensure the connection is closed
+                            getLogger().log(Level.INFO, "PostgreSQL connection pool closed.");
                         } catch (SQLException e) {
-                            e.printStackTrace(); // Handle exception on close
+                            e.printStackTrace(); // Handle exception on closing
                         }
                     }
                 }

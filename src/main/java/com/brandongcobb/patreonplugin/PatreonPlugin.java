@@ -262,16 +262,6 @@ public final class PatreonPlugin extends JavaPlugin {
                     e.printStackTrace(); // Handle potential SQLException
                     // Invoke callback with null to indicate failure
                     Bukkit.getScheduler().runTask(plugin, () -> callback.accept(null));
-                } finally {
-                 // Close the Connection only if it is not used in the callback
-                    if (conn[0] != null) {
-                        try {
-                            conn[0].close(); // Ensure the connection is closed
-                            getLogger().log(Level.INFO, "PostgreSQL connection pool closed.");
-                        } catch (SQLException e) {
-                            e.printStackTrace(); // Handle exception on closing
-                        }
-                    }
                 }
             }
         }.runTaskAsynchronously(plugin); // Run asynchronously

@@ -44,7 +44,7 @@ public class PlayerJoinListener implements Listener {
         PatreonUser.userExists(minecraftId, exists -> {
             if (!exists) {
                 PatreonUser.createUser(timestamp, 0L, 0, "", 1, minecraftId, "", 0, "", 0L, "", "", "", "", () -> {
-                    Bukkit.getPlayer(UUID.fromString(minecraftId)).sendMessage("You have been registered with Patreon.");
+                    Bukkit.getPlayer(UUID.fromString(minecraftId)).sendMessage("You have been registered in the database. Please link your patreon with /patreon.");
                 });
             } else {
                 // Handle the case where the user already exists

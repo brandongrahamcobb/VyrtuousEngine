@@ -160,7 +160,6 @@ public final class PatreonPlugin extends JavaPlugin {
                 if (!exists) {
                     // Create the user since they do not exist
                     PatreonUser.createUser(timestamp, 0L, 0, "", 1, "", "", userAmountCents, "", userId, "", "", "", "", () -> {
-                        Bukkit.getPlayer(UUID.fromString(String.valueOf(userId))).sendMessage("You have been created as a Patreon user.");
                     });
                 }
                 listeningForCallback = false; // Reset the callback flag

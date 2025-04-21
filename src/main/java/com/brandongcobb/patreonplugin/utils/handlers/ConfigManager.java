@@ -44,7 +44,7 @@ public class ConfigManager {
             put("api_key", "YOUR_API_KEY_HERE"); // Placeholder for API key
             put("client_id", "YOUR_CLIENT_ID_HERE");
             put("client_secret", "YOUR_CLIENT_SECRET_HERE");
-            put("redirect_uri", "http://localhost:8000");
+            put("redirect_uri", "http://localhost:8000/oauth/patreon_callback");
         }});
         config.put("Postgres", new HashMap<String, String>() {{
             put("host", "localhost"); // Default PostgreSQL host

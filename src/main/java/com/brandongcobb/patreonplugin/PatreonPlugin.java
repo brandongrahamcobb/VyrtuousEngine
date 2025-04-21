@@ -113,7 +113,6 @@ public final class PatreonPlugin extends JavaPlugin {
 
     public void onEnable() {
         plugin = this;
-        logger = plugin.getLogger();
         this.configManager = new ConfigManager(plugin);
         this.oAuthServer = new OAuthServer(plugin);
         this.oAuthServer.start();
@@ -153,7 +152,7 @@ public final class PatreonPlugin extends JavaPlugin {
     public void handleOAuthCallback(String code) {
         try {
             if (!listeningForCallback) {
-                getLogger().warning("No OAuth flow is currently active.");
+                this.getLogger().warning("No OAuth flow is currently active.");
                 return;
             }
             accessToken = PatreonOAuth.exchangeCodeForToken(code);
@@ -186,7 +185,7 @@ public final class PatreonPlugin extends JavaPlugin {
                 String password = getConfig().getString("postgres_password", configManager.getConfigValue("api_key", "Postgres").getStringValue("password"));
                 String port = getConfig().getString("postgres_port", configManager.getConfigValue("api_key", "Postgres").getStringValue("port"));
                 String jdbcUrl = String.format("%s:%s/%s", host, port, db);
-                getLogger().info("Connecting to: " + jdbcUrl);
+                this.getLogger().info("Connecting to: " + jdbcUrl);
                 HikariConfig hikariConfig = new HikariConfig();
                 hikariConfig.setJdbcUrl(jdbcUrl);
                 hikariConfig.setUsername(user);
@@ -195,7 +194,7 @@ public final class PatreonPlugin extends JavaPlugin {
                 hikariConfig.setLeakDetectionThreshold(2000);
                 try {
                     dataSource = new HikariDataSource(hikariConfig);
-                    getLogger().log(Level.INFO, "PostgreSQL connection pool initialized.");
+                    this.getLogger().log(Level.INFO, "PostgreSQL connection pool initialized.");
                     new BukkitRunnable() {
                         @Override
                         public void run() {
@@ -203,7 +202,7 @@ public final class PatreonPlugin extends JavaPlugin {
                         }
                     }.runTask(PatreonPlugin.this);
                 } catch (Exception e) {
-                    getLogger().log(Level.SEVERE, "Failed to initialize PostgreSQL wconnection pool!", e);
+                    this.getLogger().log(Level.SEVERE, "Failed to initialize PostgreSQL wconnection pool!", e);
                 }
             }
         }.runTaskAsynchronously(this);
@@ -216,12 +215,12 @@ public final class PatreonPlugin extends JavaPlugin {
                 Connection[] conn = {null}; // Use an array to hold the connection
                 try {
                     if (dataSource == null) {
-                        getLogger().warning("DataSource not initialized");
+                        this.getLogger().warning("DataSource not initialized");
                         Bukkit.getScheduler().runTask(plugin, () -> callback.accept(null));
                         return;
                     }
                     conn[0] = dataSource.getConnection(); // Get the connection
-                    getLogger().log(Level.INFO, "PostgreSQL connection opened.");
+                    this.getLogger().log(Level.INFO, "PostgreSQL connection opened.");
                     Bukkit.getScheduler().runTask(plugin, () -> callback.accept(conn[0]));
                 } catch (SQLException e) {
                     e.printStackTrace(); // Handle potential SQLException

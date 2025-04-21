@@ -1,62 +1,57 @@
+/*  PatreonUser.java The purpose of this program is to support the PatreonPlugin class by handling the PatreonUser which is distinct from DiscordUser or MinecraftUser.
+ *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package com.brandongcobb.patreonplugin.utils.handlers;
 
-import java.util.function.Consumer;
-import com.brandongcobb.patreonplugin.Config;
-import java.sql.Timestamp;
+import com.brandongcobb.patreonplugin.utils.handlers.ConfigManager;
+import com.brandongcobb.patreonplugin.utils.handlers.UserManager;
 import com.brandongcobb.patreonplugin.utils.listeners.PlayerJoinListener;
 import com.brandongcobb.patreonplugin.PatreonPlugin;
 import com.brandongcobb.patreonplugin.utils.sec.PatreonOAuth;
-import com.brandongcobb.patreonplugin.utils.handlers.UserManager;
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
+import com.github.jasminb.jsonapi.JSONAPIDocument;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.patreon.PatreonAPI;
 import java.io.File;
 import java.io.IOException;
 import java.sql.Connection;
+import java.sql.PreparedStatement; // For SQL prepared statements
+import java.sql.ResultSet; // For SQL result handling
 import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.util.List;
 import java.util.logging.Level;
-import org.bukkit.configuration.InvalidConfigurationException;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.plugin.java.JavaPlugin;
-import java.util.List;
-
 import okhttp3.FormBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-
-import com.patreon.PatreonAPI;
-import com.patreon.resources.User;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.patreon.PatreonAPI;
-import com.patreon.resources.User;
-import com.patreon.resources.Campaign;
-
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
-import com.github.jasminb.jsonapi.JSONAPIDocument;
 import org.bukkit.Bukkit; // For Bukkit API
-import org.bukkit.entity.Player; // For Player entity
-import org.bukkit.plugin.java.JavaPlugin; // For main plugin class
-import org.bukkit.configuration.file.FileConfiguration; // For configuration handling
-import java.sql.PreparedStatement; // For SQL prepared statements
-import java.sql.ResultSet; // For SQL result handling
-import java.sql.SQLException; // For SQL exceptions
-import java.util.UUID; // For handling player UUIDs
 import org.bukkit.scheduler.BukkitRunnable; // For creating scheduled tasks
-import java.util.logging.Level; // For logging
-import java.sql.Connection; // For database connections
-import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
+import java.util.function.Consumer;
+import java.util.List;
+import java.util.logging.Level; // For logging
+import java.util.UUID; // For handling player UUIDs
 
 public class PatreonUser {
 
     private static String accessToken;
-    private static Config configMaster;
+    private static ConfigManager configManager;
     private static Connection[] conn;
     private static Connection connection;
     private static LocalDateTime createDate = LocalDateTime.now();
@@ -77,11 +72,11 @@ public class PatreonUser {
     private static String patreonTier;
     private static String patreonVanity;
     private static Timestamp timestamp = Timestamp.valueOf(createDate);
-   private static UserManager userManager;
+    private static UserManager userManager;
 
-    public PatreonUser(String accessToken, Config configMaster, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, PatreonAPI patreonApi, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity, PatreonPlugin plugin, UserManager userManager) {
+    public PatreonUser(String accessToken, ConfigManager configManager, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, PatreonAPI patreonApi, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity, PatreonPlugin plugin, UserManager userManager) {
         this.accessToken = accessToken;
-        this.configMaster = configMaster;
+        this.configManager = configManager;
         this.discordId = discordId;
         this.exp = exp;
         this.factionName = factionName;
@@ -171,27 +166,22 @@ public class PatreonUser {
         });
     }
 
-    private static final String API_URL = "https://www.patreon.com/api/oauth2/v2/identity" +
-            "?include=memberships&fields[member]=currently_entitled_amount_cents";
+    private static final String API_URL = "https://www.patreon.com/api/oauth2/v2/identity" + "?include=memberships&fields[member]=currently_entitled_amount_cents";
 
     public static long getCurrentUserId(String accessToken) {
         OkHttpClient client = new OkHttpClient();
-
         Request request = new Request.Builder()
                 .url(API_URL)
                 .addHeader("Authorization", "Bearer " + accessToken)
                 .build();
-
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 System.out.println("Failed to fetch Patreon user info: " + response.code());
                 return 0L;
             }
-
             String body = response.body().string();
             JsonObject root = JsonParser.parseString(body).getAsJsonObject();
             JsonObject data = root.getAsJsonObject("data");
-
             JsonObject result = new JsonObject();
             patreonId = Long.parseLong(data.get("id").getAsString());
             return patreonId;
@@ -203,18 +193,15 @@ public class PatreonUser {
 
     public static int getCurrentPatreonAmountCents(String accessToken) {
         OkHttpClient client = new OkHttpClient();
-
         Request request = new Request.Builder()
                 .url(API_URL)
                 .addHeader("Authorization", "Bearer " + accessToken)
                 .build();
-
         try (Response response = client.newCall(request).execute()) {
             if (!response.isSuccessful()) {
                 System.out.println("Failed to fetch Patreon user info: " + response.code());
                 return 0;
             }
-
             String body = response.body().string();
             JsonObject root = JsonParser.parseString(body).getAsJsonObject();
             JsonObject data = root.getAsJsonObject("data");

@@ -1,61 +1,76 @@
+/*  PatreonPlugin.java The purpose of this program is to server as a drop-in plugin for minecraft servers, linking together Patreon and Minecraft accounts for server users.
+ *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package com.brandongcobb.patreonplugin;
 
-import java.util.function.Consumer;
-import com.brandongcobb.patreonplugin.Config;
 import com.brandongcobb.patreonplugin.utils.listeners.PlayerJoinListener;
-import com.brandongcobb.patreonplugin.OAuthServer;
-import com.brandongcobb.patreonplugin.utils.sec.PatreonOAuth;
-import com.brandongcobb.patreonplugin.utils.handlers.UserManager;
+import com.brandongcobb.patreonplugin.utils.handlers.ConfigManager;
+import com.brandongcobb.patreonplugin.utils.handlers.OAuthServer;
 import com.brandongcobb.patreonplugin.utils.handlers.PatreonUser;
+import com.brandongcobb.patreonplugin.utils.handlers.UserManager;
+import com.brandongcobb.patreonplugin.utils.sec.PatreonOAuth;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.File;
 import java.io.IOException;
 import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.List;
-import java.util.logging.Level;
-import org.bukkit.configuration.InvalidConfigurationException;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.configuration.file.YamlConfiguration;
-import org.bukkit.plugin.java.JavaPlugin;
-import com.github.jasminb.jsonapi.JSONAPIDocument;
-import com.patreon.resources.User;
-import com.google.gson.JsonObject;
-import com.patreon.PatreonAPI;
-import org.bukkit.Bukkit; // For Bukkit API
-import org.bukkit.entity.Player; // For Player entity
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
-import org.bukkit.plugin.java.JavaPlugin;
-
-import java.util.Timer;
-import java.util.TimerTask;
-import org.bukkit.plugin.java.JavaPlugin; // For main plugin class
-import org.bukkit.configuration.file.FileConfiguration; // For configuration handling
-import java.sql.Connection; // For database connections
 import java.sql.PreparedStatement; // For SQL prepared statements
 import java.sql.ResultSet; // For SQL result handling
-import java.sql.SQLException; // For SQL exceptions
-import java.util.UUID; // For handling player UUIDs
-import org.bukkit.scheduler.BukkitRunnable; // For creating scheduled tasks
-import java.util.logging.Level; // For logging
+import java.sql.SQLException;
+import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.sql.Timestamp;
+import java.util.Timer;
+import java.util.TimerTask;
+import java.util.function.Consumer;
+import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.UUID; // For handling player UUIDs
+import org.bukkit.Bukkit;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.file.FileConfiguration;
+import org.bukkit.configuration.file.YamlConfiguration;
+import org.bukkit.configuration.InvalidConfigurationException;
+import org.bukkit.entity.Player; // For Player entity
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable; // For creating scheduled tasks
+import com.github.jasminb.jsonapi.JSONAPIDocument;
+import com.google.gson.JsonObject;
+import com.patreon.resources.User;
+import com.patreon.PatreonAPI;
 
 public final class PatreonPlugin extends JavaPlugin {
 
     public static String accessToken;
-    public static Config configMaster;
+    private Timer callbackTimer;
+    private FileConfiguration config;
+    public static ConfigManager configManager;
     public static Connection[] conn;
     public static Connection connection;
     public LocalDateTime createDate = LocalDateTime.now();
-    public Timestamp timestamp = Timestamp.valueOf(createDate);
+    private HikariDataSource dataSource;
+    private File dataF;
+    private FileConfiguration data;
     public long discordId;
     public int exp;
     public String factionName;
     public int level;
+    private boolean listeningForCallback = false;
+    private static Logger logger;
     public String minecraftId;
     public OAuthServer oAuthServer;
     public String patreonAbout;
@@ -70,16 +85,8 @@ public final class PatreonPlugin extends JavaPlugin {
     public String patreonVanity;
     public PatreonUser patreonUser;
     public PatreonPlugin plugin;
+    public Timestamp timestamp = Timestamp.valueOf(createDate);
     public UserManager userManager;
-
-    private HikariDataSource dataSource;
-    private File dataF;
-    private FileConfiguration data;
-    private FileConfiguration config;
-
-
-    private boolean listeningForCallback = false;
-    private Timer callbackTimer;
 
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
@@ -106,20 +113,19 @@ public final class PatreonPlugin extends JavaPlugin {
 
     public void onEnable() {
         plugin = this;
-        this.configMaster = configMaster;
-        this.createConfig();
-        this.createData();
+        logger = plugin.getLogger();
+        this.configManager = new ConfigManager(plugin);
         this.oAuthServer = new OAuthServer(plugin);
         this.oAuthServer.start();
         this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
         connectDatabase(() -> {
             this.patreonOAuth = new PatreonOAuth(plugin,
-                                             configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("client_id"),
-                                                 configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("client_secret"),
-                                                 configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("redirect_uri"));
+                                             configManager.getConfigValue("api_keys", "Patreon").getStringValue("client_id"),
+                                                 configManager.getConfigValue("api_keys", "Patreon").getStringValue("client_secret"),
+                                                 configManager.getConfigValue("api_keys", "Patreon").getStringValue("redirect_uri"));
             this.userManager = new UserManager(plugin);
-            this.patreonUser = new PatreonUser(configMaster.getNestedConfigValue("api_keys", "Patreon").getStringValue("api_key"),
-                                         configMaster,
+            this.patreonUser = new PatreonUser(configManager.getConfigValue("api_keys", "Patreon").getStringValue("api_key"),
+                                         configManager,
                                           discordId,
                                           exp,
                                           factionName,
@@ -136,7 +142,6 @@ public final class PatreonPlugin extends JavaPlugin {
                                           patreonVanity,
                                           plugin,
                                           userManager
-
             );
         });
     }
@@ -154,11 +159,8 @@ public final class PatreonPlugin extends JavaPlugin {
             accessToken = PatreonOAuth.exchangeCodeForToken(code);
             long userId = Long.parseLong(String.valueOf(PatreonUser.getCurrentUserId(accessToken)));
             int userAmountCents = Integer.parseInt(String.valueOf(PatreonUser.getCurrentPatreonAmountCents(accessToken)));
-    
-            // Call userExists with a Consumer<Boolean>
             PatreonUser.userExists(String.valueOf(userId), exists -> {
                 if (!exists) {
-                    // Create the user since they do not exist
                     PatreonUser.createUser(timestamp, 0L, 0, "", 1, "", "", userAmountCents, "", userId, "", "", "", "", () -> {
                     });
                 }
@@ -173,60 +175,27 @@ public final class PatreonPlugin extends JavaPlugin {
         }
     }
 
-    private void startPledgeCheck() {
-         String sql = "SELECT patreon_amount_cents FROM users WHERE minecraft_id = ?";
-         plugin.getConnection(connection -> {
-             if (connection != null) {
-                 try (PreparedStatement stmt = connection.prepareStatement(sql)) {
-                     stmt.setString(1, minecraftId);
-                     ResultSet rs = stmt.executeQuery();
-                     if (rs.next()) {
-                         int pledgeAmount = rs.getInt("patreon_amount_cents");
-                         if (pledgeAmount > patreonAmountCents) {
-                             Player player = Bukkit.getPlayer(UUID.fromString(minecraftId)); // Retrieve the player by their UUID
-                             if (pledgeAmount >= 1500) { // $15.00 for Diamond 
-                                 executeMinecraftCommand("mangadd diamond " + player.getName());
-                             } else  if (pledgeAmount >= 1000) { // $10.00 for Gold
-                                 executeMinecraftCommand("mangadd gold " + player.getName());
-                             } else if (pledgeAmount >= 500) { // $5.00 for Iron
-                                 executeMinecraftCommand("mangadd iron " + player.getName());
-                             } else {
-                             }
-                        }
-                    }
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
-        });
-    }
-
     private void connectDatabase(Runnable afterConnect) {
         this.getLogger().log(Level.INFO, "Initializing PostgreSQL connection pool...");
-    
         new BukkitRunnable() {
             @Override
             public void run() {
-                String host = getConfig().getString("postgres_host", "jdbc:postgresql://localhost");
-                String db = getConfig().getString("postgres_db", "lucy");
-                String user = getConfig().getString("postgres_user", "postgres");
-                String password = getConfig().getString("postgres_password", "");
-                String port = getConfig().getString("postgres_port", "5432");
-    
+                String host = getConfig().getString("postgres_host", "jdbc:postgresql://" + configManager.getConfigValue("api_key", "Postgres").getStringValue("host"));
+                String db = getConfig().getString("postgres_db", configManager.getConfigValue("api_key", "Postgres").getStringValue("db"));
+                String user = getConfig().getString("postgres_user", configManager.getConfigValue("api_key", "Postgres").getStringValue("user"));
+                String password = getConfig().getString("postgres_password", configManager.getConfigValue("api_key", "Postgres").getStringValue("password"));
+                String port = getConfig().getString("postgres_port", configManager.getConfigValue("api_key", "Postgres").getStringValue("port"));
                 String jdbcUrl = String.format("%s:%s/%s", host, port, db);
                 getLogger().info("Connecting to: " + jdbcUrl);
-    
                 HikariConfig hikariConfig = new HikariConfig();
                 hikariConfig.setJdbcUrl(jdbcUrl);
                 hikariConfig.setUsername(user);
                 hikariConfig.setPassword(password);
                 hikariConfig.setDriverClassName("org.postgresql.Driver");
                 hikariConfig.setLeakDetectionThreshold(2000);
-    
                 try {
                     dataSource = new HikariDataSource(hikariConfig);
                     getLogger().log(Level.INFO, "PostgreSQL connection pool initialized.");
-    
                     new BukkitRunnable() {
                         @Override
                         public void run() {
@@ -248,18 +217,14 @@ public final class PatreonPlugin extends JavaPlugin {
                 try {
                     if (dataSource == null) {
                         getLogger().warning("DataSource not initialized");
-                        // Invoke callback with null to handle error in the calling method
                         Bukkit.getScheduler().runTask(plugin, () -> callback.accept(null));
                         return;
                     }
                     conn[0] = dataSource.getConnection(); // Get the connection
                     getLogger().log(Level.INFO, "PostgreSQL connection opened.");
-                    
-                    // Pass the connection to the callback on the main thread
                     Bukkit.getScheduler().runTask(plugin, () -> callback.accept(conn[0]));
                 } catch (SQLException e) {
                     e.printStackTrace(); // Handle potential SQLException
-                    // Invoke callback with null to indicate failure
                     Bukkit.getScheduler().runTask(plugin, () -> callback.accept(null));
                 }
             }
@@ -272,42 +237,6 @@ public final class PatreonPlugin extends JavaPlugin {
         }
     }
 
-    private void createData() {
-        this.dataF = new File(this.getDataFolder(), "data.yml");
-        if (!this.dataF.exists()) {
-            this.dataF.getParentFile().mkdirs();
-            this.saveResource("data.yml", false);
-        }
-        this.data = new YamlConfiguration();
-        try {
-            this.data.load(this.dataF);
-        } catch (InvalidConfigurationException | IOException var2) {
-            var2.printStackTrace();
-        }
-    }
-
-    public void saveData() {
-        try {
-           this.data.save(this.dataF);
-        } catch (IOException var2) {
-          var2.printStackTrace();
-        }
-    }
-
-     private void createConfig() {
-        File configf = new File(this.getDataFolder(), "config.yml");
-        if (!configf.exists()) {
-           configf.getParentFile().mkdirs();
-           this.saveResource("config.yml", false);
-        }
-        this.config = new YamlConfiguration();
-        try {
-           this.config.load(configf);
-        } catch (InvalidConfigurationException | IOException var3) {
-           var3.printStackTrace();
-        }
-    }
-
     public void onDisable() {
         this.closeDatabase();
         this.getLogger().log(Level.INFO, "PostgreSQL Example plugin disabled.");
@@ -316,6 +245,4 @@ public final class PatreonPlugin extends JavaPlugin {
         }
         oAuthServer.stop();
     }
-
-
 }

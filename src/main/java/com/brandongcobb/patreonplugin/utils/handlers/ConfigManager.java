@@ -31,7 +31,6 @@ public class ConfigManager {
 
     public ConfigManager(PatreonPlugin plugin) {
         this.plugin = plugin;
-        this.logger = plugin.getLogger();
         loadConfig();
     }
 
@@ -41,26 +40,23 @@ public class ConfigManager {
 
     private static void createDefaultConfig(File configFile) {
         config.clear();  // Clear any existing config entries
-        config.put("Configuration", new HashMap<String, Object>() {{
-            put("Patreon", new HashMap<String, String>() {{
-                put("api_key", "YOUR_API_KEY_HERE"); // Placeholder for API key
-                put("client_id", "YOUR_CLIENT_ID_HERE");
-                put("client_secret", "YOUR_CLIENT_SECRET_HERE");
-                put("redirect_uri", "http://localhost:8000/oauth/patreon_callback");
-            }});
-            put("Postgres", new HashMap<String, String>() {{
-                put("host", "localhost"); // Default PostgreSQL host
-                put("database", "your_database"); // Default database name
-                put("user", "your_username"); // Default user name
-                put("password", "your_password"); // Default password
-                put("port", "5432"); // Default Postgres port
-            }});
-            put("Spark", new HashMap<String, String>() {{
-                put("port", "8000"); // Default port for Spark
-                put("redirect_uri_endpoint", "/oauth/patreon_callback"); // Default endpoint for Spark
-            }});
+        config.put("Patreon", new HashMap<String, String>() {{
+            put("api_key", "YOUR_API_KEY_HERE"); // Placeholder for API key
+            put("client_id", "YOUR_CLIENT_ID_HERE");
+            put("client_secret", "YOUR_CLIENT_SECRET_HERE");
+            put("redirect_uri", "http://localhost:8000");
         }});
-
+        config.put("Postgres", new HashMap<String, String>() {{
+            put("host", "localhost"); // Default PostgreSQL host
+            put("database", "your_database"); // Default database name
+            put("user", "your_username"); // Default user name
+            put("password", "your_password"); // Default password
+            put("port", "5432"); // Default Postgres port
+        }});
+        config.put("Spark", new HashMap<String, String>() {{
+            put("port", "8000"); // Default port for Spark
+            put("redirect_uri_endpoint", "/oauth/patreon_callback"); // Default port for Spark
+        }});
         saveConfig(configFile); // Save the default config
     }
 

@@ -22,8 +22,8 @@ public class OAuthServer {
 
     public OAuthServer(PatreonPlugin plugin) {
         this.plugin = plugin;
-        Spark.port(Integer.parseInt(plugin.configManager.getConfigValue("Configuration", "Spark").getStringValue("port"))); // or any port you wish to use
-        Spark.get(plugin.configManager.getConfigValue("Configuration", "Spark").getStringValue("redirect_uri_endpoint"), (req, res) -> {
+        Spark.port(Integer.parseInt(plugin.configManager.getConfigValue("api_keys", "Spark").getStringValue("port"))); // or any port you wish to use
+        Spark.get(plugin.configManager.getConfigValue("api_keys", "Spark").getStringValue("redirect_uri_endpoint"), (req, res) -> {
             String code = req.queryParams("code");
             plugin.handleOAuthCallback(code); // Pass the code to your plugin
             res.status(200);

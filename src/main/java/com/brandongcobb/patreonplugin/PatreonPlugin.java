@@ -36,6 +36,7 @@ import java.util.TimerTask;
 import java.util.function.Consumer;
 import java.util.List;
 import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.UUID; // For handling player UUIDs
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -69,6 +70,7 @@ public final class PatreonPlugin extends JavaPlugin {
     public String factionName;
     public int level;
     private boolean listeningForCallback = false;
+    private static Logger logger;
     public String minecraftId;
     public OAuthServer oAuthServer;
     public String patreonAbout;
@@ -93,7 +95,6 @@ public final class PatreonPlugin extends JavaPlugin {
                 sender.sendMessage("Already listening for callback.");
                 return true;
             }
-            oAuthServer.start();
             this.listeningForCallback = true;
             String authUrl = PatreonOAuth.getAuthorizationUrl();
             sender.sendMessage("Please visit the following URL to authorize: " + authUrl);
@@ -102,6 +103,7 @@ public final class PatreonPlugin extends JavaPlugin {
                 @Override
                 public void run() {
                     listeningForCallback = false;
+                    sender.sendMessage("Listening for OAuth callback has timed out.");
                 }
             }, 600000); // 10 minutes
             return true;
@@ -111,16 +113,18 @@ public final class PatreonPlugin extends JavaPlugin {
 
     public void onEnable() {
         plugin = this;
+        logger = plugin.getLogger();
         this.configManager = new ConfigManager(plugin);
         this.oAuthServer = new OAuthServer(plugin);
+        this.oAuthServer.start();
         this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
         connectDatabase(() -> {
             this.patreonOAuth = new PatreonOAuth(plugin,
-                                             configManager.getConfigValue("Configuration", "Patreon").getStringValue("client_id"),
-                                                 configManager.getConfigValue("Configuration", "Patreon").getStringValue("client_secret"),
-                                                 configManager.getConfigValue("Configuration", "Patreon").getStringValue("redirect_uri"));
+                                             configManager.getConfigValue("api_keys", "Patreon").getStringValue("client_id"),
+                                                 configManager.getConfigValue("api_keys", "Patreon").getStringValue("client_secret"),
+                                                 configManager.getConfigValue("api_keys", "Patreon").getStringValue("redirect_uri"));
             this.userManager = new UserManager(plugin);
-            this.patreonUser = new PatreonUser(configManager.getConfigValue("Configuration", "Patreon").getStringValue("api_key"),
+            this.patreonUser = new PatreonUser(configManager.getConfigValue("api_keys", "Patreon").getStringValue("api_key"),
                                          configManager,
                                           discordId,
                                           exp,
@@ -149,7 +153,7 @@ public final class PatreonPlugin extends JavaPlugin {
     public void handleOAuthCallback(String code) {
         try {
             if (!listeningForCallback) {
-                this.getLogger().warning("No OAuth flow is currently active.");
+                getLogger().warning("No OAuth flow is currently active.");
                 return;
             }
             accessToken = PatreonOAuth.exchangeCodeForToken(code);
@@ -176,11 +180,11 @@ public final class PatreonPlugin extends JavaPlugin {
         new BukkitRunnable() {
             @Override
             public void run() {
-                String host = getConfig().getString("postgres_host", "jdbc:postgresql://" + configManager.getConfigValue("Configuration", "Postgres").getStringValue("host"));
-                String db = getConfig().getString("postgres_db", configManager.getConfigValue("Configuration", "Postgres").getStringValue("database"));
-                String user = getConfig().getString("postgres_user", configManager.getConfigValue("Configuration", "Postgres").getStringValue("user"));
-                String password = getConfig().getString("postgres_password", configManager.getConfigValue("Configuration", "Postgres").getStringValue("password"));
-                String port = getConfig().getString("postgres_port", configManager.getConfigValue("Configuration", "Postgres").getStringValue("port"));
+                String host = getConfig().getString("postgres_host", "jdbc:postgresql://" + configManager.getConfigValue("api_key", "Postgres").getStringValue("host"));
+                String db = getConfig().getString("postgres_db", configManager.getConfigValue("api_key", "Postgres").getStringValue("db"));
+                String user = getConfig().getString("postgres_user", configManager.getConfigValue("api_key", "Postgres").getStringValue("user"));
+                String password = getConfig().getString("postgres_password", configManager.getConfigValue("api_key", "Postgres").getStringValue("password"));
+                String port = getConfig().getString("postgres_port", configManager.getConfigValue("api_key", "Postgres").getStringValue("port"));
                 String jdbcUrl = String.format("%s:%s/%s", host, port, db);
                 getLogger().info("Connecting to: " + jdbcUrl);
                 HikariConfig hikariConfig = new HikariConfig();
@@ -199,7 +203,7 @@ public final class PatreonPlugin extends JavaPlugin {
                         }
                     }.runTask(PatreonPlugin.this);
                 } catch (Exception e) {
-                    getLogger().log(Level.SEVERE, "Failed to initialize PostgreSQL connection pool!", e);
+                    getLogger().log(Level.SEVERE, "Failed to initialize PostgreSQL wconnection pool!", e);
                 }
             }
         }.runTaskAsynchronously(this);

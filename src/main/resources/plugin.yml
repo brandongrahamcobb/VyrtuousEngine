@@ -7,4 +7,3 @@ commands:
   patreon:
     description:
     usage: /patreon
-    permission: patreon

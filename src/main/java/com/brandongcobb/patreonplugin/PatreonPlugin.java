@@ -119,11 +119,11 @@ public final class PatreonPlugin extends JavaPlugin {
         this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
         connectDatabase(() -> {
             this.patreonOAuth = new PatreonOAuth(plugin,
-                                             configManager.getConfigValue("api_keys", "Patreon").getStringValue("client_id"),
-                                                 configManager.getConfigValue("api_keys", "Patreon").getStringValue("client_secret"),
-                                                 configManager.getConfigValue("api_keys", "Patreon").getStringValue("redirect_uri"));
+                                             configManager.getConfigValue("Configuration", "Patreon").getStringValue("client_id"),
+                                                 configManager.getConfigValue("Configuration", "Patreon").getStringValue("client_secret"),
+                                                 configManager.getConfigValue("Configuration", "Patreon").getStringValue("redirect_uri"));
             this.userManager = new UserManager(plugin);
-            this.patreonUser = new PatreonUser(configManager.getConfigValue("api_keys", "Patreon").getStringValue("api_key"),
+            this.patreonUser = new PatreonUser(configManager.getConfigValue("Configuration", "Patreon").getStringValue("api_key"),
                                          configManager,
                                           discordId,
                                           exp,
@@ -185,7 +185,7 @@ public final class PatreonPlugin extends JavaPlugin {
                 String password = getConfig().getString("postgres_password", configManager.getConfigValue("api_key", "Postgres").getStringValue("password"));
                 String port = getConfig().getString("postgres_port", configManager.getConfigValue("api_key", "Postgres").getStringValue("port"));
                 String jdbcUrl = String.format("%s:%s/%s", host, port, db);
-                this.getLogger().info("Connecting to: " + jdbcUrl);
+                getLogger().info("Connecting to: " + jdbcUrl);
                 HikariConfig hikariConfig = new HikariConfig();
                 hikariConfig.setJdbcUrl(jdbcUrl);
                 hikariConfig.setUsername(user);
@@ -194,7 +194,7 @@ public final class PatreonPlugin extends JavaPlugin {
                 hikariConfig.setLeakDetectionThreshold(2000);
                 try {
                     dataSource = new HikariDataSource(hikariConfig);
-                    this.getLogger().log(Level.INFO, "PostgreSQL connection pool initialized.");
+                    getLogger().log(Level.INFO, "PostgreSQL connection pool initialized.");
                     new BukkitRunnable() {
                         @Override
                         public void run() {
@@ -202,7 +202,7 @@ public final class PatreonPlugin extends JavaPlugin {
                         }
                     }.runTask(PatreonPlugin.this);
                 } catch (Exception e) {
-                    this.getLogger().log(Level.SEVERE, "Failed to initialize PostgreSQL wconnection pool!", e);
+                    getLogger().log(Level.SEVERE, "Failed to initialize PostgreSQL wconnection pool!", e);
                 }
             }
         }.runTaskAsynchronously(this);
@@ -215,12 +215,12 @@ public final class PatreonPlugin extends JavaPlugin {
                 Connection[] conn = {null}; // Use an array to hold the connection
                 try {
                     if (dataSource == null) {
-                        this.getLogger().warning("DataSource not initialized");
+                        getLogger().warning("DataSource not initialized");
                         Bukkit.getScheduler().runTask(plugin, () -> callback.accept(null));
                         return;
                     }
                     conn[0] = dataSource.getConnection(); // Get the connection
-                    this.getLogger().log(Level.INFO, "PostgreSQL connection opened.");
+                    getLogger().log(Level.INFO, "PostgreSQL connection opened.");
                     Bukkit.getScheduler().runTask(plugin, () -> callback.accept(conn[0]));
                 } catch (SQLException e) {
                     e.printStackTrace(); // Handle potential SQLException

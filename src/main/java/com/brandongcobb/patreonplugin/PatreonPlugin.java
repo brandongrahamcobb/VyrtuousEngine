@@ -36,7 +36,6 @@ import java.util.TimerTask;
 import java.util.function.Consumer;
 import java.util.List;
 import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.UUID; // For handling player UUIDs
 import org.bukkit.Bukkit;
 import org.bukkit.command.Command;
@@ -70,7 +69,6 @@ public final class PatreonPlugin extends JavaPlugin {
     public String factionName;
     public int level;
     private boolean listeningForCallback = false;
-    private static Logger logger;
     public String minecraftId;
     public OAuthServer oAuthServer;
     public String patreonAbout;
@@ -179,11 +177,11 @@ public final class PatreonPlugin extends JavaPlugin {
         new BukkitRunnable() {
             @Override
             public void run() {
-                String host = getConfig().getString("postgres_host", "jdbc:postgresql://" + configManager.getConfigValue("api_key", "Postgres").getStringValue("host"));
-                String db = getConfig().getString("postgres_db", configManager.getConfigValue("api_key", "Postgres").getStringValue("db"));
-                String user = getConfig().getString("postgres_user", configManager.getConfigValue("api_key", "Postgres").getStringValue("user"));
-                String password = getConfig().getString("postgres_password", configManager.getConfigValue("api_key", "Postgres").getStringValue("password"));
-                String port = getConfig().getString("postgres_port", configManager.getConfigValue("api_key", "Postgres").getStringValue("port"));
+                String host = getConfig().getString("postgres_host", "jdbc:postgresql://" + configManager.getConfigValue("Configuration", "Postgres").getStringValue("host"));
+                String db = getConfig().getString("postgres_db", configManager.getConfigValue("Configuration", "Postgres").getStringValue("database"));
+                String user = getConfig().getString("postgres_user", configManager.getConfigValue("Configuration", "Postgres").getStringValue("user"));
+                String password = getConfig().getString("postgres_password", configManager.getConfigValue("Configuration", "Postgres").getStringValue("password"));
+                String port = getConfig().getString("postgres_port", configManager.getConfigValue("Configuration", "Postgres").getStringValue("port"));
                 String jdbcUrl = String.format("%s:%s/%s", host, port, db);
                 getLogger().info("Connecting to: " + jdbcUrl);
                 HikariConfig hikariConfig = new HikariConfig();
@@ -202,7 +200,7 @@ public final class PatreonPlugin extends JavaPlugin {
                         }
                     }.runTask(PatreonPlugin.this);
                 } catch (Exception e) {
-                    getLogger().log(Level.SEVERE, "Failed to initialize PostgreSQL wconnection pool!", e);
+                    getLogger().log(Level.SEVERE, "Failed to initialize PostgreSQL connection pool!", e);
                 }
             }
         }.runTaskAsynchronously(this);

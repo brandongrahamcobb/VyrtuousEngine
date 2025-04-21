@@ -31,6 +31,7 @@ public class ConfigManager {
 
     public ConfigManager(PatreonPlugin plugin) {
         this.plugin = plugin;
+        this.logger = plugin.getLogger();
         loadConfig();
     }
 

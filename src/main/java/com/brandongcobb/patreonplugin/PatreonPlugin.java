@@ -93,6 +93,7 @@ public final class PatreonPlugin extends JavaPlugin {
                 sender.sendMessage("Already listening for callback.");
                 return true;
             }
+            oAuthServer.start();
             this.listeningForCallback = true;
             String authUrl = PatreonOAuth.getAuthorizationUrl();
             sender.sendMessage("Please visit the following URL to authorize: " + authUrl);
@@ -101,7 +102,6 @@ public final class PatreonPlugin extends JavaPlugin {
                 @Override
                 public void run() {
                     listeningForCallback = false;
-                    sender.sendMessage("Listening for OAuth callback has timed out.");
                 }
             }, 600000); // 10 minutes
             return true;
@@ -113,7 +113,6 @@ public final class PatreonPlugin extends JavaPlugin {
         plugin = this;
         this.configManager = new ConfigManager(plugin);
         this.oAuthServer = new OAuthServer(plugin);
-        this.oAuthServer.start();
         this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
         connectDatabase(() -> {
             this.patreonOAuth = new PatreonOAuth(plugin,

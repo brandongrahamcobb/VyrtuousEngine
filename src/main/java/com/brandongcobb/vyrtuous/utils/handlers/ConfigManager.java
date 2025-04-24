@@ -1,6 +1,7 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
+import com.brandongcobb.vyrtuous.utils.inc.Helpers;
 
 import java.io.*;
 import java.util.HashMap;
@@ -16,6 +17,7 @@ public  class ConfigManager {
     public static Map<String, Object> config;
     public static Map<String, Object> defaultConfig;
     public ConfigSection configSection;
+    private static Helpers helpers;
     private Map<String, Object> inputConfigMap;
     private static Logger logger;
 
@@ -23,6 +25,7 @@ public  class ConfigManager {
         Vyrtuous.configManager = this;
         this.app = application;
         this.logger = app.logger;
+        this.helpers = new Helpers();
         this.config = new HashMap<>();
         this.configFile = new File(app.getDataFolder(), "config.yml");
         loadConfig();
@@ -84,7 +87,11 @@ public  class ConfigManager {
         configMap.put("discord_owner_id", "YOUR DISCORD ID");
         configMap.put("discord_role_pass", "ID FOR MODERATION BYPASS");
         configMap.put("discord_testing_guild_id", "MAIN GUILD ID");
+        configMap.put("openai_chat_completion", false);
         configMap.put("openai_chat_moderation", true);
+        configMap.put("openai_chat_stream", true);
+        configMap.put("openai_chat_temperature", true);
+        configMap.put("openai_chat_top_p", true);
         configMap.put("postgres_database", "");
         configMap.put("postgres_user", "postgres");
         configMap.put("postgres_host", "localhost");
@@ -92,6 +99,7 @@ public  class ConfigManager {
         configMap.put("postgres_port", "");
         configMap.put("spark_discord_endpoint", "/oauth/discord_callback");
         configMap.put("spark_patreon_endpoint", "/oauth/patreon_callback");
+        configMap.put("spark_port", helpers.parseCommaNumber("8,000"));
         configMap.put("web_headers", new HashMap<String, Object>() {{
             put("API.Bible", new HashMap<String, String>() {{
                 put("User-Agent", "Vyrtuous https://github.com/brandongrahamcobb/Vyrtuous.git");
@@ -294,7 +302,9 @@ public  class ConfigManager {
     }
 
     private boolean validateOpenAIConfig() {
+        String openAIChatCompletion = (String) String.valueOf(config.get("openai_chat_completion"));
         String openAIChatModel = (String) String.valueOf(config.get("openai_chat_model"));
+        String openAIChatModeration = (String) String.valueOf(config.get("openai_chat_moderation"));
         String openAIChatStop = (String) String.valueOf(config.get("openai_chat_stop"));
         boolean openAIChatStream = (boolean) Boolean.parseBoolean(String.valueOf(config.get("openai_chat_stream")));
         float openAIChatTemperature = (float) Float.parseFloat(String.valueOf(config.get("openai_chat_temperature")));
@@ -305,7 +315,7 @@ public  class ConfigManager {
             isValid = false;
         }
         if (openAIChatStop == null || openAIChatStop.trim().isEmpty()) {
-            logger.warning("Postgres user setting is missing.");
+            logger.warning("OpenAI user setting is missing.");
             isValid = false;
         }
         if (openAIChatStream == (boolean) false) {
@@ -313,7 +323,7 @@ public  class ConfigManager {
             isValid = false;
         }
         if (openAIChatTopP < 0.0f || openAIChatTopP > 2.0f) {
-            logger.warning("OpenAI chat temperature is broken.");
+            logger.warning("OpenAI chat top P is broken.");
             isValid = false;
         }
         if (openAIChatTemperature < 0.0f && openAIChatTemperature > 2.0f) {

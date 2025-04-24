@@ -59,12 +59,12 @@ import org.javacord.api.DiscordApiBuilder;
 
 public class Vyrtuous extends JavaPlugin {
 
+    public static ConfigManager configManager;
     public static String accessToken;
     public static AIManager aiManager;
     public static Vyrtuous app;
     public static String authUrl;
     public static Timer callbackTimer;
-    public static ConfigManager configManager;
     public static Map<String, List<Map<String, String>>> conversations;
     public static LocalDateTime createDate;
     public static boolean createdDefaultConfig;
@@ -202,11 +202,7 @@ public class Vyrtuous extends JavaPlugin {
 
     public Vyrtuous () {
         app = this;
-        this.accessToken = ""; // Initialize with empty string
         this.logger = Logger.getLogger("Vyrtuous"); // Initialize logger
-        this.authUrl = ""; // Initialize with empty string
-        this.callbackTimer = new Timer(); // Instantiate the Timer
-        this.connection = null; // Initialize to null
         this.configManager = new ConfigManager(this); // Instantiate ConfigManager
         if (configManager.exists() && configManager.isConfigSameAsDefault()) {
             if (configManager.isConfigSameAsDefault()) {
@@ -216,6 +212,10 @@ public class Vyrtuous extends JavaPlugin {
             configManager.createDefaultConfig();
         }
         configManager.validateConfig();
+        this.accessToken = ""; // Initialize with empty string
+        this.authUrl = ""; // Initialize with empty string
+        this.callbackTimer = new Timer(); // Instantiate the Timer
+        this.connection = null; // Initialize to null
         this.conversations = new HashMap<>();
         this.createDate = LocalDateTime.now(); // Initialize with the current date
         this.createdDefaultConfig = false; // Initialize with false
@@ -303,31 +303,6 @@ public class Vyrtuous extends JavaPlugin {
         }
     }
 
-    public static void main(String[] args) {
-        try {
-            // 1. Initialize your config manager
-            ConfigManager configManager = new ConfigManager(null); // Passing null or a dummy path
-            configManager.loadConfig(); // or create default if needed
-
-            // 2. Instantiate your core class
-            Vyrtuous bot = new Vyrtuous();
-
-            // 3. Assign configs and initialize components
-            // (Already in constructor, but you might need to set tokens or keys here)
-            // e.g., bot.discordApiKey = your_token_here;
-
-            // 4. Initialize DiscordBot
-            bot.discordBot.start();
-
-            // 5. Keep main thread alive if needed
-            System.out.println("Bot is running. Press Ctrl+C to stop.");
-            while (true) {
-                Thread.sleep(60000); // Sleep or await process termination
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
     public void closeDatabase() {
         if (dbPool != null && !dbPool.isClosed()) {
             dbPool.close();

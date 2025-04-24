@@ -5,15 +5,18 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.brandongcobb</groupId>
-    <artifactId>VyrtuousEngine</artifactId>
+    <artifactId>Vyrtuous</artifactId>
     <version>0.1</version>
 
-    <name>VyrtuousEngine</name>
+    <name>Vyrtuous</name>
 
     <properties>
         <java.version>21</java.version>
-        <org.springframework.version>7.0.0-M4</org.springframework.version>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <maven.compiler.source>${java.version}</maven.compiler.source>
+        <maven.compiler.target>${java.version}</maven.compiler.target>
     </properties>
+    <url>www.github.com/brandongrahamcobb</url>
 
     <build>
         <plugins>
@@ -40,6 +43,16 @@
                         </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <filters>
+                                <filter>
+                                    <artifact>*:*</artifact>
+                                    <excludes>
+                                        <exclude>META-INF/*.SF</exclude>
+                                        <exclude>META-INF/*.DSA</exclude>
+                                        <exclude>META-INF/*.RSA</exclude>
+                                    </excludes>
+                                </filter>
+                            </filters>
                         </configuration>
                     </execution>
                 </executions>
@@ -96,11 +109,17 @@
     </repositories>
 
     <dependencies>
-   <dependency>
-        <groupId>org.springframework</groupId>
-        <artifactId>spring-core</artifactId>
-        <version>${org.springframework.version}</version>
-    </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-web</artifactId>
+            <version>2.5.4</version> <!-- Check for the latest version -->
+        </dependency>
+        <dependency>
+            <groupId>org.javacord</groupId>
+            <artifactId>javacord</artifactId>
+            <version>3.8.0</version>
+            <type>pom</type>
+        </dependency>
         <dependency>
             <groupId>com.sparkjava</groupId>
             <artifactId>spark-core</artifactId>
@@ -128,11 +147,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <dependency>
-            <groupId>org.apache.httpcomponents</groupId>
-            <artifactId>httpclient</artifactId>
-            <version>4.5.13</version> <!-- Check for the latest version -->
-        </dependency>
         <!-- EssentialsX -->
         <dependency>
             <groupId>net.essentialsx</groupId>
@@ -141,11 +155,6 @@
             <scope>provided</scope>
         </dependency>
 
-        <dependency>
-            <groupId>org.springframework</groupId>
-            <artifactId>spring-web</artifactId>
-            <version>${org.springframework.version}</version>
-        </dependency>
         <!-- LWC -->
         <dependency>
             <groupId>com.griefcraft</groupId>
@@ -156,7 +165,7 @@
         <dependency>
             <groupId>org.spigotmc</groupId>
             <artifactId>spigot-api</artifactId>
-            <version>1.21.4-R0.1-SNAPSHOT</version>
+            <version>1.21.5-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
         <dependency>
@@ -176,10 +185,9 @@
             <scope>provided</scope>
         </dependency>
         <dependency>
-            <groupId>org.javacord</groupId>
-            <artifactId>javacord</artifactId>
-            <version>3.8.0</version>
-            <type>pom</type>
+            <groupId>org.apache.httpcomponents</groupId>
+            <artifactId>httpclient</artifactId>
+            <version>4.5.13</version> <!-- Or the latest version -->
         </dependency>
     </dependencies>
 </project>

@@ -4,6 +4,8 @@ import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import com.brandongcobb.vyrtuous.utils.handlers.MessageManager.MessageContent;
 import com.brandongcobb.vyrtuous.utils.inc.Helpers;
+import com.brandongcobb.vyrtuous.utils.inc.ModelRegistry;
+import com.brandongcobb.vyrtuous.records.ModelInfo;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.FileInputStream;
 import java.io.IOException;
@@ -68,7 +70,13 @@ public class AIManager {
                 post.setHeader("Content-Type", "application/json");
                 Map<String, Object> requestBody = new HashMap<>();
                 requestBody.put("n", n);
-                requestBody.put("max_tokens", maxTokens);
+                ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
+                boolean status = contextInfo.status();
+                if (status) {
+                    requestBody.put("max_completion_tokens", contextInfo.upperLimit());
+                } else {
+                    requestBody.put("max_tokens", contextInfo.upperLimit());
+                }
                 requestBody.put("temperature", temperature);
                 requestBody.put("model", model);
                 requestBody.put("response_format", responseFormat);
@@ -79,7 +87,6 @@ public class AIManager {
                 for (MessageContent messageContent : messages) {
                     Map<String, Object> messageMap = new HashMap<>();
                     messageMap.put("role", messageContent.getType()); // Assuming getType() returns the role ("user" or "assistant")
-                    System.out.println(messageContent.getType());
                     messageMap.put("content", messageContent.getText()); // Assuming getText() returns the message content
                     messagesList.add(messageMap);
                 }
@@ -115,12 +122,14 @@ public class AIManager {
 
 
     public CompletableFuture<String> getCompletion(long customId, CompletableFuture<List<MessageContent>> inputArray) {
+
         try {
+            ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(configManager.getStringValue("openai_chat_model"));
             return getChatCompletion(
                 app.openAIDefaultChatCompletionNumber,
                 customId,
                 inputArray,
-                helpers.OPENAI_CHAT_MODEL_OUTPUT_LIMITS.get(configManager.getStringValue("openai_chat_model")),
+                contextInfo.upperLimit(),
                 configManager.getStringValue("openai_chat_model"),
                 app.openAIDefaultChatCompletionResponseFormat,
                 configManager.getStringValue("openai_chat_stop"), // Handle stop as boolean
@@ -137,11 +146,12 @@ public class AIManager {
 
     public CompletableFuture<String> getChatModerationCompletion(long customId, CompletableFuture<List<MessageContent>> inputArray) throws IOException {
         try {
+            ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(app.openAIDefaultChatModerationModel);
             return getChatCompletion(
                 app.openAIDefaultChatModerationNumber,
                 customId,
                 inputArray,
-                helpers.OPENAI_CHAT_MODEL_OUTPUT_LIMITS.get(app.openAIDefaultChatModerationModel),
+                contextInfo.upperLimit(),
                 app.openAIDefaultChatModerationModel,
                 app.openAIDefaultChatModerationResponseFormat,
                 app.openAIDefaultChatModerationStop,
@@ -157,46 +167,54 @@ public class AIManager {
     }
 
     private String extractCompletion(String jsonResponse) throws IOException {
-        System.out.println("API Response: " + jsonResponse);  // Log full response for debugging
         ObjectMapper objectMapper = new ObjectMapper();
         Map<String, Object> responseMap = objectMapper.readValue(jsonResponse, Map.class);
-    
-        // Check for API error
-        if (responseMap.containsKey("error")) {
-            Map<String, Object> errorMap = (Map<String, Object>) responseMap.get("error");
-            String message = (String) errorMap.getOrDefault("message", "Unknown error");
-            System.err.println("API Error: " + message);
-            return ""; // or handle as needed
-        }
-    
-        // Check for choices key and validity
-        Object choicesObj = responseMap.get("choices");
-        if (choicesObj == null || !(choicesObj instanceof List)) {
-            System.err.println("No 'choices' key or not a list in response");
-            return "";
-        }
-    
-        List<Map<String, Object>> choices = (List<Map<String, Object>>) choicesObj;
-        if (choices.isEmpty()) {
-            System.err.println("Empty 'choices' array in response");
-            return "";
-        }
-    
+        List<Map<String, Object>> choices = (List<Map<String, Object>>) responseMap.get("choices");
         Map<String, Object> firstChoice = choices.get(0);
         Map<String, Object> message = (Map<String, Object>) firstChoice.get("message");
-        if (message == null) {
-            System.err.println("Missing 'message' in first choice");
-            return "";
-        }
-    
-        Object contentObj = message.get("content");
-        if (contentObj == null) {
-            System.err.println("Missing 'content' in message");
-            return "";
-        }
-    
-        return (String) contentObj;
+        return (String) message.get("content"); // Cast to String
     }
+//    private String extractCompletion(String jsonResponse) throws IOException {
+//        System.out.println("API Response: " + jsonResponse);  // Log full response for debugging
+//        ObjectMapper objectMapper = new ObjectMapper();
+//        Map<String, Object> responseMap = objectMapper.readValue(jsonResponse, Map.class);
+//    
+//        // Check for API error
+//        if (responseMap.containsKey("error")) {
+//            Map<String, Object> errorMap = (Map<String, Object>) responseMap.get("error");
+//            String message = (String) errorMap.getOrDefault("message", "Unknown error");
+//            System.err.println("API Error: " + message);
+//            return ""; // or handle as needed
+//        }
+//    
+//        // Check for choices key and validity
+//        Object choicesObj = responseMap.get("choices");
+//        if (choicesObj == null || !(choicesObj instanceof List)) {
+//            System.err.println("No 'choices' key or not a list in response");
+//            return "";
+//        }
+//    
+//        List<Map<String, Object>> choices = (List<Map<String, Object>>) choicesObj;
+//        if (choices.isEmpty()) {
+//            System.err.println("Empty 'choices' array in response");
+//            return "";
+//        }
+//    
+//        Map<String, Object> firstChoice = choices.get(0);
+//        Map<String, Object> message = (Map<String, Object>) firstChoice.get("message");
+//        if (message == null) {
+//            System.err.println("Missing 'message' in first choice");
+//            return "";
+//        }
+//    
+//        Object contentObj = message.get("content");
+//        if (contentObj == null) {
+//            System.err.println("Missing 'content' in message");
+//            return "";
+//        }
+//    
+//        return (String) contentObj;
+//    }
 //    private String extractCompletion(String jsonResponse) throws IOException {
 //        ObjectMapper objectMapper = new ObjectMapper();
 //        Map<String, Object> responseMap = objectMapper.readValue(jsonResponse, Map.class);
@@ -229,7 +247,7 @@ public class AIManager {
     }
 
     public void trimConversationHistory(String model, String customId) {
-        long maxContextLength = helpers.OPENAI_CHAT_MODEL_CONTEXT_LIMITS.get(model);
+        ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
         List<Map<String, String>> history = conversations.get(customId);
         if (history == null) {
             System.out.println("No conversation history found for customId: " + customId);
@@ -238,7 +256,7 @@ public class AIManager {
         long totalTokens = history.stream()
             .mapToInt(msg -> msg.get("content").length())
             .sum();
-        while (totalTokens > maxContextLength && !history.isEmpty()) {
+        while (totalTokens > contextInfo.upperLimit() && !history.isEmpty()) {
             Map<String, String> removedMessage = history.remove(0);
             totalTokens -= removedMessage.get("content").length();
         }

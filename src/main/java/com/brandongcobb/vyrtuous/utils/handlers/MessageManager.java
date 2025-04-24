@@ -46,7 +46,6 @@ public class MessageManager {
 
     public CompletableFuture<List<MessageContent>> processArray(String content, List<MessageAttachment> attachments) {
         List<MessageContent> array = new ArrayList<>();
-        System.out.println(ANSI_CYAN + content + ANSI_RESET);
         if (content != null && !content.trim().isEmpty()) {
             return processTextMessage(content).thenCompose(processedText -> {
                 array.addAll(processedText);

@@ -6,8 +6,8 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Arrays;
 
-public class Helpers {
 
+public class Helpers {
     public static Long parseCommaNumber(String number) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < number.length(); i++) {
@@ -17,16 +17,14 @@ public class Helpers {
             }
         }
         String cleanedNumber = sb.toString();
-    
-        // Try parsing as int first
         try {
             int intVal = Integer.parseInt(cleanedNumber);
             return (long) intVal; // safely fits in int
         } catch (NumberFormatException e) {
-            // If it doesn't fit, parse as long
             return Long.parseLong(cleanedNumber);
         }
     }
+
 
     // Base directories
     public static final String DIR_BASE = Paths.get("/home/spawd/Vystopia/src/main/java/com/brandongcobb/").toAbsolutePath().toString(); // Placeholder
@@ -122,38 +120,6 @@ public class Helpers {
         "models", "https://api.openai.com/v1/models",
         "moderations", "https://api.openai.com/v1/moderations",
         "uploads", "https://api.openai.com/v1/uploads"
-    );
-    public static final Map<String, Long> OPENAI_CHAT_MODEL_CONTEXT_LIMITS = Map.ofEntries(
-        Map.entry("ft:gpt-4o-mini-2024-07-18:spawd:vyrtuous:AjZpTNN2", parseCommaNumber("16,384")),
-        Map.entry("gpt-3.5-turbo", parseCommaNumber("4,096")),
-        Map.entry("gpt-4", parseCommaNumber("8,192")),
-        Map.entry("gpt-4-32k", parseCommaNumber("32,768")),
-        Map.entry("gpt-4-turbo", parseCommaNumber("128,000")),
-        Map.entry("gpt-4.1", parseCommaNumber("300,000")),
-        Map.entry("gpt-4.1-nano", parseCommaNumber("1,047,576")),
-        Map.entry("gpt-4o", parseCommaNumber("128,000")),
-        Map.entry("gpt-4o-audio", parseCommaNumber("128,000")),
-        Map.entry("gpt-4o-mini", parseCommaNumber("128,000")),
-        Map.entry("o1-mini", parseCommaNumber("128,000")),
-        Map.entry("o1-preview", parseCommaNumber("128,000")),
-        Map.entry("o3-mini", parseCommaNumber("200,000")),
-        Map.entry("o4-mini", parseCommaNumber("200,000"))
-    );
-    public static final Map<String, Long> OPENAI_CHAT_MODEL_OUTPUT_LIMITS = Map.ofEntries(
-        Map.entry("ft:gpt-4o-mini-2024-07-18:spawd:vyrtuous:AjZpTNN2", parseCommaNumber("128,000")),
-        Map.entry("gpt-3.5-turbo", parseCommaNumber("4,096")),
-        Map.entry("gpt-4", parseCommaNumber("8,192")),
-        Map.entry("gpt-4-32k", parseCommaNumber("32,768")),
-        Map.entry("gpt-4-turbo", parseCommaNumber("4,096")),
-        Map.entry("gpt-4.1", parseCommaNumber("32,768")),
-        Map.entry("gpt-4.1-nano", parseCommaNumber("32,768")),
-        Map.entry("gpt-4o", parseCommaNumber("4,096")),        // # Initially capped at 4")),096; updated to 16")),384 in later versions
-        Map.entry("gpt-4o-audio", parseCommaNumber("16,384")),
-        Map.entry("gpt-4o-mini", parseCommaNumber("16,384")),
-        Map.entry("o1-mini", parseCommaNumber("16,384")),
-        Map.entry("o1-preview", parseCommaNumber("32,768")),
-        Map.entry("o3-mini", parseCommaNumber("100,000")),
-        Map.entry("o4-mini", parseCommaNumber("100,000"))
     );
     public static final String OPENAI_MODERATION_MODEL = "omni-moderation-latest";
     public static final boolean OPENAI_MODERATION_IMAGE = true;

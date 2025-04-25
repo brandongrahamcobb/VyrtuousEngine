@@ -11,16 +11,20 @@ import java.sql.Timestamp;
 import java.util.function.Consumer;
 import org.bukkit.entity.Player;
 import org.bukkit.Bukkit;
-
+import java.util.HashMap;
+import java.util.Map;
 public class MinecraftUser implements User {
 
     private static Vyrtuous app;
+    private static Player player;
     private String minecraftId;
     private UserManager userManager;
+    public static Map<MinecraftUser, OAuthUserSession> sessions;
 
-    public MinecraftUser(Vyrtuous application) {
-        Vyrtuous.minecraftUser = this;
+    public MinecraftUser(Vyrtuous application, Player currentPlayer) {
         this.app = application;
+        this.sessions = app.sessions;
+        this.player = currentPlayer;
         this.userManager = app.userManager;
     }
 
@@ -32,11 +36,25 @@ public class MinecraftUser implements User {
     }
 
 
+    // Override equals() and hashCode() based on UUID
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof MinecraftUser)) return false;
+        MinecraftUser other = (MinecraftUser) o;
+        return this.player.getUniqueId().equals(other.player.getUniqueId());
+    }
+
+    @Override
+    public int hashCode() {
+        return this.player.getUniqueId().hashCode();
+    }
+
     public MinecraftUser getCurrentUser() {
         return this;
     }
 
-    public String getCurrentUserId(Player player) {
+    public String getCurrentUserId() {
         String uuidString = player.getUniqueId().toString(); // UUID as string
         return uuidString;
     }
@@ -67,5 +85,15 @@ public class MinecraftUser implements User {
                 }
             }
         });
+    }
+
+    public static void link(String accessToken, String userId) {
+         for (MinecraftUser minecraftUser : sessions.keySet()) {
+             if (minecraftUser.getCurrentUserId().equals(userId)) {
+        // found your user
+                 sessions.get(minecraftUser).setAccessToken(accessToken);
+                 break;
+             }
+        }
     }
 }

@@ -15,6 +15,7 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.File;
 import java.io.InputStream;
@@ -22,11 +23,14 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.logging.Logger;
+import java.util.HashMap;
+import java.util.Map;
 import org.javacord.api.entity.channel.PrivateChannel;
 import org.javacord.api.entity.message.embed.EmbedBuilder;
 import org.javacord.api.entity.message.Message;
@@ -35,13 +39,21 @@ import org.javacord.api.entity.user.User;
 
 public class MessageManager {
 
+    private Vyrtuous app;
+    private ObjectMapper mapper;
     private Lock lock;
     private Logger logger;
     public static final String ANSI_CYAN = "\u001B[36m";
     public static final String ANSI_RESET = "\u001B[0m";
 
-    public MessageManager (Vyrtuous app) {
+    public MessageManager (Vyrtuous application) {
         Vyrtuous.messageManager = this;
+        this.app = application;
+        this.logger = app.logger;
+    }
+
+    public static String encodeImage(byte[] imageBytes) {
+        return Base64.getEncoder().encodeToString(imageBytes);
     }
 
     public CompletableFuture<List<MessageContent>> processArray(String content, List<MessageAttachment> attachments) {
@@ -62,6 +74,9 @@ public class MessageManager {
     }
 
     public CompletableFuture<List<MessageContent>> processAttachments(List<MessageAttachment> attachments) {
+        // Log the entry into the method
+        logger.info("Entered processAttachments with " + attachments.size() + " attachments");
+    
         List<MessageContent> processedAttachments = new ArrayList<>();
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         File tempDirectory = new File(System.getProperty("java.io.tmpdir"));
@@ -76,11 +91,17 @@ public class MessageManager {
                     String contentType = getContentTypeFromFileName(attachment.getFileName());
                     if (contentType.startsWith("image/")) {
                         byte[] imageBytes = Files.readAllBytes(file.toPath());
-                        String imageBase64 = java.util.Base64.getEncoder().encodeToString(imageBytes);
-                        processedAttachments.add(new MessageContent("image_url", "data:" + contentType + ";base64," + imageBase64));
+                        String base64Image = encodeImage(imageBytes);
+                        Map<String, String> urlData = new HashMap<>();
+                        urlData.put("data_url", "data:image/jpeg;base64, " + base64Image);
+                        String contentJson = mapper.writeValueAsString(urlData);
+                        Map<String, String> messageMap = new HashMap<>();
+                        messageMap.put("content", contentJson);
+                        String messageJson = mapper.writeValueAsString(messageMap);
+                        processedAttachments.add(new MessageContent("user", messageJson));
                     } else if (contentType.startsWith("text/")) {
                         String textContent = new String(Files.readAllBytes(file.toPath()));
-                        processedAttachments.add(new MessageContent("text", textContent));
+                        processedAttachments.add(new MessageContent("user", textContent));
                     }
                 } catch (IOException e) {
                     logger.severe("Error processing file " + attachment.getFileName() + ": " + e.getMessage());
@@ -88,7 +109,11 @@ public class MessageManager {
             });
             futures.add(future);
         }
-        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0])).thenApply(v -> processedAttachments);
+        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
+            .thenApply(v -> {
+                logger.info("Finished processing " + attachments.size() + " attachments");
+                return processedAttachments;
+            });
     }
 
    private String getContentTypeFromFileName(String fileName) {

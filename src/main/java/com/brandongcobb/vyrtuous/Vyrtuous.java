@@ -27,6 +27,7 @@ import com.patreon.PatreonAPI;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Timestamp;
@@ -60,6 +61,9 @@ import org.javacord.api.DiscordApiBuilder;
 public class Vyrtuous extends JavaPlugin {
 
     public static ConfigManager configManager;
+    private BukkitRunnable callbackRunnable;
+    public static Map<MinecraftUser, OAuthUserSession> sessions = new HashMap<>();
+//    private Map<String, OAuthUserSession> waitingForResponse = new HashMap<>();
     public static String accessToken;
     public static AIManager aiManager;
     public static Vyrtuous app;
@@ -212,11 +216,14 @@ public class Vyrtuous extends JavaPlugin {
             configManager.createDefaultConfig();
         }
         configManager.validateConfig();
+        this.conversations = new HashMap<>();
+        this.messageManager = new MessageManager(this); // Instantiate MessageManager
+        this.moderationManager = new ModerationManager(this); // Initialize to null
+        this.predicator = new Predicator(this); // Assuming Predicator takes `Vyrtuous` instance
         this.accessToken = ""; // Initialize with empty string
         this.authUrl = ""; // Initialize with empty string
         this.callbackTimer = new Timer(); // Instantiate the Timer
         this.connection = null; // Initialize to null
-        this.conversations = new HashMap<>();
         this.createDate = LocalDateTime.now(); // Initialize with the current date
         this.createdDefaultConfig = false; // Initialize with false
         this.currentPlayer = null; // Initialize to null
@@ -285,14 +292,10 @@ public class Vyrtuous extends JavaPlugin {
         this.discordBot = new DiscordBot(this);
         this.discordOAuth = new DiscordOAuth(this); // Assuming DiscordOAuth takes `Vyrtuous` instance
         this.discordUser = new DiscordUser(this); // Assuming DiscordUser takes `Vyrtuous` instance
-        this.messageManager = new MessageManager(this); // Instantiate MessageManager
-        this.minecraftUser = new MinecraftUser(this); // Instantiate MinecraftUser
         this.patreonOAuth = new PatreonOAuth(this); // Instantiate PatreonOAuth
         this.patreonUser = new PatreonUser(this); // Instantiate PatreonUser
-        this.predicator = new Predicator(this); // Assuming Predicator takes `Vyrtuous` instance
         this.oAuthServer = new OAuthServer(this); // Instantiate OAuthServer
         this.userManager = new UserManager(this); // Instantiate UserManager
-        this.moderationManager = new ModerationManager(this); // Initialize to null
     }
 
     private void cancelOAuthSession() {
@@ -379,15 +382,15 @@ public class Vyrtuous extends JavaPlugin {
 
     public void onEnable() {
         try {
+            CompletableFuture<Void> loggingTask = CompletableFuture.runAsync(() -> {
+                setupLogging();
+            });
             this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
             CompletableFuture<Void> databaseTask = CompletableFuture.runAsync(() -> {
                 connectDatabase(() -> {});
             });
             CompletableFuture<Void> discordTask = CompletableFuture.runAsync(() -> {
                 discordBot.start();
-            });
-            CompletableFuture<Void> loggingTask = CompletableFuture.runAsync(() -> {
-                setupLogging();
             });
             CompletableFuture<Void> allTasks = CompletableFuture.allOf(databaseTask, discordTask, loggingTask);
             allTasks.join();
@@ -399,52 +402,195 @@ public class Vyrtuous extends JavaPlugin {
 
     @Override
     public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-        currentPlayer = (Player) sender;
-        minecraftUser = minecraftUser.getCurrentUser();
+        if (!(sender instanceof Player)) return false; // Safety check
+        Player currentPlayer = (Player)sender;
+        MinecraftUser minecraftUser = new MinecraftUser(this, currentPlayer);
+
         if (cmd.getName().equalsIgnoreCase("patreon") || cmd.getName().equalsIgnoreCase("discord")) {
             try {
-                if (callbackTimer != null) {
-                    callbackTimer.cancel(); // Cancel any existing timer
-                    callbackTimer = null; // Allow for garbage collection
-                    listeningForCallback = false; // We aren't waiting now
-                    sender.sendMessage("Previous callback waiting has been interrupted. Starting over.");
+                // Cancel existing callback timer
+                if (callbackRunnable != null) {
+                    callbackRunnable.cancel();
                 }
-                listeningForCallback = true;
-                waitingForResponse.put(String.valueOf(currentPlayer.getUniqueId()), new OAuthUserSession(this, minecraftUser, cmd.getName()));
+                // Setup session
+                OAuthUserSession session = new OAuthUserSession(this, minecraftUser, cmd.getName());
+                sessions.put(minecraftUser, session);
+
+                String authUrl;
+                String state = URLEncoder.encode(currentPlayer.getUniqueId().toString(), "UTF-8");;
                 if (cmd.getName().equalsIgnoreCase("patreon")) {
-                    authUrl = patreonOAuth.getAuthorizationUrl();
-                } else if (cmd.getName().equalsIgnoreCase("discord")) {
-                    authUrl = discordOAuth.getAuthorizationUrl();
+                    authUrl = patreonOAuth.getAuthorizationUrl() + "&state=" + state;
+                } else {
+                    authUrl = discordOAuth.getAuthorizationUrl() + "&state=" + state;
                 }
-                sender.sendMessage("Please visit the following URL to authorize: " + authUrl);
-                callbackTimer = new Timer();
-                callbackTimer.schedule(new TimerTask() {
+
+                currentPlayer.sendMessage("Please visit the following URL to authorize: " + authUrl);
+
+                // Schedule timeout with Bukkit
+                callbackRunnable = new BukkitRunnable() {
                     @Override
                     public void run() {
-                        listeningForCallback = false; // Reset listening state
-                        sender.sendMessage("Waiting for callback has timed out."); // Notify the player
+                        sessions.remove(minecraftUser);
+                        currentPlayer.sendMessage("Waiting for callback has timed out.");
                     }
-                }, 600000); // 10 minutes
-                return true; // Command processed successfully
+                };
+                callbackRunnable.runTaskLater(this, 20 * 60 * 10); // 10 minutes = 12000 ticks
+                return true;
             } catch (Exception e) {
+                // Handle exceptions
+                getLogger().warning("Error starting OAuth flow: " + e.getMessage());
             }
         }
-        if (cmd.getName().equalsIgnoreCase("code") && args.length == 1) {
-            if (args.length < 2) {
-             // No code provided, ignore or reply with error
+
+        if (cmd.getName().equalsIgnoreCase("code")) {
+            if (args.length < 1) {
                 sender.sendMessage("Please provide an access code after /code.");
                 return false;
             }
-            OAuthUserSession session = waitingForResponse.get(currentPlayer.getUniqueId());
-            String expectedToken = session.getAccessToken();
-            String providedCode = args[1];
-            if (providedCode.equals(expectedToken)) {
-                waitingForResponse.remove(currentPlayer.getUniqueId());
-                sender.sendMessage("Authentication successful. Happy mapling");
+            OAuthUserSession session = sessions.get(minecraftUser);
+            if (session != null && session.getAccessToken() != null) {
+                String providedCode = args[0];
+                if (providedCode.equals(session.getAccessToken())) {
+                    waitingForResponse.remove(currentPlayer.getUniqueId().toString());
+                    // Cancel timeout
+                    if (callbackRunnable != null) {
+                        callbackRunnable.cancel();
+                        callbackRunnable = null;
+                    }
+                    currentPlayer.sendMessage("Authentication successful. Happy mapling!");
+                } else {
+                    currentPlayer.sendMessage("Invalid code, please try again.");
+                }
+            } else {
+                sender.sendMessage("No pending authentication or token not yet received.");
             }
+            return true;
         }
-        return false; // Command not recognized
+
+        return false;
     }
+//
+//    @Override
+//    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+//        currentPlayer = (Player) sender;
+//        minecraftUser = minecraftUser.getCurrentUser();
+//        if (cmd.getName().equalsIgnoreCase("patreon") || cmd.getName().equalsIgnoreCase("discord")) {
+//            try {
+//                if (callbackTimer != null) {
+//                    callbackTimer.cancel(); // Cancel any existing timer
+//                    callbackTimer = null; // Allow for garbage collection
+//                    listeningForCallback = false; // We aren't waiting now
+//                    sender.sendMessage("Previous callback waiting has been interrupted. Starting over.");
+//                }
+//                listeningForCallback = true;
+//                OAuthSession session = new OAuthUserSession(this, minecraftUser, cmd.getName());
+//                waitingForResponse.put(String.valueOf(currentPlayer.getUniqueId()), session);
+//                String authUrl = "";
+//                if (cmd.getName().equalsIgnoreCase("patreon")) {
+//                    authUrl = patreonOAuth.getAuthorizationUrl();
+//                } else if (cmd.getName().equalsIgnoreCase("discord")) {
+//                    authUrl = discordOAuth.getAuthorizationUrl();
+//                }
+//                sender.sendMessage("Please visit the following URL to authorize: " + authUrl);
+//                callbackRunnable = new BukkitRunnable() {
+//                    @Override
+//                    public void run() {
+//                        // Remove session if timed out and notify the player
+//                        listeningForCallback = false;
+//                        waitingForResponse.remove(currentPlayer.getUniqueId().toString());
+//                        currentPlayer.sendMessage("Waiting for callback has timed out.");
+//                    }
+//                };
+//                 callbackRunnable.runTaskLater(this, 12000L);
+//                return true;
+//            } catch (Exception e) {}
+//        if (cmd.getName().equalsIgnoreCase("code")) {
+//            if (args.length < 1) {
+//                sender.sendMessage("Please provide an access code after /code.");
+//                return false;
+//            }
+//            String providedCode = args[0];
+//            OAuthUserSession session = waitingForResponse.get(currentPlayer.getUniqueId().toString());
+//            if (session != null) {
+//                String expectedToken = session.getAccessToken();
+//                if (providedCode.equals(expectedToken)) {
+//                    waitingForResponse.remove(currentPlayer.getUniqueId().toString());
+//                    // Once authenticated, cancel the callback timeout
+//                    if (callbackRunnable != null) {
+//                        callbackRunnable.cancel();
+//                        callbackRunnable = null;
+//                    }
+//                    currentPlayer.sendMessage("Authentication successful. Happy mapling!");
+//                } else {
+//                    currentPlayer.sendMessage("Invalid code, please try again.");
+//                }
+//            } else {
+//                currentPlayer.sendMessage("No pending authentication session found. Please initiate the process first.");
+//            }
+//            return true;
+//        }
+//        return false;
+//    }
+////    @Override
+//    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+//        currentPlayer = (Player) sender;
+//        minecraftUser = minecraftUser.getCurrentUser();
+//        if (cmd.getName().equalsIgnoreCase("patreon") || cmd.getName().equalsIgnoreCase("discord")) {
+//            try {
+//                if (callbackTimer != null) {
+//                    callbackTimer.cancel(); // Cancel any existing timer
+//                    callbackTimer = null; // Allow for garbage collection
+//                    listeningForCallback = false; // We aren't waiting now
+//                    sender.sendMessage("Previous callback waiting has been interrupted. Starting over.");
+//                }
+//                listeningForCallback = true;
+//                OAuthSession session = new OAuthUserSession(this, minecraftUser, cmd.getName());
+//                waitingForResponse.put(String.valueOf(currentPlayer.getUniqueId()), session);
+//                if (cmd.getName().equalsIgnoreCase("patreon")) {
+//                    authUrl = patreonOAuth.getAuthorizationUrl();
+//                } else if (cmd.getName().equalsIgnoreCase("discord")) {
+//                    authUrl = discordOAuth.getAuthorizationUrl();
+//                }
+//                sender.sendMessage("Please visit the following URL to authorize: " + authUrl);
+//                callbackRunnable = new BukkitRunnable() {
+//                    @Override
+//                    public void run() {
+//                        // Remove session if timed out and notify the player
+//                        listeningForCallback = false;
+//                        waitingForResponse.remove(currentPlayer.getUniqueId().toString());
+//                        currentPlayer.sendMessage("Waiting for callback has timed out.");
+//                    }
+//                };
+//                callbackRunnable.runTaskLater(this, 12000L);
+//                return true;
+//            } catch (Exception e) {}
+//        if (cmd.getName().equalsIgnoreCase("code")) {
+//            if (args.length < 1) {
+//                sender.sendMessage("Please provide an access code after /code.");
+//                return false;
+//            }
+//            String providedCode = args[0];
+//            OAuthUserSession session = waitingForResponse.get(currentPlayer.getUniqueId().toString());
+//            if (session != null) {
+//                String expectedToken = session.getAccessToken();
+//                if (providedCode.equals(expectedToken)) {
+//                    waitingForResponse.remove(currentPlayer.getUniqueId().toString());
+//                    // Once authenticated, cancel the callback timeout
+//                    if (callbackRunnable != null) {
+//                        callbackRunnable.cancel();
+//                        callbackRunnable = null;
+//                    }
+//                    currentPlayer.sendMessage("Authentication successful. Happy mapling!");
+//                } else {
+//                    currentPlayer.sendMessage("Invalid code, please try again.");
+//                }
+//            } else {
+//                currentPlayer.sendMessage("No pending authentication session found. Please initiate the process first.");
+//            }
+//            return true;
+//        }
+//        return false;
+//    }
 
     private Logger setupLogging() {
         logger = Logger.getLogger("Vyrtuous");

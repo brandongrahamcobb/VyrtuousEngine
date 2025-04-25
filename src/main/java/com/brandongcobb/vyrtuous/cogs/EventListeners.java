@@ -72,9 +72,9 @@ public class EventListeners implements Cog {
         this.configManager.loadConfig();
         this.dbPool = app.dbPool;
         this.lock = app.lock;
-        this.messageManager = new MessageManager(app);
-        this.moderationManager = new ModerationManager(app);
-        this.predicator = new Predicator(app);
+        this.messageManager = app.messageManager;
+        this.moderationManager = app.moderationManager;
+        this.predicator = app.predicator;
     }
 
     @Override

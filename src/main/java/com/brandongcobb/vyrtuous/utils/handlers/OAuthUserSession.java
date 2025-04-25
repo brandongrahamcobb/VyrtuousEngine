@@ -31,4 +31,8 @@ public class OAuthUserSession {
     public String getCommandName() {
         return commandName;
     }
+
+    public void setAccessToken(String token) {
+        this.accessToken = token;
+    }
 }

@@ -91,7 +91,6 @@ public class DiscordOAuth {
                 Map<String, Object> tokenData = parseJsonResponse(jsonResponse);
                 if (tokenData != null && tokenData.containsKey("access_token")) {
                     String accessToken = (String) tokenData.get("access_token");
-                    System.out.println("Access Token: " + accessToken);
                     return accessToken;
                 } else {
                     System.err.println("Discord token exchange failed: " + tokenData);

@@ -21,31 +21,38 @@ import com.brandongcobb.vyrtuous.Vyrtuous;
 import java.security.SecureRandom;
 import java.util.Base64;
 import spark.Spark;
+import java.util.HashMap;
+import java.util.Map;
+import java.net.URLDecoder;
+import java.net.URLEncoder;
 
 public class OAuthServer {
 
     private Vyrtuous app;
-    public String accessToken;
     private ConfigManager configManager;
-    private DiscordOAuth discordOAuth;
-    private PatreonOAuth patreonOAuth;
+    private Map<MinecraftUser, OAuthUserSession> sessions;
 
     public OAuthServer(Vyrtuous application) {
         Vyrtuous.oAuthServer = this;
         this.app = application;
         configManager = app.configManager;
+        this.sessions = app.sessions;
         Spark.port(Integer.parseInt(configManager.getStringValue("spark_port")));
         Spark.get(String.valueOf(configManager.getConfigValue("spark_discord_endpoint")), (req, res) -> {
             String code = req.queryParams("code");
-            accessToken = discordOAuth.exchangeCodeForToken(code);
-            res.status(200);
-            return "Discord OAuth callback processed. Enter the access token in Minecraft \n " + accessToken;
+            String stateParam = req.queryParams("state");
+            String userId = URLDecoder.decode(stateParam, "UTF-8");
+            String accessToken = DiscordOAuth.exchangeCodeForToken(code);
+            MinecraftUser.link(accessToken, userId);
+            return "Discord OAuth callback processed. Type /code with your code in Minecraft :\n " + accessToken;
         });
         Spark.get(String.valueOf(configManager.getConfigValue("spark_patreon_endpoint")), (req, res) -> {
             String code = req.queryParams("code");
-            accessToken = patreonOAuth.exchangeCodeForToken(code);
-            res.status(200);
-            return "Patreon OAuth callback processed. Enter the access token in Minecraft \n " + accessToken;
+            String stateParam = req.queryParams("state");
+            String userId = URLDecoder.decode(stateParam, "UTF-8");
+            String accessToken = PatreonOAuth.exchangeCodeForToken(code);
+            MinecraftUser.link(accessToken, userId);
+            return "Patreon OAuth callback processed. Type /code with your code in Minecraft:  \n " + accessToken;
         });
     }
 
@@ -56,4 +63,6 @@ public class OAuthServer {
     public void stop() {
         Spark.stop();
     }
+
+
 }

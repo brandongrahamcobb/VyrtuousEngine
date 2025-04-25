@@ -57,12 +57,13 @@ public class PatreonOAuth {
         this.app = application;
         this.configManager = app.configManager;
         this.patreonApiKeys = configManager.getNestedConfigValue("api_keys", "Patreon");
-        this.clientId = patreonApiKeys.getStringValue("api_key");
+        this.clientId = patreonApiKeys.getStringValue("client_id");
         this.clientSecret = patreonApiKeys.getStringValue("client_secret");
         this.redirectUri = patreonApiKeys.getStringValue("redirect_uri");
     }
 
     public static String getAuthorizationUrl() {
+//        return "https://www.patreon.com/oauth2/authorize/";
         return "https://www.patreon.com/oauth2/authorize?response_type=code&client_id=" + clientId + "&redirect_uri=" + redirectUri + "&scope=identity%20campaigns";
     }
 

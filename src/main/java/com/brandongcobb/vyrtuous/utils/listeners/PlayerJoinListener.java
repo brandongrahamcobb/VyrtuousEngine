@@ -46,7 +46,6 @@ public class PlayerJoinListener implements Listener {
 
     public PlayerJoinListener(Vyrtuous application) {
         this.app = application;
-        this.minecraftUser = app.minecraftUser;
         this.timestamp = app.timestamp;
         this.userManager = app.userManager;
     }
@@ -54,7 +53,7 @@ public class PlayerJoinListener implements Listener {
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
         this.minecraftId = event.getPlayer().getUniqueId().toString();
-        minecraftUser.userExists(minecraftId, exists -> {
+        MinecraftUser.userExists(minecraftId, exists -> {
             if (!exists) {
                 minecraftUser.createUser(timestamp, 0L, 0, "", 1, minecraftId, "", 0, "", 0L, "", "", "", "", () -> {
                     Bukkit.getPlayer(UUID.fromString(minecraftId)).sendMessage("Your minecraft user has been registered in the database. Please link your Discord and Patreon with /discord and /patreon.");

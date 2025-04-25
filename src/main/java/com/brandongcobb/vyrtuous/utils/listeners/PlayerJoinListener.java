@@ -52,7 +52,9 @@ public class PlayerJoinListener implements Listener {
 
     @EventHandler
     public void onPlayerJoin(PlayerJoinEvent event) {
-        this.minecraftId = event.getPlayer().getUniqueId().toString();
+        Player currentPlayer = event.getPlayer();
+        MinecraftUser minecraftUser = new MinecraftUser(app, currentPlayer);
+        String minecraftId = currentPlayer.getUniqueId().toString();
         MinecraftUser.userExists(minecraftId, exists -> {
             if (!exists) {
                 minecraftUser.createUser(timestamp, 0L, 0, "", 1, minecraftId, "", 0, "", 0L, "", "", "", "", () -> {

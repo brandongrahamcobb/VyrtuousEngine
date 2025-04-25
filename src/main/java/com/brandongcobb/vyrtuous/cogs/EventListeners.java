@@ -36,6 +36,8 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Set;
 import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
 import org.javacord.api.entity.message.Message;
@@ -62,14 +64,12 @@ public class EventListeners implements Cog {
     private Predicator predicator;
     public static final String ANSI_CYAN = "\u001B[36m";
     public static final String ANSI_RESET = "\u001B[0m";
+    private final Set<Long> processedMessages = new HashSet<>();
 
     public EventListeners (Vyrtuous application) {
-        Vyrtuous.eventListeners = this;
         this.app = application;
         this.configManager = app.configManager;
         this.aiManager = app.aiManager;
-        this.api = app.discordBot.getApi();
-        this.configManager.loadConfig();
         this.dbPool = app.dbPool;
         this.lock = app.lock;
         this.messageManager = app.messageManager;
@@ -82,6 +82,10 @@ public class EventListeners implements Cog {
         api.addMessageCreateListener(new MessageCreateListener() {
             @Override
             public void onMessageCreate(MessageCreateEvent event) {
+                long messageId = event.getMessageId();
+                if (processedMessages.contains(messageId)) {
+                    return; // Already processed this message
+                }
                 Message message = event.getMessage();
                 String content = event.getMessageContent();
                 List<MessageAttachment> attachments = message.getAttachments();

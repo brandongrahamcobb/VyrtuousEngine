@@ -3,7 +3,6 @@ package com.brandongcobb.vyrtuous;
 import com.brandongcobb.vyrtuous.bots.DiscordBot;
 //import com.brandongcobb.vyrtuous.Bots.LinkedInBot;
 //import com.brandongcobb.vyrtuous.Bots.TwitchBot;
-import com.brandongcobb.vyrtuous.cogs.EventListeners;
 import com.brandongcobb.vyrtuous.utils.handlers.AIManager;
 import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import com.brandongcobb.vyrtuous.utils.handlers.DiscordUser;
@@ -83,7 +82,6 @@ public class Vyrtuous extends JavaPlugin {
     public static long discordId;
     private CompletableFuture<Void> discordTask;
     public static DiscordUser discordUser;
-    public static EventListeners eventListeners;
     public static int exp;
     public static String factionName;
     public static Helpers helpers;
@@ -318,7 +316,7 @@ public class Vyrtuous extends JavaPlugin {
             @Override
             public void run() {
                 String host = getConfig().getString("postgres_host", "jdbc:postgresql://" + String.valueOf(configManager.getConfigValue("postgres_host")));
-                String db = getConfig().getString("postgres_db", String.valueOf(configManager.getConfigValue("postgres_database")));
+                String db = getConfig().getString("postgres_database", String.valueOf(configManager.getConfigValue("postgres_database")));
                 String user = getConfig().getString("postgres_user", String.valueOf(configManager.getConfigValue("postgres_user")));
                 String password = getConfig().getString("postgres_password", String.valueOf(configManager.getConfigValue("postgres_password")));
                 String port = getConfig().getString("postgres_port", String.valueOf(configManager.getConfigValue("postgres_port")));

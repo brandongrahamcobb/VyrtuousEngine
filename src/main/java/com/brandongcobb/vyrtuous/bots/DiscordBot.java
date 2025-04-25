@@ -32,7 +32,7 @@ import org.javacord.api.event.message.MessageCreateEvent;
 import org.javacord.api.listener.message.MessageCreateListener;
 import org.javacord.api.entity.intent.Intent;
 
-public class DiscordBot implements MessageCreateListener {
+public class DiscordBot {
 
     private Vyrtuous app;
     private DiscordApi api;
@@ -52,12 +52,10 @@ public class DiscordBot implements MessageCreateListener {
         this.lock = app.lock;
         this.logger = app.logger;
         initiateDiscordApi();
-        loadCogs();
     }
 
     private void initiateDiscordApi() {
         this.api = new DiscordApiBuilder().setToken(discordApiKey).addIntents(Intent.MESSAGE_CONTENT).login().join();
-        this.api.addMessageCreateListener(this);
         loadCogs();
     }
 
@@ -77,10 +75,10 @@ public class DiscordBot implements MessageCreateListener {
         return this.api;
     }
 
-    @Override
-    public void onMessageCreate(MessageCreateEvent event) {
-        // Handle the incoming message event
-    }
+//    @Override
+//    public void onMessageCreate(MessageCreateEvent event) {
+//        // Handle the incoming message event
+//    }
 
     public void start() {
         logger.info("Discord bot started!");

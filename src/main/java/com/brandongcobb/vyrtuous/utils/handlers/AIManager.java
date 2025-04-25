@@ -48,6 +48,7 @@ public class AIManager {
         this.helpers = helpers;
     }
 
+
     public CompletableFuture<String> getChatCompletion(
             long n,
             long customId,
@@ -62,66 +63,63 @@ public class AIManager {
             float top_p,
             boolean store,
             boolean addCompletionToHistory) throws IOException {
-        return inputArray.thenApply(messages -> {
-            String apiUrl = "https://api.openai.com/v1/chat/completions";
-            try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-                HttpPost post = new HttpPost(apiUrl);
-                post.setHeader("Authorization", "Bearer " + openAIAPIKey);
-                post.setHeader("Content-Type", "application/json");
-                Map<String, Object> requestBody = new HashMap<>();
-                requestBody.put("n", n);
-                ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(model);
-                boolean status = contextInfo.status();
-                if (status) {
-                    requestBody.put("max_completion_tokens", contextInfo.upperLimit());
-                } else {
-                    requestBody.put("max_tokens", contextInfo.upperLimit());
+        return inputArray.thenCompose(messages ->
+            CompletableFuture.supplyAsync(() -> {
+                String apiUrl = "https://api.openai.com/v1/chat/completions";
+                try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+                    HttpPost post = new HttpPost(apiUrl);
+                    post.setHeader("Authorization", "Bearer " + openAIAPIKey);
+                    post.setHeader("Content-Type", "application/json");
+                    Map<String, Object> requestBody = new HashMap<>();
+                    requestBody.put("n", n);
+                    ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(model);
+                    boolean status = contextInfo.status();
+                    if (status) {
+                        requestBody.put("max_completion_tokens", contextInfo.upperLimit());
+                    } else {
+                        requestBody.put("max_tokens", contextInfo.upperLimit());
+                    }
+                    requestBody.put("temperature", temperature);
+                    requestBody.put("model", model);
+                    if (responseFormat != null && !responseFormat.isEmpty()) {
+                       requestBody.put("response_format", responseFormat);
+                    }
+                    requestBody.put("stop", stop);
+                    requestBody.put("store", store);
+                    requestBody.put("top_p", top_p);
+                    List<Map<String, Object>> messagesList = new ArrayList<>();
+                    for (MessageContent messageContent : messages) {
+                        Map<String, Object> messageMap = new HashMap<>();
+                        messageMap.put("role", messageContent.getType()); // Assuming getType() returns the role ("user" or "assistant")
+                        messageMap.put("content", messageContent.getText()); // Assuming getText() returns the message content
+                        messagesList.add(messageMap);
+                    }
+                    requestBody.put("messages", messagesList); // Add the constructed messages list to the request body
+                    if (store) {
+                        LocalDateTime now = LocalDateTime.now();
+                        Map<String, Object> metadataMap = new HashMap<>();
+                        metadataMap.put("user", customId);
+                        metadataMap.put("timestamp", now);
+                        requestBody.put("metadata", Collections.singletonList(metadataMap));
+                    }
+                    trimConversationHistory(model, String.valueOf(customId));
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    String jsonBody = objectMapper.writeValueAsString(requestBody);
+                    post.setEntity(new StringEntity(jsonBody));
+                    try (CloseableHttpResponse response = httpClient.execute(post)) {
+                        HttpEntity entity = response.getEntity();
+                        String result = EntityUtils.toString(entity);
+                        String completionResult = extractCompletion(result);
+                        return completionResult;
+                    } catch (IOException e) {
+                        throw new RuntimeException("Failed to get chat completion", e);
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException("Failed to get chat completion", e);
                 }
-                requestBody.put("temperature", temperature);
-                requestBody.put("model", model);
-                if (responseFormat != null && !responseFormat.isEmpty()) {
-                    requestBody.put("response_format", responseFormat);
-                }
-                requestBody.put("stop", stop);
-                requestBody.put("store", store);
-                requestBody.put("top_p", top_p);
-                List<Map<String, Object>> messagesList = new ArrayList<>();
-                for (MessageContent messageContent : messages) {
-                    Map<String, Object> messageMap = new HashMap<>();
-                    messageMap.put("role", messageContent.getType()); // Assuming getType() returns the role ("user" or "assistant")
-                    messageMap.put("content", messageContent.getText()); // Assuming getText() returns the message content
-                    messagesList.add(messageMap);
-                }
-                requestBody.put("messages", messagesList); // Add the constructed messages list to the request body
-                if (store) {
-                    LocalDateTime now = LocalDateTime.now();
-                    Map<String, Object> metadataMap = new HashMap<>();
-                    metadataMap.put("user", customId);
-                    metadataMap.put("timestamp", now);
-                    requestBody.put("metadata", Collections.singletonList(metadataMap));
-                }
-//                if (store) {
-//                    LocalDateTime now = LocalDateTime.now();
-//                    requestBody.put("metadata", new Object[]{
-//                            Map.of("user", customId, "timestamp", now)
-//                    });
-//                }
-                trimConversationHistory(model, String.valueOf(customId));
-                ObjectMapper objectMapper = new ObjectMapper();
-                String jsonBody = objectMapper.writeValueAsString(requestBody);
-                post.setEntity(new StringEntity(jsonBody));
-                try (CloseableHttpResponse response = httpClient.execute(post)) {
-                    HttpEntity entity = response.getEntity();
-                    String result = EntityUtils.toString(entity);
-                    String completionResult = extractCompletion(result);
-                    return completionResult;
-                }
-            } catch (IOException e) {
-                throw new RuntimeException("Failed to get chat completion", e);
-            }
-        });
+            })
+        );
     }
-
 
     public CompletableFuture<String> getCompletion(long customId, CompletableFuture<List<MessageContent>> inputArray) {
 

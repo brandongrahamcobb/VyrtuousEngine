@@ -155,14 +155,15 @@ public  class ConfigManager {
         }
         return null; // or throw an exception if you expect an Integer
     }
-
-    public Float getFloatValue(String key) {
-        Object value = getConfigValue(key);
-        if (value instanceof Number) {
-            return ((Number) value).floatValue();
-        }
-        return null; // or throw an exception if you expect a Float
-    }
+//    public Float getFloatValue(String key) {
+//        Object value = getConfigValue(key);
+//        if (value instanceof Number) {
+//            return ((Number) value).floatValue();
+//        } else if (value instanceof String) {
+//            return Float.parseFloat((String) value);
+//        }
+//        return null; // or throw an exception if you expect a Float
+//    }
 
     public Long getLongValue(String key) {
         Object value = getConfigValue(key);

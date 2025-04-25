@@ -79,7 +79,9 @@ public class AIManager {
                 }
                 requestBody.put("temperature", temperature);
                 requestBody.put("model", model);
-                requestBody.put("response_format", responseFormat);
+                if (responseFormat != null && !responseFormat.isEmpty()) {
+                    requestBody.put("response_format", responseFormat);
+                }
                 requestBody.put("stop", stop);
                 requestBody.put("store", store);
                 requestBody.put("top_p", top_p);
@@ -135,8 +137,8 @@ public class AIManager {
                 configManager.getStringValue("openai_chat_stop"), // Handle stop as boolean
                 configManager.getBooleanValue("openai_chat_stream"), // Handle stream as boolean
                 app.openAIDefaultChatCompletionSysInput,
-                configManager.getFloatValue("openai_chat_temperature"),
-                configManager.getFloatValue("openai_chat_top_p"),
+                (float) Float.parseFloat(String.valueOf(configManager.getConfigValue("openai_chat_temperature"))),
+                (float) Float.parseFloat(String.valueOf(configManager.getConfigValue("openai_chat_top_p"))),
                 app.openAIDefaultChatCompletionAddToHistory,
                 app.openAIDefaultChatCompletionUseHistory
             );

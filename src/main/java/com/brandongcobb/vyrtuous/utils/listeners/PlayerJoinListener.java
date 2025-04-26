@@ -1,4 +1,6 @@
-/*  PlayerJoinListener.java The purpose of this program is to listen to player joins and execute a create user function to create a new minecraft user if non-existant.
+/*  PlayerJoinListener.java The purpose of this program is to listen to
+ *  Minecraft player joins and execute a database create user function to create
+ *  a new minecraft user if non-existant.
  *  Copyright (C) 2024  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -16,38 +18,24 @@ package com.brandongcobb.vyrtuous.utils.listeners;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.utils.handlers.MinecraftUser;
-import com.brandongcobb.vyrtuous.utils.handlers.PatreonUser;
-import com.brandongcobb.vyrtuous.utils.handlers.UserManager;
-import org.bukkit.scheduler.BukkitRunnable; // For creating scheduled tasks
-import java.sql.Connection;
-import java.sql.Connection; // For database connections
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.util.UUID;
-import org.bukkit.Bukkit; // For Bukkit API
-import org.bukkit.entity.Player; // For Player entity
+import org.bukkit.Bukkit;
+import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 
 public class PlayerJoinListener implements Listener {
 
-    private String createDate;
     private final Vyrtuous app;
     private String minecraftId;
-    private PatreonUser discordUser;
-    private PatreonUser patreonUser;
     private MinecraftUser minecraftUser;
-    private UserManager userManager;
     private Timestamp timestamp;
 
     public PlayerJoinListener(Vyrtuous application) {
         this.app = application;
         this.timestamp = app.timestamp;
-        this.userManager = app.userManager;
     }
 
     @EventHandler

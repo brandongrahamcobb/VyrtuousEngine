@@ -46,7 +46,7 @@ public class Predicator {
     }
 
     public boolean releaseMode(User user, ServerTextChannel channel) {
-        return user.getId() == 154749533429956608L || // Your developer ID
+        return (Long) user.getId() == configManager.getConfigValue("discord_owner_id") || // Your developer ID
                (boolean) configManager.getConfigValue("discord_release_mode") ||
                (channel instanceof PrivateChannel);
     }
@@ -62,12 +62,11 @@ public class Predicator {
             if (server != null) {
                 Optional<Role> veganRoleOpt = server.getRoles().stream()
                     .filter(role -> role.getName().equals("vegan"))
-                    .findFirst(); // Find the first role with the name "vegan"
+                    .findFirst();
                 if (veganRoleOpt.isPresent()) {
-                    Role veganRole = veganRoleOpt.get(); // Get the role if present
-                    // Check if the user is in that role
-                    if (veganRole.getUsers().contains(user)) { // Now call getUsers() on the Role object
-                        return true; // User has the vegan role
+                    Role veganRole = veganRoleOpt.get();
+                    if (veganRole.getUsers().contains(user)) {
+                        return true;
                     }
                 }
             }

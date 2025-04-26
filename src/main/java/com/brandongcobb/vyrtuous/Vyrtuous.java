@@ -155,7 +155,6 @@ public class Vyrtuous extends JavaPlugin {
     public static Predicator predicator;
     public static File tempDirectory;
     public static Timestamp timestamp;
-    private Map<String, OAuthUserSession> waitingForResponse;
     public static long userId;
     public static UserManager userManager;
     public static final String ANSI_CYAN = "\u001B[36m";
@@ -366,7 +365,7 @@ public class Vyrtuous extends JavaPlugin {
             if (session != null && session.getAccessToken() != null) {
                 String providedCode = args[0];
                 if (providedCode.equals(session.getAccessToken())) {
-                    waitingForResponse.remove(currentPlayer.getUniqueId().toString());
+                    sessions.remove(currentPlayer.getUniqueId().toString());
                     // Cancel timeout
                     if (callbackRunnable != null) {
                         callbackRunnable.cancel();

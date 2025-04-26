@@ -153,13 +153,13 @@ public class MessageManager {
 
     public CompletableFuture<Message> sendDiscordMessage(Message message, String content, EmbedBuilder embed) {
         return message.getServerTextChannel()
-                .map(channel -> channel.sendMessage(content, embed)) // Use .sendMessage with content and embed
+                .map(channel -> channel.sendMessage(content, embed))
                 .orElseThrow(() -> new IllegalArgumentException("Message is not in a server text channel."));
     }
 
     public CompletableFuture<Message> sendDiscordMessage(Message message, String content) {
         return message.getServerTextChannel()
-                .map(channel -> channel.sendMessage(content)) // Send message content only
+                .map(channel -> channel.sendMessage(content))
                 .orElseThrow(() -> new IllegalArgumentException("Message is not in a server text channel."));
     }
 

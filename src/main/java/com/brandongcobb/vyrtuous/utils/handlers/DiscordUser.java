@@ -1,4 +1,7 @@
-/*  PatreonUser.java The purpose of this program is to support the vyrtuous class by handling the PatreonUser which is distinct from DiscordUser or MinecraftUser.
+/*  DiscordUser.java The purpose of this program be a DiscordUser
+ *  object class which holds information about Discord users.
+ *  Scope: To preserve and be capable of restoring user data.
+ *  Current state: bugged 25 04 2025.
  *  Copyright (C) 2024  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -29,25 +32,25 @@ import java.io.File;
 import java.io.InputStreamReader;
 import java.io.IOException;
 import java.sql.Connection;
-import java.sql.PreparedStatement; // For SQL prepared statements
-import java.sql.ResultSet; // For SQL result handling
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
 import java.util.function.Consumer;
 import java.util.List;
-import java.util.logging.Level; // For logging
-import java.util.Map; // Don't forget to import Map
-import java.util.UUID; // For handling player UUIDs
+import java.util.logging.Level;
+import java.util.Map;
+import java.util.UUID;
 import okhttp3.FormBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import org.bukkit.Bukkit; // For Bukkit API
+import org.bukkit.Bukkit;
 import org.bukkit.event.player.PlayerChatEvent;
-import org.bukkit.scheduler.BukkitRunnable; // For creating scheduled tasks
+import org.bukkit.scheduler.BukkitRunnable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.ResponseEntity;
@@ -120,27 +123,26 @@ public class DiscordUser implements User {
         if (response.getStatusCode().is2xxSuccessful()) {
             Map<String, Object> userData = response.getBody();
             if (userData != null) {
-                // Extract the user ID from the response
                 return (long) userData.get("id");
             }
         }
         System.err.println("Failed to retrieve user information: " + response.getBody());
-        return 0L; // or throw an exception depending on your error handling strategy
+        return 0L;
     }
 
     public void userExists(long discordId, Consumer<Boolean> callback) {
         app.getConnection(connection -> {
             try {
-                boolean exists = false; // Default to false
+                boolean exists = false;
                 if (connection != null) {
                     try (PreparedStatement stmt = connection.prepareStatement("SELECT COUNT(*) FROM users WHERE discord_id = ?")) {
                         stmt.setLong(1, discordId);
                         ResultSet rs = stmt.executeQuery();
                         if (rs.next()) {
-                            exists = rs.getInt(1) > 0; // Set true if count is greater than 0
+                            exists = rs.getInt(1) > 0;
                         }
                     } catch (Exception e) {
-                        e.printStackTrace(); // Handle exceptions
+                        e.printStackTrace();
                     }
                 }
                 callback.accept(exists);
@@ -148,7 +150,7 @@ public class DiscordUser implements User {
                 e.printStackTrace();
             } finally {
                 try {
-                    connection.close(); // Close the connection after use
+                    connection.close();
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }

@@ -1,4 +1,5 @@
-/*  ModerationManager.java The purpose of this program is to handle all explicit strings from the program's endpoints.
+/*  ModerationManager.java The purpose of this program is to handle all explicit
+ *  strings from the program's endpoints.
  *  Copyright (C) 2024  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -57,10 +58,10 @@ public class ModerationManager {
         User author = message.getAuthor().asUser().orElse(null);
         Server server = message.getServer().orElse(null);
         if (server == null || author == null) {
-            return; // Invalid message context
+            return;
         }
         if (author.getRoles(server).stream().anyMatch(role -> role.getName().equals(configManager.getConfigValue("discord_role_pass")))) {
-            return; // User is exempt from moderation
+            return;
         }
         long userId = author.getId();
         try (Connection connection = dbPool.getConnection()) {
@@ -99,7 +100,7 @@ public class ModerationManager {
             } else if (flaggedCount >= 5) {
                 messageManager.sendDiscordMessage(message, moderationWarning + ". Your message was flagged for: " + reasonStr);
                 messageManager.sendDiscordMessage(message, "You have been timed out for 5 minutes due to repeated violations.");
-                author.timeout(server, Duration.ofSeconds(300), reasonStr); // Timeout for 5 minutes (300 seconds)
+                author.timeout(server, Duration.ofSeconds(300), reasonStr);
                 PreparedStatement resetStatement = connection.prepareStatement(
                         "UPDATE moderation_counts SET flagged_count = 0 WHERE user_id = ?");
                 resetStatement.setLong(1, userId);
@@ -111,10 +112,10 @@ public class ModerationManager {
     }
 
     public Server getServerById(long serverId) {
-        Set<Server> servers = discordBot.getApi().getServers(); // Get all servers
+        Set<Server> servers = discordBot.getApi().getServers();
         for (Server server : servers) {
             if (server.getId() == serverId) {
-                return server; // Return the server wrapped in an Optional
+                return server;
             }
         }
         return null;

@@ -63,6 +63,4 @@ public class OAuthServer {
     public void stop() {
         Spark.stop();
     }
-
-
 }

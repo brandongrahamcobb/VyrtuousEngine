@@ -1,6 +1,7 @@
-/*  PatreonUser.java The purpose of this program is to support the User classes by reducing duplicate entries in the database.
- *  The way this program functions is uniquely broken. It Patreonapp creates duplicates in the database and this program
- *  is intended to be run after every new user and is likely going to be changed because its methodology is a bandaid not a solution.
+/*  UserManager.java The purpose of this program is to support the User classes by
+ *  reducing duplicate entries in the database. The way this program functions is uniquely broken.
+ *  It creates duplicates in the database and this program is intended to be run after every new user
+ *  and is likely going to be changed because its methodology is a bandaid not a solution.
  *  Copyright (C) 2024  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify

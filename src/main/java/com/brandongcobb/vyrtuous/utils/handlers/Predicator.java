@@ -32,12 +32,12 @@ public class Predicator {
 
     private Vyrtuous app;
     private ConfigManager configManager;
-    private DiscordBot bot; // Assuming DiscordBot is your main bot class
+    private DiscordBot bot;
 
     public Predicator(Vyrtuous application) {
         Vyrtuous.predicator = this;
         this.app = application;
-        this.configManager = app.configManager; // Assuming getConfig() returns a Map of your configuration
+        this.configManager = app.configManager;
         this.bot = app.discordBot;
     }
 
@@ -84,8 +84,9 @@ public class Predicator {
         }
         return null;
     }
+
     public boolean isReleaseMode(ServerTextChannel channel, User user) {
-        return user.getId() == 154749533429956608L || // Your developer ID
+        return (Long) user.getId() == configManager.getConfigValue("discord_owner_id") || // Your developer ID
                (boolean) configManager.getConfigValue("discord_release_mode") ||
                (channel instanceof PrivateChannel);
     }

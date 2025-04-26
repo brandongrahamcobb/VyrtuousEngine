@@ -1,9 +1,25 @@
+/*  ModelRegistry.java The purpose of this program is to be solely for
+ *  OpenAI (and possibly other AI providers) model parameter bounds.
+ *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package com.brandongcobb.vyrtuous.utils.inc;
 
 import com.brandongcobb.vyrtuous.records.ModelInfo;
 import java.util.Map;
 
 public class ModelRegistry {
+
     public static Long parseCommaNumber(String number) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < number.length(); i++) {

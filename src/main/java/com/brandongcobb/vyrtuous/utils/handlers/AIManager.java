@@ -31,7 +31,7 @@ public class AIManager {
     private boolean addCompletionToHistory;
     private Vyrtuous app;
     private static ConfigManager configManager;
-    private static Map<Long, List<Map<String, String>>> conversations;
+    private static Map<Long, List<Map<String, Object>>> conversations;
     private static String openAIAPIKey;
     private static Helpers helpers;
     private int i;
@@ -84,9 +84,9 @@ public class AIManager {
                     requestBody.put("stop", stop);
                     requestBody.put("store", store);
                     requestBody.put("top_p", top_p);
-                    List<Map<String, String>> messagesList = new ArrayList<>();
+                    List<Map<String, Object>> messagesList = new ArrayList<>();
                     for (MessageContent messageContent : messages) {
-                        Map<String, String> messageMap = new HashMap<>();
+                        Map<String, Object> messageMap = new HashMap<>();
                         messageMap.put("role", messageContent.getType()); // Assuming getType() returns the role ("user" or "assistant")
                         messageMap.put("content", messageContent.getText()); // Assuming getText() returns the message content
                         messagesList.add(messageMap);
@@ -203,17 +203,17 @@ public class AIManager {
 
     public void trimConversationHistory(String model, long customId) {
         ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(model);
-        List<Map<String, String>> history = conversations.get(customId);
+        List<Map<String, Object>> history = conversations.get(customId);
         if (history == null) {
             System.out.println("No conversation history found for customId: " + customId);
             return;
         }
         long totalTokens = history.stream()
-            .mapToInt(msg -> msg.get("content").length())
+            .mapToInt(msg -> String.valueOf(msg.get("content")).length())
             .sum();
         while (totalTokens > contextInfo.upperLimit() && !history.isEmpty()) {
-            Map<String, String> removedMessage = history.remove(0);
-            totalTokens -= removedMessage.get("content").length();
+            Map<String, Object> removedMessage = history.remove(0);
+            totalTokens -= String.valueOf(removedMessage.get("content")).length();
         }
         conversations.put(customId, history);
     }

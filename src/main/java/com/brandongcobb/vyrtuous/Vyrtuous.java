@@ -174,6 +174,7 @@ public class Vyrtuous extends JavaPlugin {
         }
         configManager.validateConfig();
         this.conversations = new HashMap<>();
+        this.tempDirectory = new File(System.getProperty("java.io.tmpdir"));
         this.messageManager = new MessageManager(this);
         this.moderationManager = new ModerationManager(this);
         this.predicator = new Predicator(this);
@@ -224,7 +225,6 @@ public class Vyrtuous extends JavaPlugin {
         this.patreonOAuth = new PatreonOAuth(this);
         this.oAuthServer = new OAuthServer(this);
         this.userManager = new UserManager(this);
-        this.tempDirectory = new File(System.getProperty("java.io.tmpdir"));
     }
 
     private void cancelOAuthSession() {

@@ -48,7 +48,6 @@ public class MessageManager {
         Vyrtuous.messageManager = this;
         this.app = application;
         this.logger = app.logger;
-        File tempDirectory = new File(System.getProperty("java.io.tmpdir"));
         this.tempDirectory = app.tempDirectory;
     }
 

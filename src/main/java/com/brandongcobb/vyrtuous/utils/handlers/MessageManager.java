@@ -1,4 +1,5 @@
-/*  MessageManager.java The purpose of this program is to listen to all messages received and handle them.
+/*  MessageManager.java The purpose of this program is to manage responding to
+    users on Discord.
  *  Copyright (C) 2024  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -21,15 +22,13 @@ import java.io.File;
 import java.io.InputStream;
 import java.io.IOException;
 import java.nio.file.Files;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
+import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Logger;
-import java.util.logging.Logger;
-import java.util.HashMap;
 import java.util.Map;
 import org.javacord.api.entity.channel.PrivateChannel;
 import org.javacord.api.entity.message.embed.EmbedBuilder;
@@ -43,13 +42,14 @@ public class MessageManager {
     private ObjectMapper mapper;
     private Lock lock;
     private Logger logger;
-    public static final String ANSI_CYAN = "\u001B[36m";
-    public static final String ANSI_RESET = "\u001B[0m";
+    private File tempDirectory;
 
     public MessageManager (Vyrtuous application) {
         Vyrtuous.messageManager = this;
         this.app = application;
         this.logger = app.logger;
+        File tempDirectory = new File(System.getProperty("java.io.tmpdir"));
+        this.tempDirectory = app.tempDirectory;
     }
 
     public static String encodeImage(byte[] imageBytes) {
@@ -74,20 +74,17 @@ public class MessageManager {
     }
 
     public CompletableFuture<List<MessageContent>> processAttachments(List<MessageAttachment> attachments) {
-        // Log the entry into the method
         logger.info("Entered processAttachments with " + attachments.size() + " attachments");
-    
         List<MessageContent> processedAttachments = new ArrayList<>();
         List<CompletableFuture<Void>> futures = new ArrayList<>();
-        File tempDirectory = new File(System.getProperty("java.io.tmpdir"));
         if (!tempDirectory.exists()) {
-            tempDirectory.mkdirs(); // Create directory if it doesn't exist
+            tempDirectory.mkdirs();
         }
         for (MessageAttachment attachment : attachments) {
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                 File file = new File(tempDirectory, attachment.getFileName());
                 try (InputStream in = attachment.getUrl().openStream()) {
-                    Files.copy(in, file.toPath()); // Download the file from the URL
+                    Files.copy(in, file.toPath());
                     String contentType = getContentTypeFromFileName(attachment.getFileName());
                     if (contentType.startsWith("image/")) {
                         byte[] imageBytes = Files.readAllBytes(file.toPath());

@@ -1,4 +1,5 @@
-/*  DiscordBot.java The purpose of this program is to incorporate Javacord.
+/*  DiscordBot.java The purpose of this program is to be a drop in replacement
+    for any discord bot library (JDA, Javacord, Discord4J). Current: Javacord.
  *  Copyright (C) 2024  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -17,10 +18,14 @@ package com.brandongcobb.vyrtuous.bots;
 import com.brandongcobb.vyrtuous.bots.DiscordBot;
 import com.brandongcobb.vyrtuous.cogs.EventListeners;
 import com.brandongcobb.vyrtuous.cogs.Cog;
+import com.brandongcobb.vyrtuous.utils.handlers.AIManager;
 import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import com.brandongcobb.vyrtuous.utils.handlers.MessageManager;
+import com.brandongcobb.vyrtuous.utils.handlers.ModerationManager;
+import com.brandongcobb.vyrtuous.utils.handlers.Predicator;
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.zaxxer.hikari.HikariDataSource;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.concurrent.locks.Lock;
 import java.util.List;
@@ -34,23 +39,31 @@ import org.javacord.api.entity.intent.Intent;
 
 public class DiscordBot {
 
-    private Vyrtuous app;
+    public static AIManager aiManager;
+    private static Vyrtuous app;
     private DiscordApi api;
     private String discordApiKey;
-    private ConfigManager configManager;
+    private static ConfigManager configManager;
     private HikariDataSource dbPool;
     private Lock lock;
     private static Logger logger;
-    private static MessageManager messageManager;
+    public static MessageManager messageManager;
+    public static ModerationManager moderationManager;
+    public static Predicator predicator;
 
     public DiscordBot(Vyrtuous application) {
-        Vyrtuous.discordBot = this;
         this.app = application;
         this.configManager = app.configManager;
         this.discordApiKey = configManager.getNestedConfigValue("api_keys", "Discord").getStringValue("api_key");
         this.dbPool = app.dbPool;
         this.lock = app.lock;
         this.logger = app.logger;
+        try {
+            this.aiManager = new AIManager(app);
+        } catch (IOException ioe) {}
+        this.messageManager = new MessageManager(app);
+        this.moderationManager = new ModerationManager(app);
+        this.predicator = new Predicator(app);
         initiateDiscordApi();
     }
 
@@ -61,11 +74,7 @@ public class DiscordBot {
 
     private void loadCogs() {
         List<Cog> cogs = new ArrayList<>();
-//        cogs.add(new HybridCommands()); // Add your cogs here
-//        cogs.add(new AdministratorCommands()); // Add your cogs here
-        cogs.add(new EventListeners(app)); // Add your cogs here
-//        cogs.add(new ScheduledTasks()); // Add your cogs here
-
+        cogs.add(new EventListeners(app));
         for (Cog cog : cogs) {
             cog.register(this.api);
         }
@@ -74,11 +83,6 @@ public class DiscordBot {
     public DiscordApi getApi() {
         return this.api;
     }
-
-//    @Override
-//    public void onMessageCreate(MessageCreateEvent event) {
-//        // Handle the incoming message event
-//    }
 
     public void start() {
         logger.info("Discord bot started!");

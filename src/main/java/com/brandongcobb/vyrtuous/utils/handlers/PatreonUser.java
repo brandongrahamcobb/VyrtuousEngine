@@ -1,4 +1,5 @@
-/*  PatreonUser.java The purpose of this program is to support the PatreonPlugin class by handling the PatreonUser which is distinct from DiscordUser or MinecraftUser.
+/*  PatreonUser.java The purpose of this object is to be the session data for a given OAuthUserSession
+    when accessed via the /patreon command on Discord.app(coming soon), Minecraft or Twitch.tv(coming soon).
  *  Copyright (C) 2024  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -18,15 +19,12 @@ import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import com.brandongcobb.vyrtuous.utils.handlers.User;
 import com.brandongcobb.vyrtuous.utils.handlers.UserManager;
-import com.brandongcobb.vyrtuous.utils.listeners.PlayerJoinListener;
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.utils.sec.PatreonOAuth;
 import com.github.jasminb.jsonapi.JSONAPIDocument;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import com.patreon.PatreonAPI;
 import java.io.File;
 import java.io.IOException;
 import java.sql.Connection;
@@ -34,6 +32,9 @@ import java.sql.PreparedStatement; // For SQL prepared statements
 import java.sql.ResultSet; // For SQL result handling
 import java.sql.SQLException;
 import java.sql.Timestamp;
+import java.time.format.DateTimeFormatter;
+import java.time.LocalDateTime;
+import java.util.function.Consumer;
 import java.util.List;
 import java.util.logging.Level;
 import okhttp3.FormBody;
@@ -41,59 +42,47 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import org.bukkit.Bukkit; // For Bukkit API
-import org.bukkit.scheduler.BukkitRunnable; // For creating scheduled tasks
-import java.time.format.DateTimeFormatter;
-import java.time.LocalDateTime;
-import java.util.function.Consumer;
-import java.util.List;
-import java.util.logging.Level; // For logging
-import java.util.UUID; // For handling player UUIDs
 
 public class PatreonUser implements User {
 
-    private String accessToken;
     private Vyrtuous app;
     private ConfigManager configManager;
-    private Connection[] conn;
     private Connection connection;
-    private LocalDateTime createDate = LocalDateTime.now();
     private long discordId;
     private int exp;
     private String factionName;
     private int level;
     private String minecraftId;
-    private PatreonAPI patreonApi;
     private String patreonAbout;
     private int patreonAmountCents;
+    private long patreonClientId;
     private String patreonEmail;
     private long patreonId;
     private String patreonName;
-    private PatreonOAuth patreonOAuth;
     private String patreonStatus;
     private String patreonTier;
     private String patreonVanity;
-    private Timestamp timestamp = Timestamp.valueOf(createDate);
+    private Timestamp timestamp;
     private UserManager userManager;
 
     public PatreonUser(Vyrtuous application) {
         Vyrtuous.patreonUser = this;
         this.app = application;
         this.configManager = app.configManager;
-        this.discordId = app.discordId;
-        this.exp = app.exp;
-        this.factionName = app.factionName;
-        this.level = app.level;
-        this.minecraftId = app.minecraftId;
-        this.patreonAbout = app.patreonAbout;
-        this.patreonAmountCents = app.patreonAmountCents;
-        this.patreonApi = app.patreonApi;
-        this.patreonEmail = app.patreonEmail;
-        this.patreonId = app.patreonId;
-        this.patreonName = app.patreonName;
-        this.patreonStatus = app.patreonStatus;
-        this.patreonTier = app.patreonTier;
-        this.patreonVanity = app.patreonVanity;
+        this.timestamp = app.timestamp;
+        this.discordId = 0L;
+        this.exp = 0;
+        this.factionName = "";
+        this.level = 1;
+        this.minecraftId = "";
+        this.patreonAbout = "";
+        this.patreonAmountCents = 0;
+        this.patreonEmail = "";
+        long patreonId = 0;
+        this.patreonName = "";
+        this.patreonStatus = "";
+        this.patreonTier = "";
+        this.patreonVanity = "";
         this.timestamp = app.timestamp;
         this.userManager = app.userManager;
     }
@@ -163,60 +152,35 @@ public class PatreonUser implements User {
         }
     }
 
-    public String getPatreonAbout() {
-        return patreonAbout;
-    }
-
     public int getPatreonAmountCents() {
         return patreonAmountCents;
-    }
-
-    public String getPatreonEmail() {
-        return patreonEmail;
     }
 
     public long getPatreonId() {
         return patreonId;
     }
 
-    public String getPatreonName() {
-        return patreonName;
-    }
-
-    public String getPatreonStatus() {
-        return patreonStatus;
-    }
-
-    public String getPatreonTier() {
-        return patreonTier;
-    }
-
-    public String getPatreonVanity() {
-        return patreonVanity; // Assuming you added this field
-    }
-
     public void userExists(long patreonId, Consumer<Boolean> callback) {
         app.getConnection(connection -> {
             try {
-                boolean exists = false; // Default to false
+                boolean exists = false;
                 if (connection != null) {
                     try (PreparedStatement stmt = connection.prepareStatement("SELECT COUNT(*) FROM users WHERE patreon_id = ?")) {
                         stmt.setLong(1, patreonId);
                         ResultSet rs = stmt.executeQuery();
                         if (rs.next()) {
-                            exists = rs.getInt(1) > 0; // Set true if count is greater than 0
+                            exists = rs.getInt(1) > 0;
                         }
                     } catch (Exception e) {
-                        e.printStackTrace(); // Handle exceptions
+                        e.printStackTrace();
                     }
                 }
-            // Call the callback with the result
                 callback.accept(exists);
             } catch (Exception e) {
                 e.printStackTrace();
             } finally {
                 try {
-                    connection.close(); // Close the connection after use
+                    connection.close();
                 } catch (SQLException e) {
                     e.printStackTrace();
                 }

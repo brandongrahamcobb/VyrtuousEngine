@@ -55,26 +55,35 @@ public class EventListeners implements Cog {
     private DiscordApi api;
     private ConfigManager configManager;
     private HikariDataSource dbPool;
-    private DiscordBot discordBot;
+    private DiscordBot bot;
     private boolean flagged;
     private int i;
     private Lock lock;
+    private long messageId;
     private MessageManager messageManager;
+    private ObjectMapper mapper;
+    private List<Boolean> overall;
+    private List<String> reasons;
     private ModerationManager moderationManager;
     private Predicator predicator;
-    public static final String ANSI_CYAN = "\u001B[36m";
-    public static final String ANSI_RESET = "\u001B[0m";
     private final Set<Long> processedMessages = new HashSet<>();
+    private long senderId;
 
     public EventListeners (Vyrtuous application) {
         this.app = application;
         this.configManager = app.configManager;
-        this.aiManager = app.aiManager;
+        this.bot = app.discordBot;
+        this.aiManager = bot.aiManager;
         this.dbPool = app.dbPool;
         this.lock = app.lock;
-        this.messageManager = app.messageManager;
-        this.moderationManager = app.moderationManager;
-        this.predicator = app.predicator;
+        this.messageId = 0L;
+        this.messageManager = bot.messageManager;
+        ObjectMapper mapper = new ObjectMapper();
+        this.moderationManager = bot.moderationManager;
+        List<Boolean> overall = new ArrayList<>();
+        this.predicator = bot.predicator;
+        List<String> reasons = new ArrayList<>();
+        this.senderId = 0L;
     }
 
     @Override
@@ -84,14 +93,14 @@ public class EventListeners implements Cog {
             public void onMessageCreate(MessageCreateEvent event) {
                 long messageId = event.getMessageId();
                 if (processedMessages.contains(messageId)) {
-                    return; // Already processed this message
+                    return;
                 }
                 Message message = event.getMessage();
                 String content = event.getMessageContent();
                 List<MessageAttachment> attachments = message.getAttachments();
                 CompletableFuture<List<MessageContent>> inputArray = messageManager.processArray(content, attachments);
                 User sender = message.getAuthor().asUser().orElse(null);
-                long senderId = sender.getId();
+                senderId = sender.getId();
                 if (configManager.getBooleanValue("openai_chat_moderation") && !predicator.isDeveloper(sender)) {
                     List<Boolean> overall = new ArrayList<>();
                     List<String> reasons = new ArrayList<>();
@@ -112,19 +121,19 @@ public class EventListeners implements Cog {
                                                 .replace("/", " → ")
                                                .replace("-", " ");
                                             category = capitalize(category);
-                                            reasons.add(category); // Assuming reasons is defined in your scope
+                                            reasons.add(category);
                                         }
                                     }
                                 }
                             } catch (IOException e) {
-                                e.printStackTrace(); // Log the exception
+                                e.printStackTrace();
                             }
                         }).exceptionally(e -> {
-                            e.printStackTrace(); // Handle any exception that occurs in the CompletableFuture
+                            e.printStackTrace();
                             return null;
                         });
                         overall.add(flagged);
-                        for (int i = 0; i < reasons.size(); i++) { // Use < instead of ==
+                        for (i = 0; i < reasons.size(); i++) { // Use < instead of ==
                             moderationManager.handleModeration(message, reasons.get(i));
                         }
                         boolean hasTrue = overall.stream().anyMatch(Boolean::booleanValue);
@@ -145,7 +154,7 @@ public class EventListeners implements Cog {
                             }
                         }
                     } catch (IOException e) {
-                        e.printStackTrace(); // Handle exception appropriately
+                        e.printStackTrace();
                     }
                 }
             }

@@ -1,3 +1,19 @@
+/*  Helpers.java The purpose of this program is to support the Vytuous class
+ *  for any values which would make the legibility of the code worsen if it
+ *  was inluded explicitly.
+ *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package com.brandongcobb.vyrtuous.utils.inc;
 
 import java.util.Map;
@@ -6,8 +22,8 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Arrays;
 
-
 public class Helpers {
+
     public static Long parseCommaNumber(String number) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < number.length(); i++) {
@@ -25,27 +41,22 @@ public class Helpers {
         }
     }
 
-
     // Base directories
     public static final String DIR_BASE = Paths.get("/home/spawd/Vystopia/src/main/java/com/brandongcobb/").toAbsolutePath().toString(); // Placeholder
     public static final String DIR_HOME = System.getProperty("user.home");
     public static final String DIR_TEMP = Paths.get(DIR_BASE, "vyrtuous", "temp").toString();
 
     // Paths
-    public static final String PATH_TOML = Paths.get(DIR_HOME, "Vyrtuous", "pyproject.toml").toString();
-    public static final String PATH_CONFIG = Paths.get(DIR_BASE, "vyrtuous", "Config.java").toString();
-    public static final String PATH_CONFIG_YAML = Paths.get(DIR_HOME, ".config", "vyrtuous", "config.yaml").toString();
-    public static final String PATH_LOG = Paths.get(DIR_HOME, ".log", "vyrtuous", "discord.log").toString();
-    public static final String PATH_MAIN = Paths.get(DIR_BASE, "vyrtuous", "Main.java").toString();
+    public static final String PATH_VYRTUOUS = Paths.get(DIR_BASE, "vyrtuous", "Vyrtuous.java").toString();
     public static final String PATH_DISCORD_BOT = Paths.get(DIR_BASE, "vyrtuous", "bots", "DiscordBot.java").toString();
     public static final String PATH_COG = Paths.get(DIR_BASE, "vyrtuous", "cogs", "Cog.java").toString();
     public static final String PATH_EVENT_LISTENERS = Paths.get(DIR_BASE, "vyrtuous", "cogs", "EventListeners.java").toString();
-    public static final String PATH_VYRTUOUS = Paths.get(DIR_BASE, "vyrtuous", "Vyrtuous.java").toString();
     public static final String PATH_AI_MANAGER = Paths.get(DIR_BASE, "vyrtuous", "utils", "handlers", "AIManager.java").toString();
     public static final String PATH_CONFIG_MANAGER = Paths.get(DIR_BASE, "vyrtuous", "utils", "handlers", "ConfigManager.java").toString();
     public static final String PATH_DISCORD_USER = Paths.get(DIR_BASE, "vyrtuous", "utils", "handlers", "DiscordUser.java").toString();
     public static final String PATH_MESSAGE_MANAGER = Paths.get(DIR_BASE, "vyrtuous", "utils", "handlers", "MessageManager.java").toString();
     public static final String PATH_MINECRAFT_USER = Paths.get(DIR_BASE, "vyrtuous", "utils", "handlers", "MinecraftUser.java").toString();
+    public static final String PATH_MODEL_INFO = Paths.get(DIR_BASE, "vyrtuous", "records", "ModelInfo.java").toString();
     public static final String PATH_MODERATION_MANAGER = Paths.get(DIR_BASE, "vyrtuous", "utils", "handlers", "ModerationManager.java").toString();
     public static final String PATH_OAUTH_SERVER = Paths.get(DIR_BASE, "vyrtuous", "utils", "handlers", "OAuthServer.java").toString();
     public static final String PATH_OAUTH_USER_SESSION = Paths.get(DIR_BASE, "vyrtuous", "utils", "handlers", "OAuthUserSession.java").toString();
@@ -54,6 +65,8 @@ public class Helpers {
     public static final String PATH_USER = Paths.get(DIR_BASE, "vyrtuous", "utils", "handlers", "User.java").toString();
     public static final String PATH_USER_MANAGER = Paths.get(DIR_BASE, "vyrtuous", "utils", "handlers", "UserManager.java").toString();
     public static final String PATH_PLAYER_JOIN_LISTENER = Paths.get(DIR_BASE, "vyrtuous", "utils", "listeners", "PlayerJoinListener.java").toString();
+    public static final String PATH_HELPERS = Paths.get(DIR_BASE, "vyrtuous", "utils", "inc", "Helpers.java").toString();
+    public static final String PATH_MODEL_REGISTRY = Paths.get(DIR_BASE, "vyrtuous", "utils", "inc", "ModelRegistry.java").toString();
     public static final String PATH_DISCORD_OAUTH = Paths.get(DIR_BASE, "vyrtuous", "utils", "sec", "DiscordOAuth.py").toString();
     public static final String PATH_PATREON_OAUTH = Paths.get(DIR_BASE, "vyrtuous", "utils", "sec", "PatreonOAuth.py").toString();
 
@@ -64,8 +77,8 @@ public class Helpers {
     public static final String DISCORD_MODERATION_WARNING = "You have been warned.";
     public static final long DISCORD_OWNER_ID = parseCommaNumber("154,749,533,429,956,608");
     public static final boolean DISCORD_RELEASE_MODE = false;
-    public static final long DISCORD_ROLE_PASS = parseCommaNumber("1,308,689,505,158,565,918"); // Example role ID
-    public static final long DISCORD_TESTING_GUILD_ID = parseCommaNumber("1,300,517,536,001,036,348"); // Example guild ID
+    public static final long DISCORD_ROLE_PASS = parseCommaNumber("1,308,689,505,158,565,918");
+    public static final long DISCORD_TESTING_GUILD_ID = parseCommaNumber("1,300,517,536,001,036,348");
 
     public static final String LOGGING_LEVEL = "INFO";
 

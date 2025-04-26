@@ -37,6 +37,7 @@ import java.util.function.Consumer;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.function.Predicate;
+import java.io.File;
 import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -62,7 +63,6 @@ public class Vyrtuous extends JavaPlugin {
     public static ConfigManager configManager;
     private BukkitRunnable callbackRunnable;
     public static Map<MinecraftUser, OAuthUserSession> sessions = new HashMap<>();
-//    private Map<String, OAuthUserSession> waitingForResponse = new HashMap<>();
     public static String accessToken;
     public static AIManager aiManager;
     public static Vyrtuous app;
@@ -86,7 +86,7 @@ public class Vyrtuous extends JavaPlugin {
     public static String factionName;
     public static Helpers helpers;
     public static int level;
-    private boolean listeningForCallback = false;
+    private boolean listeningForCallback;
     public static Lock lock;
     public static Logger logger;
     private CompletableFuture<Void> loggingTask;
@@ -97,7 +97,6 @@ public class Vyrtuous extends JavaPlugin {
     public static MinecraftUser minecraftUser;
     public static ModerationManager moderationManager;
     public static OAuthServer oAuthServer;
-    private CompletableFuture<Void> oAuthTask;
     public static OAuthUserSession oAuthUserSession;
     public static boolean openAIDefaultChatCompletion;
     public static boolean openAIDefaultChatCompletionAddToHistory;
@@ -143,69 +142,18 @@ public class Vyrtuous extends JavaPlugin {
     public static String patreonVanity;
     public static PatreonUser patreonUser;
     public static Predicator predicator;
+    public static File tempDirectory;
     public static Timestamp timestamp;
     private Map<String, OAuthUserSession> waitingForResponse;
     public static long userId;
     public static UserManager userManager;
-//    public static String accessToken = ""; // Initialized with an empty string
-////    public static AIManager aiManager;
-//    public static Vyrtuous app; // Static reference for the application instance
-//    public static String authUrl = ""; // Initialized with an empty string
-//  //  public static Timer callbackTimer = new Timer(); // Instantiated Timer
-////    public static ConfigManager configManager = new ConfigManager(app); // Initialize ConfigManager (app will be null here)
-//    public static LocalDateTime createDate = LocalDateTime.now(); // Current date
-//    public static boolean createdDefaultConfig = false; // Initialized as false
-//    public static Player currentPlayer = null; // Initialized to null
-//    public static Connection connection = null; // Initialized to null
-//    public static CompletableFuture<Void> databaseTask = null; // Initialized to null
-//    public static HikariDataSource dbPool = null; // Initialized to null
-//  //  public static DiscordBot discordBot = new DiscordBot(app); // Initialize DiscordBot (app will be null here)
-// //   public static DiscordOAuth discordOAuth = new DiscordOAuth(app); // Initialize DiscordOAuth (app will be null here)
-//    public static long discordId = 0; // Initialized as 0
-//    public static CompletableFuture<Void> discordTask = null; // Initialized to null
-////    public static DiscordUser discordUser = new DiscordUser(app); // Initialize DiscordUser (app will be null here)
-//    public static int exp = 0; // Initialized to 0
-//    public static String factionName = ""; // Initialized with an empty string
-//    public static int level = 0; // Initialized to 0
-//    public static boolean listeningForCallback = false; // Initialized to false
-//    public static Lock lock; // Initialized to null
-//    public static Logger logger = Logger.getLogger("Vyrtuous"); // Initialize logger
-//    public static CompletableFuture<Void> loggingTask = null; // Initialized to null
-//    public static CompletableFuture<Void> managerTask = null; // Initialized to null
-// //   public static MessageManager messageManager = new MessageManager(app); // Initialize MessageManager (app will be null here)
-//    public static String minecraftId = ""; // Initialized with an empty string
-//    public static CompletableFuture<Void> minecraftTask = null; // Initialized to null
-// //   public static MinecraftUser minecraftUser = new MinecraftUser(app); // Initialize MinecraftUser (app will be null here)
-// //   public static OAuthServer oAuthServer = new OAuthServer(app); // Initialize OAuthServer (app will be null here)
-//    public static CompletableFuture<Void> oAuthTask = null; // Initialized to null
-//    public static String patreonAbout = ""; // Initialized with an empty string
-//    public static int patreonAmountCents = 0; // Initialized to 0
-//    public static PatreonAPI patreonApi = null; // Initialized to null until set
-//    public static String patreonApiKey = ""; // Initialized with an empty string
-//    public static String patreonClientId = ""; // Initialized with an empty string
-//    public static String patreonClientSecret = ""; // Initialized with an empty string
-//    public static String patreonEmail = ""; // Initialized with an empty string
-//    public static long patreonId = 0L; // Initialized to 0
-//    public static String patreonName = ""; // Initialized with an empty string
-// //   public static PatreonOAuth patreonOAuth = new PatreonOAuth(app); // Initialize PatreonOAuth (app will be null here)
-//    public static String patreonRedirectUrl = ""; // Initialized with an empty string
-//    public static String patreonStatus = ""; // Initialized with an empty string
-//    public static CompletableFuture<Void> patreonTask = null; // Initialized to null
-//    public static String patreonTier = ""; // Initialized with an empty string
-//    public static String patreonVanity = ""; // Initialized with an empty string
-////    public static PatreonUser patreonUser = new PatreonUser(app); // Initialize PatreonUser (app will be null here)
-////    public static Predicator predicator = new Predicator(app); // Initialize Predicator (app will be null here)
-////    public static Timestamp timestamp = new Timestamp(System.currentTimeMillis()); // Initialize with current time
-//    public static List<OAuthUserSession> waitingForResponse = new ArrayList<>(); // Directly initialized
-//    public static OAuthUserSession session = null; // Initialized to null
-//    public static long userId = 0L; // Initialized to 0
-////    public static UserManager userManager = new UserManager(app); // Initialize UserManager (app will be null here)
-//
+    public static final String ANSI_CYAN = "\u001B[36m";
+    public static final String ANSI_RESET = "\u001B[0m";
 
     public Vyrtuous () {
         app = this;
-        this.logger = Logger.getLogger("Vyrtuous"); // Initialize logger
-        this.configManager = new ConfigManager(this); // Instantiate ConfigManager
+        this.logger = Logger.getLogger("Vyrtuous");
+        this.configManager = new ConfigManager(this);
         if (configManager.exists() && configManager.isConfigSameAsDefault()) {
             if (configManager.isConfigSameAsDefault()) {
                 throw new IllegalStateException("Could not load Vyrtuous, the config is invalid.");
@@ -215,31 +163,19 @@ public class Vyrtuous extends JavaPlugin {
         }
         configManager.validateConfig();
         this.conversations = new HashMap<>();
-        this.messageManager = new MessageManager(this); // Instantiate MessageManager
-        this.moderationManager = new ModerationManager(this); // Initialize to null
-        this.predicator = new Predicator(this); // Assuming Predicator takes `Vyrtuous` instance
-        this.accessToken = ""; // Initialize with empty string
-        this.authUrl = ""; // Initialize with empty string
-        this.callbackTimer = new Timer(); // Instantiate the Timer
-        this.connection = null; // Initialize to null
-        this.createDate = LocalDateTime.now(); // Initialize with the current date
-        this.createdDefaultConfig = false; // Initialize with false
-        this.currentPlayer = null; // Initialize to null
-        this.discordApiKey = configManager.getNestedConfigValue("api_keys", "Discord").getStringValue("api_key"); // Initialize to null
+        this.messageManager = new MessageManager(this);
+        this.moderationManager = new ModerationManager(this);
+        this.predicator = new Predicator(this);
+        this.callbackTimer = new Timer();
+        this.createDate = LocalDateTime.now();
+        this.createdDefaultConfig = false;
+        this.currentPlayer = null;
+        this.discordApiKey = configManager.getNestedConfigValue("api_keys", "Discord").getStringValue("api_key");
         this.discordOwnerId = configManager.getLongValue("discord_owner_id");
-        this.dbPool = null; // Initialize to null until set
-        this.exp = 0; // Initialize with zero
-        this.factionName = ""; // Initialize with empty string
-        this.helpers = helpers;
-        this.level = 0; // Initialize with zero
-        this.listeningForCallback = false; // Initialize with false
+        this.dbPool = null;
+        this.helpers = new Helpers();
         this.lock = null;
         this.loggingTask = new CompletableFuture<Void>(); // Initialize to null
-        this.managerTask = new CompletableFuture<Void>(); // Initialize to null
-        this.minecraftId = ""; // Initialize with empty string
-        this.minecraftTask = new CompletableFuture<Void>(); // Initialize to null
-        this.oAuthTask = new CompletableFuture<Void>();
-        //this.oAuthUserSession = new ArrayList<wOAuthUserSession>();
         this.openAIDefaultChatCompletion = false;
         this.openAIDefaultChatCompletionAddToHistory = false;
         this.openAIDefaultChatCompletionMaxTokens = helpers.parseCommaNumber("32,768");
@@ -267,37 +203,21 @@ public class Vyrtuous extends JavaPlugin {
         this.openAIDefaultChatModerationTopP = 1.0f;
         this.openAIDefaultChatModerationUseHistory = false;
         this.openAIGenericApiKey = configManager.getNestedConfigValue("api_keys", "OpenAI").getStringValue("api_key");
-        this.patreonAbout = ""; // Initialize with empty string
-        this.patreonAmountCents = 0; // Initialize with zero
-//        this.patreonApi = new PatreonAPI(); // Initialize to null until set
-        this.patreonApiKey = ""; // Initialize with empty string
-        this.patreonClientId = ""; // Initialize with empty string
-        this.patreonClientSecret = ""; // Initialize with empty string
-        this.patreonEmail = ""; // Initialize with empty string
-        long patreonId = 0; // Initialize with zero
-        this.patreonName = ""; // Initialize with empty string
-        this.patreonRedirectUrl = ""; // Initialize with empty string
-        this.patreonStatus = ""; // Initialize with empty string
-        this.patreonTask = new CompletableFuture<Void>(); // Initialize to null
-        this.patreonTier = ""; // Initialize with empty string
-        this.patreonVanity = ""; // Initialize with empty string
-        this.timestamp = new Timestamp(System.currentTimeMillis()); // Initialize with current time
-        this.waitingForResponse = new HashMap<String, OAuthUserSession>(); // Initialize to null
-        this.userId = 0L; // Initialize with zero
+        this.timestamp = new Timestamp(System.currentTimeMillis());
         try {
             this.aiManager = new AIManager(this);
         } catch (IOException ioe) {}
         this.discordBot = new DiscordBot(this);
-        this.discordOAuth = new DiscordOAuth(this); // Assuming DiscordOAuth takes `Vyrtuous` instance
-        this.discordUser = new DiscordUser(this); // Assuming DiscordUser takes `Vyrtuous` instance
-        this.patreonOAuth = new PatreonOAuth(this); // Instantiate PatreonOAuth
-        this.patreonUser = new PatreonUser(this); // Instantiate PatreonUser
-        this.oAuthServer = new OAuthServer(this); // Instantiate OAuthServer
-        this.userManager = new UserManager(this); // Instantiate UserManager
+        this.discordOAuth = new DiscordOAuth(this);
+        this.discordUser = new DiscordUser(this);
+        this.patreonOAuth = new PatreonOAuth(this);
+        this.oAuthServer = new OAuthServer(this);
+        this.userManager = new UserManager(this);
+        this.tempDirectory = new File(System.getProperty("java.io.tmpdir"));
     }
 
     private void cancelOAuthSession() {
-        listeningForCallback = false; // End the current OAuth flow
+        boolean listeningForCallback = false; // End the current OAuth flow
         if (callbackTimer != null) {
             callbackTimer.cancel(); // Cancel the timer
             callbackTimer = null;
@@ -320,11 +240,6 @@ public class Vyrtuous extends JavaPlugin {
                 String user = getConfig().getString("postgres_user", String.valueOf(configManager.getConfigValue("postgres_user")));
                 String password = getConfig().getString("postgres_password", String.valueOf(configManager.getConfigValue("postgres_password")));
                 String port = getConfig().getString("postgres_port", String.valueOf(configManager.getConfigValue("postgres_port")));
-//                String host = getConfig().getString("postgres_host", "jdbc:postgresql://localhost");
-//                String db = getConfig().getString("postgres_db", "lucy");
-//                String user = getConfig().getString("postgres_user", "postgres");
-//                String password = getConfig().getString("postgres_password", "");
-//                String port = getConfig().getString("postgres_port", "5432");
                 String jdbcUrl = String.format("jdbc:postgresql://%s:%s/%s", host, port, db);
                 logger.info("Connecting to: " + jdbcUrl);
                 HikariConfig hikariConfig = new HikariConfig();
@@ -339,11 +254,11 @@ public class Vyrtuous extends JavaPlugin {
                     new BukkitRunnable() {
                         @Override
                         public void run() {
-                            afterConnect.run(); // Execute after connection is confirmed, back on main thread
+                            afterConnect.run();
                         }
                     }.runTask(Vyrtuous.this);
                 } catch (Exception e) {
-                    getLogger().log(Level.SEVERE, "Failed to initialize PostgreSQL connection pool!", e);
+                    logger.log(Level.SEVERE, "Failed to initialize PostgreSQL connection pool!", e);
                 }
            }
         }.runTaskAsynchronously(this);
@@ -356,12 +271,12 @@ public class Vyrtuous extends JavaPlugin {
                 Connection[] conn = {null}; // Use an array to hold the connection
                 try {
                     if (dbPool == null) {
-                        getLogger().warning("DataSource not initialized");
+                        logger.warning("DataSource not initialized");
                         Bukkit.getScheduler().runTask(Vyrtuous.this, () -> callback.accept(null));
                         return;
                     }
                     conn[0] = dbPool.getConnection(); // Get the connection
-                    getLogger().log(Level.INFO, "PostgreSQL connection opened.");
+                    logger.log(Level.INFO, "PostgreSQL connection opened.");
                     Bukkit.getScheduler().runTask(Vyrtuous.this, () -> callback.accept(conn[0]));
                 } catch (SQLException e) {
                     e.printStackTrace(); // Handle potential SQLException
@@ -373,7 +288,7 @@ public class Vyrtuous extends JavaPlugin {
 
     public void onDisable() {
         closeDatabase();
-        getLogger().log(Level.INFO, "PostgreSQL Example plugin disabled.");
+        logger.log(Level.INFO, "PostgreSQL Example plugin disabled.");
         cancelOAuthSession();
         oAuthServer.stop();
     }
@@ -403,17 +318,13 @@ public class Vyrtuous extends JavaPlugin {
         if (!(sender instanceof Player)) return false; // Safety check
         Player currentPlayer = (Player)sender;
         MinecraftUser minecraftUser = new MinecraftUser(this, currentPlayer);
-
         if (cmd.getName().equalsIgnoreCase("patreon") || cmd.getName().equalsIgnoreCase("discord")) {
             try {
-                // Cancel existing callback timer
                 if (callbackRunnable != null) {
                     callbackRunnable.cancel();
                 }
-                // Setup session
                 OAuthUserSession session = new OAuthUserSession(this, minecraftUser, cmd.getName());
                 sessions.put(minecraftUser, session);
-
                 String authUrl;
                 String state = URLEncoder.encode(currentPlayer.getUniqueId().toString(), "UTF-8");;
                 if (cmd.getName().equalsIgnoreCase("patreon")) {
@@ -421,10 +332,7 @@ public class Vyrtuous extends JavaPlugin {
                 } else {
                     authUrl = discordOAuth.getAuthorizationUrl() + "&state=" + state;
                 }
-
                 currentPlayer.sendMessage("Please visit the following URL to authorize: " + authUrl);
-
-                // Schedule timeout with Bukkit
                 callbackRunnable = new BukkitRunnable() {
                     @Override
                     public void run() {
@@ -435,11 +343,9 @@ public class Vyrtuous extends JavaPlugin {
                 callbackRunnable.runTaskLater(this, 20 * 60 * 10); // 10 minutes = 12000 ticks
                 return true;
             } catch (Exception e) {
-                // Handle exceptions
-                getLogger().warning("Error starting OAuth flow: " + e.getMessage());
+                logger.warning("Error starting OAuth flow: " + e.getMessage());
             }
         }
-
         if (cmd.getName().equalsIgnoreCase("code")) {
             if (args.length < 1) {
                 sender.sendMessage("Please provide an access code after /code.");
@@ -464,131 +370,8 @@ public class Vyrtuous extends JavaPlugin {
             }
             return true;
         }
-
         return false;
     }
-//
-//    @Override
-//    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-//        currentPlayer = (Player) sender;
-//        minecraftUser = minecraftUser.getCurrentUser();
-//        if (cmd.getName().equalsIgnoreCase("patreon") || cmd.getName().equalsIgnoreCase("discord")) {
-//            try {
-//                if (callbackTimer != null) {
-//                    callbackTimer.cancel(); // Cancel any existing timer
-//                    callbackTimer = null; // Allow for garbage collection
-//                    listeningForCallback = false; // We aren't waiting now
-//                    sender.sendMessage("Previous callback waiting has been interrupted. Starting over.");
-//                }
-//                listeningForCallback = true;
-//                OAuthSession session = new OAuthUserSession(this, minecraftUser, cmd.getName());
-//                waitingForResponse.put(String.valueOf(currentPlayer.getUniqueId()), session);
-//                String authUrl = "";
-//                if (cmd.getName().equalsIgnoreCase("patreon")) {
-//                    authUrl = patreonOAuth.getAuthorizationUrl();
-//                } else if (cmd.getName().equalsIgnoreCase("discord")) {
-//                    authUrl = discordOAuth.getAuthorizationUrl();
-//                }
-//                sender.sendMessage("Please visit the following URL to authorize: " + authUrl);
-//                callbackRunnable = new BukkitRunnable() {
-//                    @Override
-//                    public void run() {
-//                        // Remove session if timed out and notify the player
-//                        listeningForCallback = false;
-//                        waitingForResponse.remove(currentPlayer.getUniqueId().toString());
-//                        currentPlayer.sendMessage("Waiting for callback has timed out.");
-//                    }
-//                };
-//                 callbackRunnable.runTaskLater(this, 12000L);
-//                return true;
-//            } catch (Exception e) {}
-//        if (cmd.getName().equalsIgnoreCase("code")) {
-//            if (args.length < 1) {
-//                sender.sendMessage("Please provide an access code after /code.");
-//                return false;
-//            }
-//            String providedCode = args[0];
-//            OAuthUserSession session = waitingForResponse.get(currentPlayer.getUniqueId().toString());
-//            if (session != null) {
-//                String expectedToken = session.getAccessToken();
-//                if (providedCode.equals(expectedToken)) {
-//                    waitingForResponse.remove(currentPlayer.getUniqueId().toString());
-//                    // Once authenticated, cancel the callback timeout
-//                    if (callbackRunnable != null) {
-//                        callbackRunnable.cancel();
-//                        callbackRunnable = null;
-//                    }
-//                    currentPlayer.sendMessage("Authentication successful. Happy mapling!");
-//                } else {
-//                    currentPlayer.sendMessage("Invalid code, please try again.");
-//                }
-//            } else {
-//                currentPlayer.sendMessage("No pending authentication session found. Please initiate the process first.");
-//            }
-//            return true;
-//        }
-//        return false;
-//    }
-////    @Override
-//    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-//        currentPlayer = (Player) sender;
-//        minecraftUser = minecraftUser.getCurrentUser();
-//        if (cmd.getName().equalsIgnoreCase("patreon") || cmd.getName().equalsIgnoreCase("discord")) {
-//            try {
-//                if (callbackTimer != null) {
-//                    callbackTimer.cancel(); // Cancel any existing timer
-//                    callbackTimer = null; // Allow for garbage collection
-//                    listeningForCallback = false; // We aren't waiting now
-//                    sender.sendMessage("Previous callback waiting has been interrupted. Starting over.");
-//                }
-//                listeningForCallback = true;
-//                OAuthSession session = new OAuthUserSession(this, minecraftUser, cmd.getName());
-//                waitingForResponse.put(String.valueOf(currentPlayer.getUniqueId()), session);
-//                if (cmd.getName().equalsIgnoreCase("patreon")) {
-//                    authUrl = patreonOAuth.getAuthorizationUrl();
-//                } else if (cmd.getName().equalsIgnoreCase("discord")) {
-//                    authUrl = discordOAuth.getAuthorizationUrl();
-//                }
-//                sender.sendMessage("Please visit the following URL to authorize: " + authUrl);
-//                callbackRunnable = new BukkitRunnable() {
-//                    @Override
-//                    public void run() {
-//                        // Remove session if timed out and notify the player
-//                        listeningForCallback = false;
-//                        waitingForResponse.remove(currentPlayer.getUniqueId().toString());
-//                        currentPlayer.sendMessage("Waiting for callback has timed out.");
-//                    }
-//                };
-//                callbackRunnable.runTaskLater(this, 12000L);
-//                return true;
-//            } catch (Exception e) {}
-//        if (cmd.getName().equalsIgnoreCase("code")) {
-//            if (args.length < 1) {
-//                sender.sendMessage("Please provide an access code after /code.");
-//                return false;
-//            }
-//            String providedCode = args[0];
-//            OAuthUserSession session = waitingForResponse.get(currentPlayer.getUniqueId().toString());
-//            if (session != null) {
-//                String expectedToken = session.getAccessToken();
-//                if (providedCode.equals(expectedToken)) {
-//                    waitingForResponse.remove(currentPlayer.getUniqueId().toString());
-//                    // Once authenticated, cancel the callback timeout
-//                    if (callbackRunnable != null) {
-//                        callbackRunnable.cancel();
-//                        callbackRunnable = null;
-//                    }
-//                    currentPlayer.sendMessage("Authentication successful. Happy mapling!");
-//                } else {
-//                    currentPlayer.sendMessage("Invalid code, please try again.");
-//                }
-//            } else {
-//                currentPlayer.sendMessage("No pending authentication session found. Please initiate the process first.");
-//            }
-//            return true;
-//        }
-//        return false;
-//    }
 
     private Logger setupLogging() {
         logger = Logger.getLogger("Vyrtuous");

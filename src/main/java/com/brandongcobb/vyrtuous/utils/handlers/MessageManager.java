@@ -24,6 +24,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.HashMap;
@@ -39,7 +40,7 @@ import org.javacord.api.entity.user.User;
 public class MessageManager {
 
     private Vyrtuous app;
-    private ObjectMapper mapper;
+    private ObjectMapper mapper = new ObjectMapper();
     private Lock lock;
     private Logger logger;
     private File tempDirectory;
@@ -74,7 +75,7 @@ public class MessageManager {
 
     public CompletableFuture<List<MessageContent>> processAttachments(List<MessageAttachment> attachments) {
         logger.info("Entered processAttachments with " + attachments.size() + " attachments");
-        List<MessageContent> processedAttachments = new ArrayList<>();
+        List<MessageContent> processedAttachments = Collections.synchronizedList(new ArrayList<>());
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         if (!tempDirectory.exists()) {
             tempDirectory.mkdirs();

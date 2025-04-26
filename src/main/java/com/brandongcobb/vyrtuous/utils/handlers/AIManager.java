@@ -6,10 +6,12 @@ import com.brandongcobb.vyrtuous.utils.handlers.MessageManager.MessageContent;
 import com.brandongcobb.vyrtuous.utils.inc.Helpers;
 import com.brandongcobb.vyrtuous.utils.inc.ModelRegistry;
 import com.brandongcobb.vyrtuous.records.ModelInfo;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -100,13 +102,12 @@ public class AIManager {
                         metadataMap.put("timestamp", now);
                         requestBody.put("metadata", Collections.singletonList(metadataMap));
                     }
-                    trimConversationHistory(model, customId);
                     ObjectMapper objectMapper = new ObjectMapper();
                     String jsonBody = objectMapper.writeValueAsString(requestBody);
                     post.setEntity(new StringEntity(jsonBody));
                     try (CloseableHttpResponse response = httpClient.execute(post)) {
                         HttpEntity entity = response.getEntity();
-                        String result = EntityUtils.toString(entity);
+                        String result = EntityUtils.toString(entity, StandardCharsets.UTF_8);
                         String completionResult = extractCompletion(result);
                         return completionResult;
                     } catch (IOException e) {
@@ -218,6 +219,3 @@ public class AIManager {
         conversations.put(customId, history);
     }
 }
-
-
-

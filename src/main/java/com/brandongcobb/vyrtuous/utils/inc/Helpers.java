@@ -16,6 +16,8 @@
  */
 package com.brandongcobb.vyrtuous.utils.inc;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import java.util.Map;
 import java.nio.file.Paths;
 import java.util.List;
@@ -23,6 +25,8 @@ import java.util.HashMap;
 import java.util.Arrays;
 
 public class Helpers {
+
+    private static String finalSchema;
 
     public static Long parseCommaNumber(String number) {
         StringBuilder sb = new StringBuilder();
@@ -85,7 +89,7 @@ public class Helpers {
     public static final boolean OPENAI_CHAT_ADD_COMPLETION_TO_HISTORY = true;
     public static final Map<String, Object> OPENAI_CHAT_COLORIZE_RESPONSE_FORMAT = createColorizeSchema();
     public static final boolean OPENAI_CHAT_COMPLETION = true;
-    public static final Map<String, Object> OPENAI_CHAT_COMPLETION_RESPONSE_FORMAT = new HashMap<String, Object>();
+    public static final Map<String, Object> OPENAI_CHAT_COMPLETION_RESPONSE_FORMAT = new HashMap<>();
     public static final Map<String, String> OPENAI_CHAT_HEADERS = Map.of(
         "Content-Type", "application/json",
         "OpenAI-Organization", "org-3LYwtg7DSFJ7RLn9bfk4hATf",
@@ -98,7 +102,7 @@ public class Helpers {
         "deprecated", List.of("chatgpt-4o-latest", "gpt-3.5-turbo", "gpt-4", "gpt-4-32k", "gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "chatgpt-4o-latest")
     );
     public static final boolean OPENAI_CHAT_MODERATION = true;
-    public static final String OPENAI_CHAT_MODERATION_MODEL = "gpt-4o-mini";
+    public static final String OPENAI_CHAT_MODERATION_MODEL = "gpt-4.1-nano";
     public static final Map<String, Object> OPENAI_CHAT_MODERATION_RESPONSE_FORMAT = createModerationSchema();
     public static final String OPENAI_CHAT_MODERATION_STOP = "";
     public static final boolean OPENAI_CHAT_MODERATION_STORE = false;
@@ -106,7 +110,7 @@ public class Helpers {
     public static final String OPENAI_CHAT_MODERATION_SYS_INPUT = "You are a JSON moderation assistant";
     public static final float OPENAI_CHAT_MODERATION_TEMPERATURE = 1.0f;
     public static final float OPENAI_CHAT_MODERATION_TOP_P = 1.0f;
-    public static final String OPENAI_CHAT_MODEL = "gpt-4o-mini";
+    public static final String OPENAI_CHAT_MODEL = "gpt-4.1-nano";
     public static final boolean OPENAI_CHAT_MODERATION_USE_HISTORY = false;
     public static final boolean OPENAI_CHAT_MODERATION_ADD_COMPLETION_TO_HISTORY = false;
     public static final Map<String, Object> OPENAI_CHAT_RESPONSE_FORMAT = new HashMap<>();

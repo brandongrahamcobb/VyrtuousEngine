@@ -91,11 +91,10 @@ public class EventListeners implements Cog {
         api.addMessageCreateListener(new MessageCreateListener() {
             @Override
             public void onMessageCreate(MessageCreateEvent event) {
-                long messageId = event.getMessageId();
-                if (processedMessages.contains(messageId)) {
+                Message message = event.getMessage();
+                if (message.getAuthor().isBotUser()) {
                     return;
                 }
-                Message message = event.getMessage();
                 String content = event.getMessageContent();
                 List<MessageAttachment> attachments = message.getAttachments();
                 CompletableFuture<List<MessageContent>> inputArray = messageManager.processArray(content, attachments);
@@ -109,7 +108,7 @@ public class EventListeners implements Cog {
                         CompletableFuture<String> moderationResponse = aiManager.getChatModerationCompletion(sender.getId(), inputArray);
                         moderationResponse.thenAccept(response -> {
                             try {
-                                Map<String, Object> responseMap = mapper.readValue(response, new HashMap<String, Object>().getClass());
+                                Map<String, Object> responseMap = mapper.readValue(response, new TypeReference<Map<String, Object>>() {});
                                 List<Map<String, Object>> results = (List<Map<String, Object>>) responseMap.get("results");
                                 if (results != null && !results.isEmpty()) {
                                     Map<String, Object> result = results.get(0); // Get the first result
@@ -124,6 +123,10 @@ public class EventListeners implements Cog {
                                             reasons.add(category);
                                         }
                                     }
+                                    overall.add(flagged);
+                                    for (i = 0; i < reasons.size(); i++) { // Use < instead of ==
+                                         moderationManager.handleModeration(message, reasons.get(i));
+                                    }
                                 }
                             } catch (IOException e) {
                                 e.printStackTrace();
@@ -132,10 +135,6 @@ public class EventListeners implements Cog {
                             e.printStackTrace();
                             return null;
                         });
-                        overall.add(flagged);
-                        for (i = 0; i < reasons.size(); i++) { // Use < instead of ==
-                            moderationManager.handleModeration(message, reasons.get(i));
-                        }
                         boolean hasTrue = overall.stream().anyMatch(Boolean::booleanValue);
                         if (!hasTrue) {
                             if (Boolean.parseBoolean(configManager.getConfigValue("openai_chat_completion").toString()) && message.getMentionedUsers().contains(event.getApi().getYourself())) {

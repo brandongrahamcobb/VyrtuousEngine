@@ -28,12 +28,10 @@ import java.net.URLEncoder;
 
 public class OAuthServer {
 
-    private Vyrtuous app;
-    private Map<MinecraftUser, OAuthUserSession> sessions;
+    private static Vyrtuous app;
 
     public OAuthServer(Vyrtuous application) {
         this.app = application;
-        this.sessions = app.sessions;
         Spark.port(Integer.parseInt(ConfigManager.getStringValue("spark_port")));
         Spark.get(String.valueOf(ConfigManager.getConfigValue("spark_discord_endpoint")), (req, res) -> {
             String code = req.queryParams("code");
@@ -54,6 +52,7 @@ public class OAuthServer {
     }
 
     public static void start() {
+        OAuthServer server = new OAuthServer(app);
         Spark.init();
     }
 

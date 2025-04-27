@@ -63,6 +63,7 @@ public  class ConfigManager {
     }
 
     private static Map<String, Object> populateConfig(Map<String, Object> configMap) {
+        configMap.put("discord_command_prefix", "!");
         configMap.put("api_keys", new HashMap<String, Object>() {{
                 put("Discord", new HashMap<String, String>() {{
                 put("api_key", "");
@@ -250,6 +251,16 @@ public  class ConfigManager {
             anyValid = true; // PostgreSQL configuration is valid
         }
 
+        boolean sparkValid = validateSparkConfig();
+        if (sparkValid) {
+            anyValid = true; // PostgreSQL configuration is valid
+        }
+
+        boolean webHeadersValid = validateWebHeadersConfig();
+        if (webHeadersValid) {
+            anyValid = true; // PostgreSQL configuration is valid
+        }
+
         boolean openAIValid = validateOpenAIConfig();
         if (openAIValid) {
             anyValid = true; // PostgreSQL configuration is valid
@@ -257,7 +268,6 @@ public  class ConfigManager {
 
         if (!anyValid) {
             app.logger.severe("No valid API configurations found. Please check your configuration.");
-            // Optionally, throw an exception or halt further execution
         }
         return anyValid;
     }
@@ -284,6 +294,29 @@ public  class ConfigManager {
         }
 
         return hasValidData; // Returns true if at least one setting is valid
+    }
+
+    private static boolean validateSparkConfig() {
+        boolean isValid = true;
+        String discordEndpoint = (String) config.get("spark_discord_endpoint");
+        String patreonEndpoint = (String) config.get("spark_patreon_endpoint");
+        String port = (String) config.get("spark_port");
+        if (discordEndpoint == null || patreonEndpoint == null || port == null) {
+            app.logger.warning("spark_discord_endpoint is missing or default.");
+            app.logger.warning("spark_patreon_endpoint is missing or default.");
+            app.logger.warning("spark_port is missing or default.");
+            isValid = false;
+        }
+        if ("/oauth/discord_callback".equals(discordEndpoint)) {
+            app.logger.warning("spark_discord_endpoint is default.");
+        }
+        if ("/oauth/patreon_callback".equals(patreonEndpoint)) {
+            app.logger.warning("spark_patreon_endpoint is default.");
+        }
+        if (port.equals(Helpers.parseCommaNumber("8,000"))) {
+            app.logger.warning("spark_port is default.");
+        }
+        return isValid;
     }
 
     private static boolean validatePostgresConfig() {
@@ -349,6 +382,40 @@ public  class ConfigManager {
             isValid = false;
         }
         return isValid; // Returns true if the Postgres config is properly set
+    }
+
+    private static boolean validateWebHeadersConfig() {
+        Map<String, Object> webHeaders = (Map<String, Object>) config.get("web_headers");
+    
+        if (webHeaders == null) {
+            app.logger.severe("Web headers configuration is missing.");
+            return false;
+        }
+    
+        for (Map.Entry<String, Object> entry : webHeaders.entrySet()) {
+            String api = entry.getKey();
+            Map<String, String> headers = (Map<String, String>) entry.getValue();
+    
+            for (Map.Entry<String, String> header : headers.entrySet()) {
+                String key = header.getKey();
+                String value = header.getValue();
+    
+                if (key == null || value == null) {
+                    app.logger.warning("Web headers configuration is missing key or value.");
+                    return false;
+                }
+    
+                if (key.equals("User-Agent") && value.equals("Vyrtuous https://github.com/brandongrahamcobb/Vyrtuous.git")) {
+                    app.logger.warning("Default User-Agent found for API '" + api + "'.");
+                    return false;
+                } else if (key.equals("api-key") && value.equals("")) {
+                    app.logger.warning("Missing api-key for API '" + api + "'.");
+                    return false;
+                }
+            }
+        }
+    
+        return true;
     }
 
     public static class ConfigSection {

@@ -80,7 +80,7 @@ public class DiscordUser implements User {
     private Timestamp timestamp = Timestamp.valueOf(createDate);
     private final String USER_INFO_URL = "https://discord.com/api/v10/users/@me";
 
-    public DiscordUser(Vyrtuous application) {
+    public DiscordUser(Vyrtuous application, long discordId) {
         this.app = application;
         this.accessToken = accessToken;
         this.discordId = discordId;

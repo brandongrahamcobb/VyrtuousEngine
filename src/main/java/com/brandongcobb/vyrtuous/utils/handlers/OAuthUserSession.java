@@ -16,21 +16,42 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
+import com.brandongcobb.vyrtuous.utils.handlers.DiscordUser;
+import com.brandongcobb.vyrtuous.utils.handlers.MinecraftUser;
+import java.util.concurrent.ScheduledFuture;
 
 public class OAuthUserSession {
     private Vyrtuous app;
     private String accessToken;
     private User associatedUser;
     private String commandName;
+    private DiscordUser discordUser;
     private MinecraftUser minecraftUser;
     private String minecraftUserId;
+    private boolean waiting = false;
+    private ScheduledFuture<?> timeoutTask;
+
+    public boolean isWaiting() { return waiting; }
 
     public OAuthUserSession(Vyrtuous application, MinecraftUser minecraftUser, String accessToken) {
         this.app = application;
         this.accessToken = accessToken;
-        this.commandName = commandName;
         this.minecraftUser = minecraftUser;
         this.minecraftUserId = minecraftUserId;
+    }
+
+    public OAuthUserSession(Vyrtuous application,  DiscordUser discordUser, String accessToken) {
+        this.app = application;
+        this.accessToken = accessToken;
+    }
+
+    public ScheduledFuture<?> getTimeoutTask() { return timeoutTask; }
+
+    public void setTimeoutTask(ScheduledFuture<?> timeoutTask) {
+        if (this.timeoutTask != null && !this.timeoutTask.isDone()) {
+            this.timeoutTask.cancel(false);
+        }
+        this.timeoutTask = timeoutTask;
     }
 
     public String getAccessToken() {
@@ -48,4 +69,9 @@ public class OAuthUserSession {
     public void setAccessToken(String token) {
         this.accessToken = token;
     }
+
+    public void setWaiting(boolean value) {
+        this.waiting = value;
+    }
 }
+

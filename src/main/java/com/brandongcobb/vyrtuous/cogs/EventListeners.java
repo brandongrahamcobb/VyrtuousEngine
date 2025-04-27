@@ -54,16 +54,24 @@ public class EventListeners implements Cog {
                 if (message.getAuthor().isBotUser()) {
                     return;
                 }
+                boolean isMentioned = message.getMentionedUsers().contains(api.getYourself());
                 String content = event.getMessageContent();
                 User sender = message.getAuthor().asUser().orElse(null);
                 senderId = sender.getId();
                 List<MessageAttachment> attachments = message.getAttachments();
                 if (!Predicator.isDeveloper(sender)) {
                     AIManager.handleConversation(senderId, content, attachments).thenAccept(result -> {
-                        if (result.getValue()) {
+                        boolean handled = false;
+                        if ("chat".equals(content.substring(1)) || isMentioned) {
+                            handled = true;
+                            if (result.getValue()) {
+                                ModerationManager.handleModeration(message, result.getKey());
+                            } else {
+                                MessageManager.sendDiscordMessage(message, result.getKey());
+                            }
+                        }
+                        if (result.getValue() && !handled) {
                             ModerationManager.handleModeration(message, result.getKey());
-                        } else {
-                            MessageManager.sendDiscordMessage(message, result.getKey());
                         }
                     })
                     .join();

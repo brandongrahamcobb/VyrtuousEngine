@@ -127,16 +127,6 @@ public class Vyrtuous extends JavaPlugin {
         app = this;
 
 	// Configuration preparation
-        if (ConfigManager.exists()) {
-            ConfigManager.loadConfig();
-            if (ConfigManager.isConfigSameAsDefault())
-                throw new IllegalStateException("Could not load Vyrtuous, the config is invalid.");
-        } else {
-            ConfigManager.createDefaultConfig();
-        }
-        ConfigManager.validateConfig();
-
-        // Loading defaults
         this.openAIDefaultChatCompletion = false;
         this.openAIDefaultChatCompletionAddToHistory = false;
         this.openAIDefaultChatCompletionMaxTokens = Helpers.parseCommaNumber("32,768");
@@ -244,7 +234,18 @@ public class Vyrtuous extends JavaPlugin {
 
     public void onEnable() {
         try {
+            try {
+                ConfigManager configManager = new ConfigManager();
+                configManager.loadConfig();
+                if (ConfigManager.isConfigSameAsDefault()) {
+                   throw new IllegalStateException("Could not load Vyrtuous, the config is invalid.");
+                }
+            } catch (IOException ioe) {
+                ioe.printStackTrace();
+            }
+            ConfigManager.validateConfig();
             CompletableFuture<Void> superTask = CompletableFuture.runAsync(() -> {
+                Vyrtuous app = new Vyrtuous();
                 connectDatabase(() -> {});
                 discordBot.start();
                 setupLogging();

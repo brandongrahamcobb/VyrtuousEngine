@@ -1,3 +1,18 @@
+/*  ConfigManager.java The primary purpose of this handler is to 
+ *  manage the configuration.
+ *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
@@ -6,38 +21,36 @@ import com.brandongcobb.vyrtuous.utils.inc.Helpers;
 import java.io.*;
 import java.util.HashMap;
 import java.util.logging.Logger;
+import java.util.HashMap;
 import java.util.Map;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
 public  class ConfigManager {
 
-    private static File configFile;
-    private static Vyrtuous app;
-    public static Map<String, Object> config;
-    public static Map<String, Object> defaultConfig;
-    public ConfigSection configSection;
+    private static Map<String, Object> config;
+    private static Map<String, Object> defaultConfig;
+    private ConfigSection configSection;
     private Map<String, Object> inputConfigMap;
     private static Logger logger;
 
-    public ConfigManager(Vyrtuous application) {
-        this.app = application;
-        this.logger = app.logger;
-        this.config = new HashMap<>();
-        this.configFile = new File(app.getDataFolder(), "config.yml");
-        loadConfig();
-        this.defaultConfig = new HashMap<>();
+    static {
+        config = new HashMap<>();
     }
 
     public static Map<String, Object> getConfig() {
         return config;
     }
 
-    public static boolean exists() {
+    public boolean exists() {
+        Vyrtuous app = new Vyrtuous();
+        File configFile = new File(app.getDataFolder(), "config.yml");
         return configFile.exists();
     }
 
-    public static void createDefaultConfig() {
+    public void createDefaultConfig() {
+        Vyrtuous app = new Vyrtuous();
+        File configFile = new File(app.getDataFolder(), "config.yml");
         populateConfig(config);
         saveConfig(configFile); // Save the default config
     }
@@ -110,15 +123,17 @@ public  class ConfigManager {
         return config.equals(defaultConfig);
     }
 
-    public static void loadConfig() {
+    public void loadConfig() throws IOException {
+        Vyrtuous app = new Vyrtuous();
+        File configFile = new File(app.getDataFolder(), "config.yml");
         if (configFile.exists()) {
             try (InputStream inputStream = new FileInputStream(configFile)) {
                 Yaml yaml = new Yaml();
                 config = yaml.load(inputStream);
             } catch (IOException e) {
-                logger.severe("Failed to load config: " + e.getMessage());
+                app.logger.severe("Failed to load config: " + e.getMessage());
             } catch (Exception e) {
-                logger.severe("The config file is corrupted. Please delete it or fix it. Error: " + e.getMessage());
+                app.logger.severe("The config file is corrupted. Please delete it or fix it. Error: " + e.getMessage());
             }
         } else {
             createDefaultConfig();
@@ -126,9 +141,9 @@ public  class ConfigManager {
                 Yaml yaml = new Yaml();
                 config = yaml.load(inputStream);
             } catch (IOException e) {
-                logger.severe("Failed to load config: " + e.getMessage());
+                app.logger.severe("Failed to load config: " + e.getMessage());
             } catch (Exception e) {
-                logger.severe("The config file is corrupted. Please delete it or fix it. Error: " + e.getMessage());
+                app.logger.severe("The config file is corrupted. Please delete it or fix it. Error: " + e.getMessage());
             }
         }
     }
@@ -190,6 +205,7 @@ public  class ConfigManager {
         options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
         Yaml yaml = new Yaml(options);
         try {
+            Vyrtuous app = new Vyrtuous();
             if (!app.getDataFolder().exists()) {
                 app.getDataFolder().mkdirs(); // Create directories if they don't exist
             }
@@ -213,6 +229,7 @@ public  class ConfigManager {
     }
 
     public static boolean validateConfig() {
+        Vyrtuous app = new Vyrtuous();
         boolean anyValid = false; // Flag to check if at least one block is compliant
 
         // Validate each API configuration
@@ -236,17 +253,18 @@ public  class ConfigManager {
         }
 
         if (!anyValid) {
-            logger.severe("No valid API configurations found. Please check your configuration.");
+            app.logger.severe("No valid API configurations found. Please check your configuration.");
             // Optionally, throw an exception or halt further execution
         }
         return anyValid;
     }
 
     private static boolean validateApiConfig(String api) {
+        Vyrtuous app = new Vyrtuous();
         HashMap<String, String> settings = (HashMap<String, String>) ((Map<String, Object>) config.get("api_keys")).get(api);
 
         if (settings == null) {
-            logger.severe(api + " configuration is missing.");
+            app.logger.severe(api + " configuration is missing.");
             return false; // Configuration block not present
         }
 
@@ -257,7 +275,7 @@ public  class ConfigManager {
             String value = entry.getValue();
 
             if (value == null || value.trim().isEmpty()) {
-                logger.warning(api + " setting '" + key + "' is missing or invalid.");
+                app.logger.warning(api + " setting '" + key + "' is missing or invalid.");
             } else {
                 hasValidData = true; // Found at least one valid setting
             }
@@ -267,6 +285,7 @@ public  class ConfigManager {
     }
 
     private static boolean validatePostgresConfig() {
+        Vyrtuous app = new Vyrtuous();
         String database = (String) config.get("postgres_database");
         String user = (String) config.get("postgres_user");
         String password = (String) config.get("postgres_password");
@@ -276,23 +295,23 @@ public  class ConfigManager {
         boolean isValid = true;
 
         if (database == null || database.trim().isEmpty()) {
-            logger.warning("Postgres database setting is missing.");
+            app.logger.warning("Postgres database setting is missing.");
             isValid = false;
         }
         if (user == null || user.trim().isEmpty()) {
-            logger.warning("Postgres user setting is missing.");
+            app.logger.warning("Postgres user setting is missing.");
             isValid = false;
         }
         if (password == null || password.trim().isEmpty()) {
-            logger.warning("Postgres password setting is missing.");
+            app.logger.warning("Postgres password setting is missing.");
             isValid = false;
         }
         if (host == null || host.trim().isEmpty()) {
-            logger.warning("Postgres host setting is missing.");
+            app.logger.warning("Postgres host setting is missing.");
             isValid = false;
         }
         if (port == null || port.trim().isEmpty()) {
-            logger.warning("Postgres port setting is missing.");
+            app.logger.warning("Postgres port setting is missing.");
             isValid = false;
         }
 
@@ -300,6 +319,7 @@ public  class ConfigManager {
     }
 
     private static boolean validateOpenAIConfig() {
+        Vyrtuous app = new Vyrtuous();
         String openAIChatCompletion = (String) String.valueOf(config.get("openai_chat_completion"));
         String openAIChatModel = (String) String.valueOf(config.get("openai_chat_model"));
         String openAIChatModeration = (String) String.valueOf(config.get("openai_chat_moderation"));
@@ -309,23 +329,23 @@ public  class ConfigManager {
         float openAIChatTopP = (float) Float.parseFloat(String.valueOf(config.get("openai_chat_top_p")));
         boolean isValid = true;
         if (openAIChatModel == null || openAIChatModel.trim().isEmpty()) {
-            logger.warning("OpenAI model setting is missing.");
+            app.logger.warning("OpenAI model setting is missing.");
             isValid = false;
         }
         if (openAIChatStop == null || openAIChatStop.trim().isEmpty()) {
-            logger.warning("OpenAI user setting is missing.");
+            app.logger.warning("OpenAI user setting is missing.");
             isValid = false;
         }
         if (openAIChatStream == (boolean) false) {
-            logger.warning("OpenAI chat streaming is disabled.");
+            app.logger.warning("OpenAI chat streaming is disabled.");
             isValid = false;
         }
         if (openAIChatTopP < 0.0f || openAIChatTopP > 2.0f) {
-            logger.warning("OpenAI chat top P is broken.");
+            app.logger.warning("OpenAI chat top P is broken.");
             isValid = false;
         }
         if (openAIChatTemperature < 0.0f && openAIChatTemperature > 2.0f) {
-            logger.warning("OpenAI chat temperature is broken.");
+            app.logger.warning("OpenAI chat temperature is broken.");
             isValid = false;
         }
         return isValid; // Returns true if the Postgres config is properly set

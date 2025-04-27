@@ -17,6 +17,7 @@
 package com.brandongcobb.vyrtuous;
 
 import com.brandongcobb.vyrtuous.bots.DiscordBot;
+import com.brandongcobb.vyrtuous.utils.handlers.PlayerMessageQueueManager;
 import com.brandongcobb.vyrtuous.utils.handlers.AIManager;
 import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import com.brandongcobb.vyrtuous.utils.handlers.DiscordUser;
@@ -30,6 +31,7 @@ import com.brandongcobb.vyrtuous.utils.handlers.Predicator;
 import com.brandongcobb.vyrtuous.utils.handlers.User;
 import com.brandongcobb.vyrtuous.utils.handlers.UserManager;
 import com.brandongcobb.vyrtuous.utils.inc.Helpers;
+import com.brandongcobb.vyrtuous.utils.listeners.ChatListener;
 import com.brandongcobb.vyrtuous.utils.listeners.PlayerJoinListener;
 import com.brandongcobb.vyrtuous.utils.sec.DiscordOAuth;
 import com.brandongcobb.vyrtuous.utils.sec.PatreonOAuth;
@@ -215,9 +217,6 @@ public class Vyrtuous extends JavaPlugin {
         this.openAIDefaultChatModerationUseHistory = false;
         this.openAIGenericApiKey = configManager.getNestedConfigValue("api_keys", "OpenAI").getStringValue("api_key");
         this.timestamp = new Timestamp(System.currentTimeMillis());
-        try {
-            this.aiManager = new AIManager(this);
-        } catch (IOException ioe) {}
         this.discordBot = new DiscordBot(this);
         this.discordOAuth = new DiscordOAuth(this);
         this.discordUser = new DiscordUser(this);
@@ -305,9 +304,17 @@ public class Vyrtuous extends JavaPlugin {
 
     public void onEnable() {
         try {
+            PlayerMessageQueueManager chatQueuer = new PlayerMessageQueueManager();
             CompletableFuture<Void> loggingTask = CompletableFuture.runAsync(() -> {
                 setupLogging();
             });
+            CompletableFuture<Void> managerTask = CompletableFuture.runAsync(() -> {
+                this.messageManager = new MessageManager(this);
+                try {
+                    this.aiManager = new AIManager(this);
+                } catch (IOException ioe) {}
+            });
+            this.getServer().getPluginManager().registerEvents(new ChatListener(this, chatQueuer), this);
             this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
             CompletableFuture<Void> databaseTask = CompletableFuture.runAsync(() -> {
                 connectDatabase(() -> {});

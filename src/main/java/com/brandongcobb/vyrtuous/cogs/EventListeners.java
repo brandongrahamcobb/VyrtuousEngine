@@ -96,65 +96,14 @@ public class EventListeners implements Cog {
                     return;
                 }
                 String content = event.getMessageContent();
-                List<MessageAttachment> attachments = message.getAttachments();
-                CompletableFuture<List<MessageContent>> inputArray = messageManager.processArray(content, attachments);
                 User sender = message.getAuthor().asUser().orElse(null);
                 senderId = sender.getId();
-                if (configManager.getBooleanValue("openai_chat_moderation") && !predicator.isDeveloper(sender)) {
-                    List<Boolean> overall = new ArrayList<>();
-                    List<String> reasons = new ArrayList<>();
-                    ObjectMapper mapper = new ObjectMapper();
-                    try {
-                        CompletableFuture<String> moderationResponse = aiManager.getChatModerationCompletion(sender.getId(), inputArray);
-                        moderationResponse.thenAccept(response -> {
-                            try {
-                                Map<String, Object> responseMap = mapper.readValue(response, new TypeReference<Map<String, Object>>() {});
-                                List<Map<String, Object>> results = (List<Map<String, Object>>) responseMap.get("results");
-                                if (results != null && !results.isEmpty()) {
-                                    Map<String, Object> result = results.get(0); // Get the first result
-                                    boolean flagged = (boolean) result.get("flagged");
-                                    Map<String, Boolean> categories = (Map<String, Boolean>) result.get("categories");
-                                    for (Map.Entry<String, Boolean> entry : categories.entrySet()) {
-                                        if (Boolean.TRUE.equals(entry.getValue())) {
-                                            String category = entry.getKey()
-                                                .replace("/", " → ")
-                                               .replace("-", " ");
-                                            category = capitalize(category);
-                                            reasons.add(category);
-                                        }
-                                    }
-                                    overall.add(flagged);
-                                    for (i = 0; i < reasons.size(); i++) { // Use < instead of ==
-                                         moderationManager.handleModeration(message, reasons.get(i));
-                                    }
-                                }
-                            } catch (IOException e) {
-                                e.printStackTrace();
-                            }
-                        }).exceptionally(e -> {
-                            e.printStackTrace();
-                            return null;
-                        });
-                        boolean hasTrue = overall.stream().anyMatch(Boolean::booleanValue);
-                        if (!hasTrue) {
-                            if (Boolean.parseBoolean(configManager.getConfigValue("openai_chat_completion").toString()) && message.getMentionedUsers().contains(event.getApi().getYourself())) {
-                                CompletableFuture<String> chatResponse = aiManager.getCompletion(senderId, inputArray);
-                                chatResponse.thenAccept(response -> {
-                                    if (response.length() > 2000) {
-                                        List<String> responses = aiManager.splitLongResponse(response, 1950);
-                                        String[] responsesArray = responses.toArray(new String[0]);
-                                        for (String resp : responsesArray) {
-                                            messageManager.sendDiscordMessage(message, resp);
-                                        }
-                                    } else {
-                                        messageManager.sendDiscordMessage(message, response);
-                                    }
-                                });
-                            }
-                        }
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
+                List<MessageAttachment> attachments = message.getAttachments();
+                if (!predicator.isDeveloper(sender)) {
+                    aiManager.handleConversation(senderId, content, attachments).thenAccept(result -> {
+                        moderationManager.handleModeration(message, result.getKey());
+                        messageManager.sendDiscordMessage(message, result.getKey());
+                    });
                 }
             }
         });

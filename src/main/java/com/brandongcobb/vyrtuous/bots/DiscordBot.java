@@ -58,12 +58,6 @@ public class DiscordBot {
         this.dbPool = app.dbPool;
         this.lock = app.lock;
         this.logger = app.logger;
-        try {
-            this.aiManager = new AIManager(app);
-        } catch (IOException ioe) {}
-        this.messageManager = new MessageManager(app);
-        this.moderationManager = new ModerationManager(app);
-        this.predicator = new Predicator(app);
         initiateDiscordApi();
     }
 

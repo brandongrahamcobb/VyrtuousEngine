@@ -7,13 +7,14 @@ import com.brandongcobb.vyrtuous.utils.inc.Helpers;
 import com.brandongcobb.vyrtuous.utils.inc.ModelRegistry;
 import com.brandongcobb.vyrtuous.records.ModelInfo;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
+import java.util.*;
 import java.util.Collections;
 import java.util.concurrent.CompletableFuture;
 import java.util.HashMap;
@@ -26,13 +27,17 @@ import org.apache.http.HttpEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
+import org.javacord.api.entity.message.MessageAttachment;
+import java.util.AbstractMap;
+import java.util.Map;
 import org.yaml.snakeyaml.Yaml;
 
 public class AIManager {
 
     private boolean addCompletionToHistory;
-    private Vyrtuous app;
+    private static Vyrtuous app;
     private static ConfigManager configManager;
+    private static MessageManager messageManager;
     private static Map<Long, List<Map<String, Object>>> conversations;
     private static String openAIAPIKey;
     private static Helpers helpers;
@@ -44,11 +49,12 @@ public class AIManager {
         this.app = application;
         this.configManager = app.configManager;
         this.openAIAPIKey = configManager.getNestedConfigValue("api_keys", "OpenAI").getStringValue("api_key");
+        this.messageManager = app.messageManager;
         this.conversations = new HashMap<>();
         this.helpers = app.helpers;
     }
 
-    public CompletableFuture<String> getChatCompletion(
+    public static CompletableFuture<String> getChatCompletion(
             long n,
             long customId,
             CompletableFuture<List<MessageContent>> inputArray,
@@ -120,7 +126,7 @@ public class AIManager {
         );
     }
 
-    public CompletableFuture<String> getCompletion(long customId, CompletableFuture<List<MessageContent>> inputArray) {
+    public static CompletableFuture<String> getCompletion(long customId, CompletableFuture<List<MessageContent>> inputArray) {
 
         try {
             ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(configManager.getStringValue("openai_chat_model"));
@@ -143,7 +149,7 @@ public class AIManager {
         return null;
     }
 
-    public CompletableFuture<String> getChatModerationCompletion(long customId, CompletableFuture<List<MessageContent>> inputArray) throws IOException {
+    public static CompletableFuture<String> getChatModerationCompletion(long customId, CompletableFuture<List<MessageContent>> inputArray) throws IOException {
         try {
             ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(app.openAIDefaultChatModerationModel);
             return getChatCompletion(
@@ -165,7 +171,7 @@ public class AIManager {
         return null;
     }
 
-    private String extractCompletion(String jsonResponse) throws IOException {
+    private static String extractCompletion(String jsonResponse) throws IOException {
         ObjectMapper objectMapper = new ObjectMapper();
         Map<String, Object> responseMap = objectMapper.readValue(jsonResponse, Map.class);
         if (responseMap.containsKey("error")) {
@@ -179,6 +185,78 @@ public class AIManager {
         Map<String, Object> message = (Map<String, Object>) firstChoice.get("message");
         return (String) message.get("content"); // Cast to String
     }
+
+
+    public static CompletableFuture<Map.Entry<String, Boolean>> handleConversation(
+            long senderId,
+            String message,
+            List<MessageAttachment> attachments
+    ) {
+        return CompletableFuture.completedFuture(messageManager.processArray(message, attachments))
+            .thenCompose(inputArray -> {
+                try {
+                    if (configManager.getBooleanValue("openai_chat_moderation")) {
+                        return getChatModerationCompletion(senderId, inputArray)
+                            .thenCompose(response -> {
+                                String reasons = "";
+                                boolean flagged = false;
+                                ObjectMapper mapper = new ObjectMapper();
+                                try {
+                                    Map<String, Object> responseMap = mapper.readValue(response, new TypeReference<>() {});
+                                    List<Map<String, Object>> results = (List<Map<String, Object>>) responseMap.get("results");
+                                    if (results != null && !results.isEmpty()) {
+                                        Map<String, Object> result = results.get(0);
+                                        flagged = (Boolean) result.get("flagged");
+                                        Map<String, Boolean> categories = (Map<String, Boolean>) result.get("categories");
+                                        StringBuilder reasonsBuilder = new StringBuilder();
+                                        if (categories != null) {
+                                            for (Map.Entry<String, Boolean> entry : categories.entrySet()) {
+                                                if (Boolean.TRUE.equals(entry.getValue())) {
+                                                    reasonsBuilder
+                                                        .append(entry.getKey().replace("/", " → ").replace("-", " "))
+                                                        .append("; ");
+                                                }
+                                            }
+                                        }
+                                        reasons = reasonsBuilder.toString();
+                                    }
+                                } catch (IOException e) {
+                                    e.printStackTrace();
+                                    reasons = "Error parsing moderation data.";
+                                }
+    
+                                if (flagged) {
+                                    String finalResponse = "Moderation flagged for: " + reasons;
+                                    return CompletableFuture.completedFuture(Map.entry(finalResponse, true));
+                                } else {
+                                    // Not flagged, handle chat response
+                                    return getCompletion(senderId, inputArray)
+                                        .thenApply(chatResponse -> {
+                                            String reply = (chatResponse.length() > 2000)
+                                                    ? String.join("\n---\n", splitLongResponse(chatResponse, 1950))
+                                                    : chatResponse;
+                                            return Map.entry(reply, false);
+                                        });
+                                }
+                            });
+                    } else {
+                        // Moderation skipped, directly get chat
+                        return getCompletion(senderId, inputArray)
+                            .thenApply(chatResponse -> {
+                                String reply = (chatResponse.length() > 2000)
+                                        ? String.join("\n---\n", splitLongResponse(chatResponse, 1950))
+                                        : chatResponse;
+                                return Map.entry(reply, false);
+                            });
+                    }
+                } catch (IOException e) {
+                    // Handle exceptions from processing inputArray
+                    e.printStackTrace();
+                    return CompletableFuture.completedFuture(Map.entry("Error processing request", false));
+                }
+            });
+    }
+
 
     public static List<String> splitLongResponse(String response, int limit) {
         List<String> outputChunks = new ArrayList<>();
@@ -218,4 +296,6 @@ public class AIManager {
         }
         conversations.put(customId, history);
     }
+
+
 }

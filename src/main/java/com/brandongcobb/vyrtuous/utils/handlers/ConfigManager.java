@@ -28,6 +28,7 @@ import org.yaml.snakeyaml.Yaml;
 
 public  class ConfigManager {
 
+    private static Vyrtuous app;
     private static Map<String, Object> config;
     private static Map<String, Object> defaultConfig;
     private ConfigSection configSection;
@@ -38,18 +39,24 @@ public  class ConfigManager {
         config = new HashMap<>();
     }
 
+    public static void setApp(Vyrtuous plugin) {
+        app = plugin;
+    }
+
+    public static Vyrtuous getApp() {
+        return app;
+    }
+
     public static Map<String, Object> getConfig() {
         return config;
     }
 
     public boolean exists() {
-        Vyrtuous app = new Vyrtuous();
         File configFile = new File(app.getDataFolder(), "config.yml");
         return configFile.exists();
     }
 
     public void createDefaultConfig() {
-        Vyrtuous app = new Vyrtuous();
         File configFile = new File(app.getDataFolder(), "config.yml");
         populateConfig(config);
         saveConfig(configFile); // Save the default config
@@ -124,7 +131,6 @@ public  class ConfigManager {
     }
 
     public void loadConfig() throws IOException {
-        Vyrtuous app = new Vyrtuous();
         File configFile = new File(app.getDataFolder(), "config.yml");
         if (configFile.exists()) {
             try (InputStream inputStream = new FileInputStream(configFile)) {
@@ -187,7 +193,6 @@ public  class ConfigManager {
         return null; // or throw an exception if you expect a Float
     }
 
-    
         // Check if 'api_keys' section exists
     public static Boolean getBooleanValue(String key) {
         Object value = getConfigValue(key);
@@ -205,7 +210,6 @@ public  class ConfigManager {
         options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
         Yaml yaml = new Yaml(options);
         try {
-            Vyrtuous app = new Vyrtuous();
             if (!app.getDataFolder().exists()) {
                 app.getDataFolder().mkdirs(); // Create directories if they don't exist
             }
@@ -229,7 +233,6 @@ public  class ConfigManager {
     }
 
     public static boolean validateConfig() {
-        Vyrtuous app = new Vyrtuous();
         boolean anyValid = false; // Flag to check if at least one block is compliant
 
         // Validate each API configuration
@@ -260,7 +263,6 @@ public  class ConfigManager {
     }
 
     private static boolean validateApiConfig(String api) {
-        Vyrtuous app = new Vyrtuous();
         HashMap<String, String> settings = (HashMap<String, String>) ((Map<String, Object>) config.get("api_keys")).get(api);
 
         if (settings == null) {
@@ -285,7 +287,6 @@ public  class ConfigManager {
     }
 
     private static boolean validatePostgresConfig() {
-        Vyrtuous app = new Vyrtuous();
         String database = (String) config.get("postgres_database");
         String user = (String) config.get("postgres_user");
         String password = (String) config.get("postgres_password");
@@ -319,7 +320,6 @@ public  class ConfigManager {
     }
 
     private static boolean validateOpenAIConfig() {
-        Vyrtuous app = new Vyrtuous();
         String openAIChatCompletion = (String) String.valueOf(config.get("openai_chat_completion"));
         String openAIChatModel = (String) String.valueOf(config.get("openai_chat_model"));
         String openAIChatModeration = (String) String.valueOf(config.get("openai_chat_moderation"));

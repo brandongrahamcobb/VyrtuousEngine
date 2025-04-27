@@ -82,6 +82,7 @@ public class Vyrtuous extends JavaPlugin {
     public static Long discordOwnerId;
     public static DiscordBot discordBot;
     private CompletableFuture<Void> discordTask;
+    private static Vyrtuous instance;
     private boolean listeningForCallback;
     public static Lock lock;
     public static Logger logger;
@@ -153,12 +154,8 @@ public class Vyrtuous extends JavaPlugin {
         this.openAIDefaultChatModerationTemperature = 0.7f;
         this.openAIDefaultChatModerationTopP = 1.0f;
         this.openAIDefaultChatModerationUseHistory = false;
-        this.openAIGenericApiKey = ConfigManager.getNestedConfigValue("api_keys", "OpenAI").getStringValue("api_key");
-
         this.logger = Logger.getLogger("Vyrtuous");
         this.tempDirectory = new File(System.getProperty("java.io.tmpdir"));
-        this.discordApiKey = ConfigManager.getNestedConfigValue("api_keys", "Discord").getStringValue("api_key");
-        this.discordOwnerId = ConfigManager.getLongValue("discord_owner_id");
         this.lock = null;
         this.loggingTask = new CompletableFuture<Void>(); // Initialize to null
     }
@@ -168,6 +165,10 @@ public class Vyrtuous extends JavaPlugin {
             dbPool.close();
         }
     }
+
+   public static Vyrtuous getInstance() {
+       return instance;
+   }
 
     private void connectDatabase(Runnable afterConnect) {
         logger.log(Level.INFO, "Initializing PostgreSQL connection pool...");
@@ -235,6 +236,8 @@ public class Vyrtuous extends JavaPlugin {
     public void onEnable() {
         try {
             try {
+                instance = this;
+                ConfigManager.setApp(this);
                 ConfigManager configManager = new ConfigManager();
                 configManager.loadConfig();
                 if (ConfigManager.isConfigSameAsDefault()) {
@@ -245,12 +248,11 @@ public class Vyrtuous extends JavaPlugin {
             }
             ConfigManager.validateConfig();
             CompletableFuture<Void> superTask = CompletableFuture.runAsync(() -> {
-                Vyrtuous app = new Vyrtuous();
                 connectDatabase(() -> {});
-                discordBot.start();
+                DiscordBot.start();
                 setupLogging();
             });
-            CompletableFuture<Void> allTasks = CompletableFuture.allOf(databaseTask, discordTask, loggingTask);
+            CompletableFuture<Void> allTasks = CompletableFuture.allOf(superTask);
             allTasks.join();
             PlayerMessageQueueManager chatQueuer = new PlayerMessageQueueManager();
             this.getServer().getPluginManager().registerEvents(new ChatListener(this, chatQueuer), this);

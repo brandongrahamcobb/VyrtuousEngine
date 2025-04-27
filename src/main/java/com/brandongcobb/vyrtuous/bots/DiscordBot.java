@@ -33,31 +33,27 @@ import org.javacord.api.entity.intent.Intent;
 public class DiscordBot {
 
     private static Vyrtuous app;
-    private DiscordApi api;
-    private String discordApiKey;
-    private HikariDataSource dbPool;
-    private Lock lock;
+    private static DiscordApi api;
+    private static String discordApiKey;
+    private static long discordOwnerId;
+    private static HikariDataSource dbPool;
+    private static Lock lock;
     private static Logger logger;
 
     public DiscordBot(Vyrtuous application) {
         this.app = application;
-        this.discordApiKey = ConfigManager.getNestedConfigValue("api_keys", "Discord").getStringValue("api_key");
-        this.dbPool = app.dbPool;
-        this.lock = app.lock;
-        this.logger = app.logger;
-        initiateDiscordApi();
     }
 
-    private void initiateDiscordApi() {
-        this.api = new DiscordApiBuilder().setToken(discordApiKey).addIntents(Intent.MESSAGE_CONTENT).login().join();
+    private static void initiateDiscordApi() {
+        api = new DiscordApiBuilder().setToken(discordApiKey).addIntents(Intent.MESSAGE_CONTENT).login().join();
         loadCogs();
     }
 
-    private void loadCogs() {
+    private static void loadCogs() {
         List<Cog> cogs = new ArrayList<>();
         cogs.add(new EventListeners(app));
         for (Cog cog : cogs) {
-            cog.register(this.api);
+            cog.register(api);
         }
     }
 
@@ -65,7 +61,14 @@ public class DiscordBot {
         return this.api;
     }
 
-    public void start() {
-        logger.info("Discord bot started!");
+    public static void start() {
+        app = ConfigManager.getApp();
+        logger = app.logger;
+        discordApiKey = ConfigManager.getNestedConfigValue("api_keys", "Discord").getStringValue("api_key");
+        discordOwnerId = ConfigManager.getLongValue("discord_owner_id");
+        dbPool = app.dbPool;
+        lock = app.lock;
+        initiateDiscordApi();
+        app.logger.info("Discord bot started!");
     }
 }

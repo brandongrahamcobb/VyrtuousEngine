@@ -248,15 +248,15 @@ public class Vyrtuous extends JavaPlugin {
             }
             ConfigManager.validateConfig();
             CompletableFuture<Void> superTask = CompletableFuture.runAsync(() -> {
+                setupLogging();
                 connectDatabase(() -> {});
                 DiscordBot.start();
-                setupLogging();
+                PlayerMessageQueueManager chatQueuer = new PlayerMessageQueueManager();
+                this.getServer().getPluginManager().registerEvents(new ChatListener(this, chatQueuer), this);
+                this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
             });
             CompletableFuture<Void> allTasks = CompletableFuture.allOf(superTask);
             allTasks.join();
-            PlayerMessageQueueManager chatQueuer = new PlayerMessageQueueManager();
-            this.getServer().getPluginManager().registerEvents(new ChatListener(this, chatQueuer), this);
-            this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
         } catch (Exception e) {
             logger.severe("Error initializing the application: " + e.getMessage());
             e.printStackTrace();

@@ -16,7 +16,6 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.utils.handlers.MinecraftUser;
 
 public class OAuthUserSession {
     private Vyrtuous app;
@@ -27,7 +26,6 @@ public class OAuthUserSession {
     private String minecraftUserId;
 
     public OAuthUserSession(Vyrtuous application, MinecraftUser minecraftUser, String accessToken) {
-        Vyrtuous.oAuthUserSession = this;
         this.app = application;
         this.accessToken = accessToken;
         this.commandName = commandName;

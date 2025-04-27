@@ -40,7 +40,6 @@ public class UserManager {
     private static Connection incomingConnection;
 
     public UserManager(Vyrtuous application) {
-        Vyrtuous.userManager = this;
         this.app = application;
         this.incomingConnection = app.connection;
     }

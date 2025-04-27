@@ -35,7 +35,7 @@ public class PlayerJoinListener implements Listener {
 
     public PlayerJoinListener(Vyrtuous application) {
         this.app = application;
-        this.timestamp = app.timestamp;
+        this.timestamp = new Timestamp(System.currentTimeMillis());
     }
 
     @EventHandler

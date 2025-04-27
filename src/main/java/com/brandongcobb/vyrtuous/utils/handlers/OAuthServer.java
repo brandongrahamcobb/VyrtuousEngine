@@ -14,12 +14,12 @@
  */
 package com.brandongcobb.vyrtuous.utils.handlers;
 
-import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import com.brandongcobb.vyrtuous.utils.sec.DiscordOAuth;
 import com.brandongcobb.vyrtuous.utils.sec.PatreonOAuth;
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import java.security.SecureRandom;
 import java.util.Base64;
+import java.util.Timer;
 import spark.Spark;
 import java.util.HashMap;
 import java.util.Map;
@@ -29,16 +29,13 @@ import java.net.URLEncoder;
 public class OAuthServer {
 
     private Vyrtuous app;
-    private ConfigManager configManager;
     private Map<MinecraftUser, OAuthUserSession> sessions;
 
     public OAuthServer(Vyrtuous application) {
-        Vyrtuous.oAuthServer = this;
         this.app = application;
-        configManager = app.configManager;
         this.sessions = app.sessions;
-        Spark.port(Integer.parseInt(configManager.getStringValue("spark_port")));
-        Spark.get(String.valueOf(configManager.getConfigValue("spark_discord_endpoint")), (req, res) -> {
+        Spark.port(Integer.parseInt(ConfigManager.getStringValue("spark_port")));
+        Spark.get(String.valueOf(ConfigManager.getConfigValue("spark_discord_endpoint")), (req, res) -> {
             String code = req.queryParams("code");
             String stateParam = req.queryParams("state");
             String userId = URLDecoder.decode(stateParam, "UTF-8");
@@ -46,7 +43,7 @@ public class OAuthServer {
             MinecraftUser.link(accessToken, userId);
             return "Discord OAuth callback processed. Type /code with your code in Minecraft :\n " + accessToken;
         });
-        Spark.get(String.valueOf(configManager.getConfigValue("spark_patreon_endpoint")), (req, res) -> {
+        Spark.get(String.valueOf(ConfigManager.getConfigValue("spark_patreon_endpoint")), (req, res) -> {
             String code = req.queryParams("code");
             String stateParam = req.queryParams("state");
             String userId = URLDecoder.decode(stateParam, "UTF-8");
@@ -60,7 +57,15 @@ public class OAuthServer {
         Spark.init();
     }
 
-    public void stop() {
+    public static void stop() {
         Spark.stop();
+    }
+
+    public static void cancelOAuthSession(Timer callbackTimer) {
+        boolean listeningForCallback = false; // End the current OAuth flow
+        if (callbackTimer != null) {
+            callbackTimer.cancel(); // Cancel the timer
+            callbackTimer = null;
+        }
     }
 }

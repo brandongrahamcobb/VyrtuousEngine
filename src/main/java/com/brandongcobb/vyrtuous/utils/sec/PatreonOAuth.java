@@ -1,4 +1,5 @@
-/*  PatreonUser.java The purpose of this program is to securely associate minecraft users and patreon users (soon to be discord users).
+/*  PatreonOAuth.java The purpose of this program is to handle the OAuth
+ *  url and the program's access to it.
  *  Copyright (C) 2024  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
@@ -44,19 +45,15 @@ import org.bukkit.plugin.java.JavaPlugin;
 
 public class PatreonOAuth {
     private Vyrtuous app;
-    private String accessToken;
     private static String clientId;
     private static String clientSecret;
-    private ConfigManager configManager;
     private static ConfigSection patreonApiKeys;
     private static String redirectUri;
     private String minecraftId;
 
     public PatreonOAuth(Vyrtuous application) {
-        Vyrtuous.patreonOAuth = this;
         this.app = application;
-        this.configManager = app.configManager;
-        this.patreonApiKeys = configManager.getNestedConfigValue("api_keys", "Patreon");
+        this.patreonApiKeys = ConfigManager.getNestedConfigValue("api_keys", "Patreon");
         this.clientId = patreonApiKeys.getStringValue("client_id");
         this.clientSecret = patreonApiKeys.getStringValue("client_secret");
         this.redirectUri = patreonApiKeys.getStringValue("redirect_uri");

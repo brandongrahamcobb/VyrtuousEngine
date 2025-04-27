@@ -1,9 +1,7 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import com.brandongcobb.vyrtuous.utils.handlers.MessageManager.MessageContent;
-import com.brandongcobb.vyrtuous.utils.inc.Helpers;
 import com.brandongcobb.vyrtuous.utils.inc.ModelRegistry;
 import com.brandongcobb.vyrtuous.records.ModelInfo;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
@@ -36,22 +34,15 @@ public class AIManager {
 
     private boolean addCompletionToHistory;
     private static Vyrtuous app;
-    private static ConfigManager configManager;
-    private static MessageManager messageManager;
     private static Map<Long, List<Map<String, Object>>> conversations;
     private static String openAIAPIKey;
-    private static Helpers helpers;
     private int i;
     private CompletableFuture<List<Map<String, Object>>> inputArray;
 
     public AIManager(Vyrtuous application) throws IOException {
-        Vyrtuous.aiManager = this;
         this.app = application;
-        this.configManager = app.configManager;
-        this.openAIAPIKey = configManager.getNestedConfigValue("api_keys", "OpenAI").getStringValue("api_key");
-        this.messageManager = app.messageManager;
+        this.openAIAPIKey = ConfigManager.getNestedConfigValue("api_keys", "OpenAI").getStringValue("api_key");
         this.conversations = new HashMap<>();
-        this.helpers = app.helpers;
     }
 
     public static CompletableFuture<String> getChatCompletion(
@@ -129,19 +120,19 @@ public class AIManager {
     public static CompletableFuture<String> getCompletion(long customId, CompletableFuture<List<MessageContent>> inputArray) {
 
         try {
-            ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(configManager.getStringValue("openai_chat_model"));
+            ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(ConfigManager.getStringValue("openai_chat_model"));
             return getChatCompletion(
                 app.openAIDefaultChatCompletionNumber,
                 customId,
                 inputArray,
                 contextInfo.upperLimit(),
-                configManager.getStringValue("openai_chat_model"),
+                ConfigManager.getStringValue("openai_chat_model"),
                 app.openAIDefaultChatCompletionResponseFormat,
-                configManager.getStringValue("openai_chat_stop"),
-                configManager.getBooleanValue("openai_chat_stream"),
+                ConfigManager.getStringValue("openai_chat_stop"),
+                ConfigManager.getBooleanValue("openai_chat_stream"),
                 app.openAIDefaultChatCompletionSysInput,
-                (float) Float.parseFloat(String.valueOf(configManager.getConfigValue("openai_chat_temperature"))),                                         // I really want to change this, but it causes errors.
-                (float) Float.parseFloat(String.valueOf(configManager.getConfigValue("openai_chat_top_p"))),                                               // this too
+                (float) Float.parseFloat(String.valueOf(ConfigManager.getConfigValue("openai_chat_temperature"))),                                         // I really want to change this, but it causes errors.
+                (float) Float.parseFloat(String.valueOf(ConfigManager.getConfigValue("openai_chat_top_p"))),                                               // this too
                 app.openAIDefaultChatCompletionAddToHistory,
                 app.openAIDefaultChatCompletionUseHistory
             );
@@ -192,10 +183,10 @@ public class AIManager {
             String message,
             List<MessageAttachment> attachments
     ) {
-        return CompletableFuture.completedFuture(messageManager.processArray(message, attachments))
+        return CompletableFuture.completedFuture(MessageManager.processArray(message, attachments))
             .thenCompose(inputArray -> {
                 try {
-                    if (configManager.getBooleanValue("openai_chat_moderation")) {
+                    if (ConfigManager.getBooleanValue("openai_chat_moderation")) {
                         return getChatModerationCompletion(senderId, inputArray)
                             .thenCompose(response -> {
                                 String reasons = "";

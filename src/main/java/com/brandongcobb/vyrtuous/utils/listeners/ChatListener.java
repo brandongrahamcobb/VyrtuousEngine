@@ -31,14 +31,12 @@ import org.bukkit.event.player.AsyncPlayerChatEvent;
 public class ChatListener implements Listener {
 
     private final Vyrtuous app;
-    private final AIManager aiManager; // Assume you have an AIManager class
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
 
     private final PlayerMessageQueueManager chatQueuer;
 
     public ChatListener(Vyrtuous application, PlayerMessageQueueManager chatQueuer) {
         this.app = application;
-        this.aiManager = app.aiManager;
         this.chatQueuer = chatQueuer;
     }
 
@@ -57,7 +55,7 @@ public class ChatListener implements Listener {
 
     private void handleVyrtuousInteraction(Player player, String message, long playerId) {
         boolean continueInteraction = true;
-        aiManager.handleConversation(playerId, message, null).thenAccept(result -> {
+        AIManager.handleConversation(playerId, message, null).thenAccept(result -> {
             if (result.getValue()) {
                 return;
             } else {
@@ -78,7 +76,7 @@ public class ChatListener implements Listener {
                     });
                     break;
                 }
-                aiManager.handleConversation(playerId, message, null).thenAccept(result -> {
+                AIManager.handleConversation(playerId, message, null).thenAccept(result -> {
                     if (result.getValue()) {
                         return;
                     } else {

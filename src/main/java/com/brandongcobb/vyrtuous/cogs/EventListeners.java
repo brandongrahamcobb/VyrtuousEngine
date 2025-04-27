@@ -14,36 +14,21 @@
  */
 package com.brandongcobb.vyrtuous.cogs;
 
-import com.brandongcobb.vyrtuous.bots.DiscordBot;
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
-import com.brandongcobb.vyrtuous.utils.handlers.MessageManager.MessageContent;
+import com.brandongcobb.vyrtuous.utils.handlers.AIManager;
 import com.brandongcobb.vyrtuous.utils.handlers.MessageManager;
 import com.brandongcobb.vyrtuous.utils.handlers.ModerationManager;
 import com.brandongcobb.vyrtuous.utils.handlers.PatreonUser;
-import com.brandongcobb.vyrtuous.utils.handlers.AIManager;
 import com.brandongcobb.vyrtuous.utils.handlers.Predicator;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.zaxxer.hikari.HikariDataSource;
-import java.io.File;
-import java.io.IOException;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
-import java.util.Map;
 import java.util.List;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Set;
 import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
 import org.javacord.api.entity.message.Message;
 import org.javacord.api.entity.message.MessageAttachment;
 import org.javacord.api.entity.channel.PrivateChannel;
-import org.javacord.api.entity.message.embed.EmbedBuilder;
 import org.javacord.api.entity.user.User;
 import org.javacord.api.event.message.MessageCreateEvent;
 import org.javacord.api.listener.message.MessageCreateListener;
@@ -51,39 +36,13 @@ import org.javacord.api.listener.message.MessageCreateListener;
 public class EventListeners implements Cog {
 
     private final Vyrtuous app;
-    private AIManager aiManager;
     private DiscordApi api;
-    private ConfigManager configManager;
-    private HikariDataSource dbPool;
-    private DiscordBot bot;
-    private boolean flagged;
-    private int i;
     private Lock lock;
-    private long messageId;
-    private MessageManager messageManager;
-    private ObjectMapper mapper;
-    private List<Boolean> overall;
-    private List<String> reasons;
-    private ModerationManager moderationManager;
-    private Predicator predicator;
-    private final Set<Long> processedMessages = new HashSet<>();
     private long senderId;
 
     public EventListeners (Vyrtuous application) {
         this.app = application;
-        this.configManager = app.configManager;
-        this.bot = app.discordBot;
-        this.aiManager = bot.aiManager;
-        this.dbPool = app.dbPool;
         this.lock = app.lock;
-        this.messageId = 0L;
-        this.messageManager = bot.messageManager;
-        ObjectMapper mapper = new ObjectMapper();
-        this.moderationManager = bot.moderationManager;
-        List<Boolean> overall = new ArrayList<>();
-        this.predicator = bot.predicator;
-        List<String> reasons = new ArrayList<>();
-        this.senderId = 0L;
     }
 
     @Override
@@ -99,24 +58,14 @@ public class EventListeners implements Cog {
                 User sender = message.getAuthor().asUser().orElse(null);
                 senderId = sender.getId();
                 List<MessageAttachment> attachments = message.getAttachments();
-                if (!predicator.isDeveloper(sender)) {
-                    aiManager.handleConversation(senderId, content, attachments).thenAccept(result -> {
-                        moderationManager.handleModeration(message, result.getKey());
-                        messageManager.sendDiscordMessage(message, result.getKey());
+                if (Predicator.isDeveloper(sender)) {
+                    AIManager.handleConversation(senderId, content, attachments).thenAccept(result -> {
+                        ModerationManager.handleModeration(message, result.getKey());
+                        MessageManager.sendDiscordMessage(message, result.getKey());
                     });
                 }
             }
         });
-    }
-
-    public static List<Map<String, Object>> convertStringToList(String jsonString) throws IOException {
-        ObjectMapper objectMapper = new ObjectMapper();
-        return objectMapper.readValue(jsonString, new TypeReference<List<Map<String, Object>>>() {});
-    }
-
-    private static String capitalize(String input) {
-        if (input == null || input.isEmpty()) return input;
-        return input.substring(0, 1).toUpperCase() + input.substring(1);
     }
 }
 

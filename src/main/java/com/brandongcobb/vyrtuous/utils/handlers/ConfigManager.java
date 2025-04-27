@@ -17,26 +17,23 @@ public  class ConfigManager {
     public static Map<String, Object> config;
     public static Map<String, Object> defaultConfig;
     public ConfigSection configSection;
-    private static Helpers helpers;
     private Map<String, Object> inputConfigMap;
     private static Logger logger;
 
     public ConfigManager(Vyrtuous application) {
-        Vyrtuous.configManager = this;
         this.app = application;
         this.logger = app.logger;
-        this.helpers = new Helpers();
         this.config = new HashMap<>();
         this.configFile = new File(app.getDataFolder(), "config.yml");
         loadConfig();
         this.defaultConfig = new HashMap<>();
     }
 
-    public Map<String, Object> getConfig() {
+    public static Map<String, Object> getConfig() {
         return config;
     }
 
-    public boolean exists() {
+    public static boolean exists() {
         return configFile.exists();
     }
 
@@ -99,7 +96,7 @@ public  class ConfigManager {
         configMap.put("postgres_port", "");
         configMap.put("spark_discord_endpoint", "/oauth/discord_callback");
         configMap.put("spark_patreon_endpoint", "/oauth/patreon_callback");
-        configMap.put("spark_port", helpers.parseCommaNumber("8,000"));
+        configMap.put("spark_port", Helpers.parseCommaNumber("8,000"));
         configMap.put("web_headers", new HashMap<String, Object>() {{
             put("API.Bible", new HashMap<String, String>() {{
                 put("User-Agent", "Vyrtuous https://github.com/brandongrahamcobb/Vyrtuous.git");
@@ -109,7 +106,7 @@ public  class ConfigManager {
         return configMap;
     }
 
-    public boolean isConfigSameAsDefault() {
+    public static boolean isConfigSameAsDefault() {
         return config.equals(defaultConfig);
     }
 
@@ -136,11 +133,11 @@ public  class ConfigManager {
         }
     }
 
-    public Object getConfigValue(String key) {
+    public static Object getConfigValue(String key) {
         return config.get(key);
     }
 
-    public String getStringValue(String key) {
+    public static String getStringValue(String key) {
         Object value = getConfigValue(key);
         if (value instanceof String) {
             return (String) value;
@@ -148,14 +145,14 @@ public  class ConfigManager {
         return null; // or throw an exception if you expect a String
     }
 
-    public Integer getIntValue(String key) {
+    public static Integer getIntValue(String key) {
         Object value = getConfigValue(key);
         if (value instanceof Number) {
             return ((Number) value).intValue();
         }
         return null; // or throw an exception if you expect an Integer
     }
-//    public Float getFloatValue(String key) {
+//    public static Float getFloatValue(String key) {
 //        Object value = getConfigValue(key);
 //        if (value instanceof Number) {
 //            return ((Number) value).floatValue();
@@ -165,7 +162,7 @@ public  class ConfigManager {
 //        return null; // or throw an exception if you expect a Float
 //    }
 
-    public Long getLongValue(String key) {
+    public static Long getLongValue(String key) {
         Object value = getConfigValue(key);
         if (value instanceof Number) {
             return ((Number) value).longValue();
@@ -177,7 +174,7 @@ public  class ConfigManager {
 
     
         // Check if 'api_keys' section exists
-    public Boolean getBooleanValue(String key) {
+    public static Boolean getBooleanValue(String key) {
         Object value = getConfigValue(key);
         if (value instanceof Boolean) {
             return (Boolean) value;
@@ -204,7 +201,7 @@ public  class ConfigManager {
         }
     }
 
-    public ConfigSection getNestedConfigValue(String outerKey, String innerKey) {
+    public static ConfigSection getNestedConfigValue(String outerKey, String innerKey) {
         Map<String, Object> outerMap = (Map<String, Object>) config.get(outerKey);
         if (outerMap != null) {
             Object innerValue = outerMap.get(innerKey);
@@ -215,7 +212,7 @@ public  class ConfigManager {
         return null; // Return null or handle accordingly if the outer key doesn't exist
     }
 
-    public boolean validateConfig() {
+    public static boolean validateConfig() {
         boolean anyValid = false; // Flag to check if at least one block is compliant
 
         // Validate each API configuration
@@ -245,7 +242,7 @@ public  class ConfigManager {
         return anyValid;
     }
 
-    private boolean validateApiConfig(String api) {
+    private static boolean validateApiConfig(String api) {
         HashMap<String, String> settings = (HashMap<String, String>) ((Map<String, Object>) config.get("api_keys")).get(api);
 
         if (settings == null) {
@@ -269,7 +266,7 @@ public  class ConfigManager {
         return hasValidData; // Returns true if at least one setting is valid
     }
 
-    private boolean validatePostgresConfig() {
+    private static boolean validatePostgresConfig() {
         String database = (String) config.get("postgres_database");
         String user = (String) config.get("postgres_user");
         String password = (String) config.get("postgres_password");
@@ -302,7 +299,7 @@ public  class ConfigManager {
         return isValid; // Returns true if the Postgres config is properly set
     }
 
-    private boolean validateOpenAIConfig() {
+    private static boolean validateOpenAIConfig() {
         String openAIChatCompletion = (String) String.valueOf(config.get("openai_chat_completion"));
         String openAIChatModel = (String) String.valueOf(config.get("openai_chat_model"));
         String openAIChatModeration = (String) String.valueOf(config.get("openai_chat_moderation"));
@@ -334,7 +331,7 @@ public  class ConfigManager {
         return isValid; // Returns true if the Postgres config is properly set
     }
 
-    public class ConfigSection {
+    public static class ConfigSection {
 
         private Map<String, Object> values;
 

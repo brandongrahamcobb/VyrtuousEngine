@@ -29,7 +29,6 @@ import com.brandongcobb.vyrtuous.utils.handlers.OAuthUserSession;
 import com.brandongcobb.vyrtuous.utils.handlers.PatreonUser;
 import com.brandongcobb.vyrtuous.utils.handlers.Predicator;
 import com.brandongcobb.vyrtuous.utils.handlers.User;
-import com.brandongcobb.vyrtuous.utils.handlers.UserManager;
 import com.brandongcobb.vyrtuous.utils.inc.Helpers;
 import com.brandongcobb.vyrtuous.utils.listeners.ChatListener;
 import com.brandongcobb.vyrtuous.utils.listeners.PlayerJoinListener;
@@ -73,43 +72,22 @@ import org.javacord.api.DiscordApiBuilder;
 
 public class Vyrtuous extends JavaPlugin {
 
-    public static ConfigManager configManager;
     private BukkitRunnable callbackRunnable;
-    public static Map<MinecraftUser, OAuthUserSession> sessions = new HashMap<>();
-    public static String accessToken;
-    public static AIManager aiManager;
     public static Vyrtuous app;
-    public static String authUrl;
-    public static Timer callbackTimer;
     public static Map<String, List<Map<String, String>>> conversations;
-    public static LocalDateTime createDate;
-    public static boolean createdDefaultConfig;
-    public static Player currentPlayer;
     public static Connection connection;
     private CompletableFuture<Void> databaseTask;
     public static HikariDataSource dbPool;
     public static String discordApiKey;
     public static Long discordOwnerId;
     public static DiscordBot discordBot;
-    public static DiscordOAuth discordOAuth;
-    public static long discordId;
     private CompletableFuture<Void> discordTask;
-    public static DiscordUser discordUser;
-    public static int exp;
-    public static String factionName;
-    public static Helpers helpers;
-    public static int level;
     private boolean listeningForCallback;
     public static Lock lock;
     public static Logger logger;
     private CompletableFuture<Void> loggingTask;
     private CompletableFuture<Void> managerTask;
-    public static MessageManager messageManager;
-    public static String minecraftId;
     private CompletableFuture<Void> minecraftTask;
-    public static MinecraftUser minecraftUser;
-    public static ModerationManager moderationManager;
-    public static OAuthServer oAuthServer;
     public static OAuthUserSession oAuthUserSession;
     public static boolean openAIDefaultChatCompletion;
     public static boolean openAIDefaultChatCompletionAddToHistory;
@@ -138,76 +116,46 @@ public class Vyrtuous extends JavaPlugin {
     public static float openAIDefaultChatModerationTopP;
     public static boolean openAIDefaultChatModerationUseHistory;
     public static String openAIGenericApiKey;
-    public static String patreonAbout;
-    public static int patreonAmountCents;
-    public static PatreonAPI patreonApi;
-    public static String patreonApiKey;
-    public static String patreonClientId;
-    public static String patreonClientSecret;
-    public static String patreonEmail;
-    public static long patreonId;
-    public static String patreonName;
-    public static PatreonOAuth patreonOAuth;
-    public static String patreonRedirectUrl;
-    public static String patreonStatus;
-    private CompletableFuture<Void> patreonTask;
-    public static String patreonTier;
-    public static String patreonVanity;
-    public static PatreonUser patreonUser;
-    public static Predicator predicator;
+    public static Map<MinecraftUser, OAuthUserSession> sessions = new HashMap<>();
     public static File tempDirectory;
-    public static Timestamp timestamp;
-    public static long userId;
-    public static UserManager userManager;
+    public Timer callbackTimer;
     public static final String ANSI_CYAN = "\u001B[36m";
     public static final String ANSI_RESET = "\u001B[0m";
 
     public Vyrtuous () {
+
         app = this;
-        this.logger = Logger.getLogger("Vyrtuous");
-        this.configManager = new ConfigManager(this);
-        if (configManager.exists() && configManager.isConfigSameAsDefault()) {
-            if (configManager.isConfigSameAsDefault()) {
+
+	// Configuration preparation
+        if (ConfigManager.exists()) {
+            ConfigManager.loadConfig();
+            if (ConfigManager.isConfigSameAsDefault())
                 throw new IllegalStateException("Could not load Vyrtuous, the config is invalid.");
-            }
-        } else if (!configManager.exists()){
-            configManager.createDefaultConfig();
+        } else {
+            ConfigManager.createDefaultConfig();
         }
-        configManager.validateConfig();
-        this.conversations = new HashMap<>();
-        this.tempDirectory = new File(System.getProperty("java.io.tmpdir"));
-        this.messageManager = new MessageManager(this);
-        this.moderationManager = new ModerationManager(this);
-        this.predicator = new Predicator(this);
-        this.callbackTimer = new Timer();
-        this.createDate = LocalDateTime.now();
-        this.createdDefaultConfig = false;
-        this.currentPlayer = null;
-        this.discordApiKey = configManager.getNestedConfigValue("api_keys", "Discord").getStringValue("api_key");
-        this.discordOwnerId = configManager.getLongValue("discord_owner_id");
-        this.dbPool = null;
-        this.helpers = new Helpers();
-        this.lock = null;
-        this.loggingTask = new CompletableFuture<Void>(); // Initialize to null
+        ConfigManager.validateConfig();
+
+        // Loading defaults
         this.openAIDefaultChatCompletion = false;
         this.openAIDefaultChatCompletionAddToHistory = false;
-        this.openAIDefaultChatCompletionMaxTokens = helpers.parseCommaNumber("32,768");
+        this.openAIDefaultChatCompletionMaxTokens = Helpers.parseCommaNumber("32,768");
         this.openAIDefaultChatCompletionModel = "gpt-4.1-nano";
         this.openAIDefaultChatCompletionNumber = 1;
-        this.openAIDefaultChatCompletionResponseFormat = helpers.OPENAI_CHAT_COMPLETION_RESPONSE_FORMAT;
+        this.openAIDefaultChatCompletionResponseFormat = Helpers.OPENAI_CHAT_COMPLETION_RESPONSE_FORMAT;
         this.openAIDefaultChatCompletionStop = "";
         this.openAIDefaultChatCompletionStore = false;
         this.openAIDefaultChatCompletionStream = false;
-        this.openAIDefaultChatCompletionSysInput = helpers.OPENAI_CHAT_COMPLETION_SYS_INPUT;;
+        this.openAIDefaultChatCompletionSysInput = Helpers.OPENAI_CHAT_COMPLETION_SYS_INPUT;;
         this.openAIDefaultChatCompletionTemperature = 0.7f;
         this.openAIDefaultChatCompletionTopP = 1.0f;
         this.openAIDefaultChatCompletionUseHistory = false;
         this.openAIDefaultChatModeration = true;
         this.openAIDefaultChatModerationAddToHistory = false;
-        this.openAIDefaultChatModerationMaxTokens = helpers.parseCommaNumber("32,768");
+        this.openAIDefaultChatModerationMaxTokens = Helpers.parseCommaNumber("32,768");
         this.openAIDefaultChatModerationModel = "gpt-4.1-nano";
         this.openAIDefaultChatModerationNumber = 1;
-        this.openAIDefaultChatModerationResponseFormat = helpers.OPENAI_CHAT_MODERATION_RESPONSE_FORMAT;
+        this.openAIDefaultChatModerationResponseFormat = Helpers.OPENAI_CHAT_MODERATION_RESPONSE_FORMAT;
         this.openAIDefaultChatModerationStop = "";
         this.openAIDefaultChatModerationStore = false;
         this.openAIDefaultChatModerationStream = false;
@@ -215,22 +163,14 @@ public class Vyrtuous extends JavaPlugin {
         this.openAIDefaultChatModerationTemperature = 0.7f;
         this.openAIDefaultChatModerationTopP = 1.0f;
         this.openAIDefaultChatModerationUseHistory = false;
-        this.openAIGenericApiKey = configManager.getNestedConfigValue("api_keys", "OpenAI").getStringValue("api_key");
-        this.timestamp = new Timestamp(System.currentTimeMillis());
-        this.discordBot = new DiscordBot(this);
-        this.discordOAuth = new DiscordOAuth(this);
-        this.discordUser = new DiscordUser(this);
-        this.patreonOAuth = new PatreonOAuth(this);
-        this.oAuthServer = new OAuthServer(this);
-        this.userManager = new UserManager(this);
-    }
+        this.openAIGenericApiKey = ConfigManager.getNestedConfigValue("api_keys", "OpenAI").getStringValue("api_key");
 
-    private void cancelOAuthSession() {
-        boolean listeningForCallback = false; // End the current OAuth flow
-        if (callbackTimer != null) {
-            callbackTimer.cancel(); // Cancel the timer
-            callbackTimer = null;
-        }
+        this.logger = Logger.getLogger("Vyrtuous");
+        this.tempDirectory = new File(System.getProperty("java.io.tmpdir"));
+        this.discordApiKey = ConfigManager.getNestedConfigValue("api_keys", "Discord").getStringValue("api_key");
+        this.discordOwnerId = ConfigManager.getLongValue("discord_owner_id");
+        this.lock = null;
+        this.loggingTask = new CompletableFuture<Void>(); // Initialize to null
     }
 
     public void closeDatabase() {
@@ -244,11 +184,11 @@ public class Vyrtuous extends JavaPlugin {
         new BukkitRunnable() {
             @Override
             public void run() {
-                String host = getConfig().getString("postgres_host", "jdbc:postgresql://" + String.valueOf(configManager.getConfigValue("postgres_host")));
-                String db = getConfig().getString("postgres_database", String.valueOf(configManager.getConfigValue("postgres_database")));
-                String user = getConfig().getString("postgres_user", String.valueOf(configManager.getConfigValue("postgres_user")));
-                String password = getConfig().getString("postgres_password", String.valueOf(configManager.getConfigValue("postgres_password")));
-                String port = getConfig().getString("postgres_port", String.valueOf(configManager.getConfigValue("postgres_port")));
+                String host = getConfig().getString("postgres_host", "jdbc:postgresql://" + String.valueOf(ConfigManager.getConfigValue("postgres_host")));
+                String db = getConfig().getString("postgres_database", String.valueOf(ConfigManager.getConfigValue("postgres_database")));
+                String user = getConfig().getString("postgres_user", String.valueOf(ConfigManager.getConfigValue("postgres_user")));
+                String password = getConfig().getString("postgres_password", String.valueOf(ConfigManager.getConfigValue("postgres_password")));
+                String port = getConfig().getString("postgres_port", String.valueOf(ConfigManager.getConfigValue("postgres_port")));
                 String jdbcUrl = String.format("jdbc:postgresql://%s:%s/%s", host, port, db);
                 logger.info("Connecting to: " + jdbcUrl);
                 HikariConfig hikariConfig = new HikariConfig();
@@ -298,32 +238,22 @@ public class Vyrtuous extends JavaPlugin {
     public void onDisable() {
         closeDatabase();
         logger.log(Level.INFO, "PostgreSQL Example plugin disabled.");
-        cancelOAuthSession();
-        oAuthServer.stop();
+        OAuthServer.cancelOAuthSession(callbackTimer);
+        OAuthServer.stop();
     }
 
     public void onEnable() {
         try {
-            PlayerMessageQueueManager chatQueuer = new PlayerMessageQueueManager();
-            CompletableFuture<Void> loggingTask = CompletableFuture.runAsync(() -> {
-                setupLogging();
-            });
-            CompletableFuture<Void> managerTask = CompletableFuture.runAsync(() -> {
-                this.messageManager = new MessageManager(this);
-                try {
-                    this.aiManager = new AIManager(this);
-                } catch (IOException ioe) {}
-            });
-            this.getServer().getPluginManager().registerEvents(new ChatListener(this, chatQueuer), this);
-            this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
-            CompletableFuture<Void> databaseTask = CompletableFuture.runAsync(() -> {
+            CompletableFuture<Void> superTask = CompletableFuture.runAsync(() -> {
                 connectDatabase(() -> {});
-            });
-            CompletableFuture<Void> discordTask = CompletableFuture.runAsync(() -> {
                 discordBot.start();
+                setupLogging();
             });
             CompletableFuture<Void> allTasks = CompletableFuture.allOf(databaseTask, discordTask, loggingTask);
             allTasks.join();
+            PlayerMessageQueueManager chatQueuer = new PlayerMessageQueueManager();
+            this.getServer().getPluginManager().registerEvents(new ChatListener(this, chatQueuer), this);
+            this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
         } catch (Exception e) {
             logger.severe("Error initializing the application: " + e.getMessage());
             e.printStackTrace();
@@ -345,9 +275,9 @@ public class Vyrtuous extends JavaPlugin {
                 String authUrl;
                 String state = URLEncoder.encode(currentPlayer.getUniqueId().toString(), "UTF-8");;
                 if (cmd.getName().equalsIgnoreCase("patreon")) {
-                    authUrl = patreonOAuth.getAuthorizationUrl() + "&state=" + state;
+                    authUrl = PatreonOAuth.getAuthorizationUrl() + "&state=" + state;
                 } else {
-                    authUrl = discordOAuth.getAuthorizationUrl() + "&state=" + state;
+                    authUrl = DiscordOAuth.getAuthorizationUrl() + "&state=" + state;
                 }
                 currentPlayer.sendMessage("Please visit the following URL to authorize: " + authUrl);
                 callbackRunnable = new BukkitRunnable() {

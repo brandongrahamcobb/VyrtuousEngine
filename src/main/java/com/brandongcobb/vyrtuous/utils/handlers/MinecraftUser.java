@@ -2,7 +2,6 @@ package com.brandongcobb.vyrtuous.utils.handlers;
 
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.utils.handlers.UserManager;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -18,19 +17,17 @@ public class MinecraftUser implements User {
     private static Vyrtuous app;
     private static Player player;
     private String minecraftId;
-    private UserManager userManager;
     public static Map<MinecraftUser, OAuthUserSession> sessions;
 
     public MinecraftUser(Vyrtuous application, Player currentPlayer) {
         this.app = application;
         this.sessions = app.sessions;
         this.player = currentPlayer;
-        this.userManager = app.userManager;
     }
 
     @Override
     public void createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity, Runnable callback) {
-        userManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity, () -> {
+        UserManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity, () -> {
             callback.run();
         });
     }

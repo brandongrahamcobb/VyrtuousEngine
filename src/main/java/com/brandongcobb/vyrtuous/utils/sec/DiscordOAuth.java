@@ -1,3 +1,18 @@
+/*  DiscordOAuth.java The purpose of this program is to handle the OAuth
+ *  url and the program's access to it.
+ *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package com.brandongcobb.vyrtuous.utils.sec;
 
 import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
@@ -25,24 +40,21 @@ import com.google.gson.JsonParser;
 public class DiscordOAuth {
 
     private static Vyrtuous app;
-    private static ConfigManager configManager;// = new ConfigManager(app);
-    private static ConfigSection discordApiKeys; // = configManager.new ConfigSection();
+    private static ConfigSection discordApiKeys; // = ConfigManager.new ConfigSection();
     private static String clientId;
     private static String clientSecret;
     private static String discordId;
     private static String redirectUri;
 
     public DiscordOAuth(Vyrtuous application) {
-        Vyrtuous.discordOAuth = this;
         this.app = application;
-        configManager = app.configManager;
-        discordApiKeys = configManager.getNestedConfigValue("api_keys", "Discord");
+        discordApiKeys = ConfigManager.getNestedConfigValue("api_keys", "Discord");
         clientId = (String) discordApiKeys.getStringValue("client_id");
         clientSecret = (String) discordApiKeys.getStringValue("client_secret");
         redirectUri = (String) discordApiKeys.getStringValue("redirect_uri");
     }
 
-    public String getAuthorizationUrl() {
+    public static String getAuthorizationUrl() {
         return "https://discord.com/api/oauth2/authorize" +
                 "?client_id=" + clientId +
                 "&redirect_uri=" + redirectUri +

@@ -16,7 +16,6 @@ package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.bots.DiscordBot;
-import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -31,32 +30,29 @@ import org.javacord.api.entity.user.User;
 public class Predicator {
 
     private Vyrtuous app;
-    private ConfigManager configManager;
     private DiscordBot bot;
 
     public Predicator(Vyrtuous application) {
-        Vyrtuous.predicator = this;
         this.app = application;
-        this.configManager = app.configManager;
         this.bot = app.discordBot;
     }
 
     public boolean atHome(Server server) {
-        return server != null && server.getId() == (long) configManager.getConfigValue("discord_testing_guild_id");
+        return server != null && server.getId() == (long) ConfigManager.getConfigValue("discord_testing_guild_id");
     }
 
     public boolean releaseMode(User user, ServerTextChannel channel) {
-        return (Long) user.getId() == configManager.getConfigValue("discord_owner_id") || // Your developer ID
-               (boolean) configManager.getConfigValue("discord_release_mode") ||
+        return (Long) user.getId() == ConfigManager.getConfigValue("discord_owner_id") || // Your developer ID
+               (boolean) ConfigManager.getConfigValue("discord_release_mode") ||
                (channel instanceof PrivateChannel);
     }
 
-    public boolean isDeveloper(User user) {
-        return user != null && String.valueOf(user.getId()).equals(configManager.getLongValue("discord_owner_id"));
+    public static boolean isDeveloper(User user) {
+        return user != null && String.valueOf(user.getId()).equals(ConfigManager.getLongValue("discord_owner_id"));
     }
 
     public boolean isVeganUser(User user) {
-        List<Long> serverIds = (List<Long>) configManager.getConfigValue("discord_testing_guild_ids");
+        List<Long> serverIds = (List<Long>) ConfigManager.getConfigValue("discord_testing_guild_ids");
         for (Long serverId : serverIds) {
             Server server = getServerById(serverId);
             if (server != null) {
@@ -85,8 +81,8 @@ public class Predicator {
     }
 
     public boolean isReleaseMode(ServerTextChannel channel, User user) {
-        return (Long) user.getId() == configManager.getConfigValue("discord_owner_id") || // Your developer ID
-               (boolean) configManager.getConfigValue("discord_release_mode") ||
+        return (Long) user.getId() == ConfigManager.getConfigValue("discord_owner_id") || // Your developer ID
+               (boolean) ConfigManager.getConfigValue("discord_release_mode") ||
                (channel instanceof PrivateChannel);
     }
 }

@@ -15,14 +15,9 @@
  */
 package com.brandongcobb.vyrtuous.bots;
 
-import com.brandongcobb.vyrtuous.bots.DiscordBot;
 import com.brandongcobb.vyrtuous.cogs.EventListeners;
 import com.brandongcobb.vyrtuous.cogs.Cog;
-import com.brandongcobb.vyrtuous.utils.handlers.AIManager;
 import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
-import com.brandongcobb.vyrtuous.utils.handlers.MessageManager;
-import com.brandongcobb.vyrtuous.utils.handlers.ModerationManager;
-import com.brandongcobb.vyrtuous.utils.handlers.Predicator;
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.IOException;
@@ -33,28 +28,20 @@ import java.util.logging.Logger;
 import java.util.Map;
 import org.javacord.api.DiscordApi;
 import org.javacord.api.DiscordApiBuilder;
-import org.javacord.api.event.message.MessageCreateEvent;
-import org.javacord.api.listener.message.MessageCreateListener;
 import org.javacord.api.entity.intent.Intent;
 
 public class DiscordBot {
 
-    public static AIManager aiManager;
     private static Vyrtuous app;
     private DiscordApi api;
     private String discordApiKey;
-    private static ConfigManager configManager;
     private HikariDataSource dbPool;
     private Lock lock;
     private static Logger logger;
-    public static MessageManager messageManager;
-    public static ModerationManager moderationManager;
-    public static Predicator predicator;
 
     public DiscordBot(Vyrtuous application) {
         this.app = application;
-        this.configManager = app.configManager;
-        this.discordApiKey = configManager.getNestedConfigValue("api_keys", "Discord").getStringValue("api_key");
+        this.discordApiKey = ConfigManager.getNestedConfigValue("api_keys", "Discord").getStringValue("api_key");
         this.dbPool = app.dbPool;
         this.lock = app.lock;
         this.logger = app.logger;

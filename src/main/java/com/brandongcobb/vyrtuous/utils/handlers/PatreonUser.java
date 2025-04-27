@@ -16,10 +16,6 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
-import com.brandongcobb.vyrtuous.utils.handlers.User;
-import com.brandongcobb.vyrtuous.utils.handlers.UserManager;
-import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.github.jasminb.jsonapi.JSONAPIDocument;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -46,7 +42,6 @@ import okhttp3.Response;
 public class PatreonUser implements User {
 
     private Vyrtuous app;
-    private ConfigManager configManager;
     private Connection connection;
     private long discordId;
     private int exp;
@@ -66,10 +61,7 @@ public class PatreonUser implements User {
     private UserManager userManager;
 
     public PatreonUser(Vyrtuous application) {
-        Vyrtuous.patreonUser = this;
         this.app = application;
-        this.configManager = app.configManager;
-        this.timestamp = app.timestamp;
         this.discordId = 0L;
         this.exp = 0;
         this.factionName = "";
@@ -83,13 +75,12 @@ public class PatreonUser implements User {
         this.patreonStatus = "";
         this.patreonTier = "";
         this.patreonVanity = "";
-        this.timestamp = app.timestamp;
-        this.userManager = app.userManager;
+        this.timestamp = new Timestamp(System.currentTimeMillis());
     }
 
     @Override
     public void createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity, Runnable callback) {
-        userManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity, () -> {
+        UserManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity, () -> {
             callback.run();
         });
     }

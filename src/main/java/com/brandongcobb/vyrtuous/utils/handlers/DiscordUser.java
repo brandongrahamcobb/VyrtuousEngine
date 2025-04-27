@@ -17,8 +17,6 @@
  */
 package com.brandongcobb.vyrtuous.utils.handlers;
 
-import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
-import com.brandongcobb.vyrtuous.utils.handlers.UserManager;
 import com.brandongcobb.vyrtuous.utils.listeners.PlayerJoinListener;
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.utils.sec.PatreonOAuth;
@@ -61,7 +59,6 @@ public class DiscordUser implements User {
 
     private String accessToken;
     private Vyrtuous app;
-    private ConfigManager configManager;
     private Connection[] conn;
     private Connection connection;
     private LocalDateTime createDate = LocalDateTime.now();
@@ -81,14 +78,11 @@ public class DiscordUser implements User {
     private String patreonTier;
     private String patreonVanity;
     private Timestamp timestamp = Timestamp.valueOf(createDate);
-    private UserManager userManager;
     private final String USER_INFO_URL = "https://discord.com/api/v10/users/@me";
 
     public DiscordUser(Vyrtuous application) {
-        Vyrtuous.discordUser = this;
         this.app = application;
         this.accessToken = accessToken;
-        this.configManager = app.configManager;
         this.discordId = discordId;
         this.exp = exp;
         this.factionName = factionName;
@@ -104,12 +98,11 @@ public class DiscordUser implements User {
         this.patreonTier = patreonTier;
         this.patreonVanity = patreonVanity;
         this.timestamp = timestamp;
-        this.userManager = app.userManager;
     }
 
     @Override
     public void createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity, Runnable callback) {
-        userManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity, () -> {
+        UserManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity, () -> {
             callback.run();
         });
     }

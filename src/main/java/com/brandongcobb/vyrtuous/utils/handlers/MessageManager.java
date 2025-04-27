@@ -39,14 +39,13 @@ import org.javacord.api.entity.user.User;
 
 public class MessageManager {
 
-    private Vyrtuous app;
-    private ObjectMapper mapper = new ObjectMapper();
-    private Lock lock;
-    private Logger logger;
-    private File tempDirectory;
+    private static Vyrtuous app;
+    private static ObjectMapper mapper = new ObjectMapper();
+    private static Lock lock;
+    private static Logger logger;
+    private static File tempDirectory;
 
     public MessageManager (Vyrtuous application) {
-        Vyrtuous.messageManager = this;
         this.app = application;
         this.logger = app.logger;
         this.tempDirectory = app.tempDirectory;
@@ -56,7 +55,7 @@ public class MessageManager {
         return Base64.getEncoder().encodeToString(imageBytes);
     }
 
-    public CompletableFuture<List<MessageContent>> processArray(String content, List<MessageAttachment> attachments) {
+    public static CompletableFuture<List<MessageContent>> processArray(String content, List<MessageAttachment> attachments) {
         List<MessageContent> array = new ArrayList<>();
         if (content != null && !content.trim().isEmpty()) {
             return processTextMessage(content).thenCompose(processedText -> {
@@ -73,7 +72,7 @@ public class MessageManager {
         return CompletableFuture.completedFuture(array);
     }
 
-    public CompletableFuture<List<MessageContent>> processAttachments(List<MessageAttachment> attachments) {
+    public static CompletableFuture<List<MessageContent>> processAttachments(List<MessageAttachment> attachments) {
         logger.info("Entered processAttachments with " + attachments.size() + " attachments");
         List<MessageContent> processedAttachments = Collections.synchronizedList(new ArrayList<>());
         List<CompletableFuture<Void>> futures = new ArrayList<>();
@@ -95,10 +94,12 @@ public class MessageManager {
                         Map<String, String> messageMap = new HashMap<>();
                         messageMap.put("content", contentJson);
                         String messageJson = mapper.writeValueAsString(messageMap);
-                        processedAttachments.add(new MessageContent("user", messageJson));
+                        MessageContent attachmentMessageContent = new MessageContent("user", messageJson);
+                        processedAttachments.add(attachmentMessageContent);
                     } else if (contentType.startsWith("text/")) {
                         String textContent = new String(Files.readAllBytes(file.toPath()));
-                        processedAttachments.add(new MessageContent("user", textContent));
+                        MessageContent textMessageContent = new MessageContent("user", textContent);
+                        processedAttachments.add(textMessageContent);
                     }
                 } catch (IOException e) {
                     logger.severe("Error processing file " + attachment.getFileName() + ": " + e.getMessage());
@@ -113,7 +114,7 @@ public class MessageManager {
             });
     }
 
-   private String getContentTypeFromFileName(String fileName) {
+   private static String getContentTypeFromFileName(String fileName) {
        if (fileName.endsWith(".png")) {
            return "image/png";
        } else if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
@@ -126,8 +127,10 @@ public class MessageManager {
        return "application/octet-stream"; // Default type
    }
 
-    public CompletableFuture<List<MessageContent>> processTextMessage(String content) {
-        return CompletableFuture.completedFuture(List.of(new MessageContent("user", content.replace("<@1318597210119864385>", ""))));
+    public static CompletableFuture<List<MessageContent>> processTextMessage(String content) {
+        MessageContent textMessageContent = new MessageContent(content.replace("<@1318597210119864385>", ""), "");
+        List<MessageContent> messageList = List.of(textMessageContent);
+        return CompletableFuture.completedFuture(messageList);
     }
 
     public boolean validateArray(List<MessageContent> array) {
@@ -148,31 +151,31 @@ public class MessageManager {
         return valid;
     }
 
-    public CompletableFuture<Message> sendDM(User user, String content) {
+    public static CompletableFuture<Message> sendDM(User user, String content) {
         return user.openPrivateChannel().thenCompose(channel -> channel.sendMessage(content));
     }
 
-    public CompletableFuture<Message> sendDiscordMessage(Message message, String content, EmbedBuilder embed) {
+    public static CompletableFuture<Message> sendDiscordMessage(Message message, String content, EmbedBuilder embed) {
         return message.getServerTextChannel()
                 .map(channel -> channel.sendMessage(content, embed))
                 .orElseThrow(() -> new IllegalArgumentException("Message is not in a server text channel."));
     }
 
-    public CompletableFuture<Message> sendDiscordMessage(Message message, String content) {
+    public static CompletableFuture<Message> sendDiscordMessage(Message message, String content) {
         return message.getServerTextChannel()
                 .map(channel -> channel.sendMessage(content))
                 .orElseThrow(() -> new IllegalArgumentException("Message is not in a server text channel."));
     }
 
-    public CompletableFuture<Message> sendDiscordMessage(Message message, String content, File file) {
+    public static CompletableFuture<Message> sendDiscordMessage(Message message, String content, File file) {
         return message.getChannel().sendMessage(content, file);
     }
 
-    private CompletableFuture<Message> sendDiscordMessage(PrivateChannel channel, String content, File file) {
+    public static CompletableFuture<Message> sendDiscordMessage(PrivateChannel channel, String content, File file) {
         return channel.sendMessage(content, file);
     }
 
-    public CompletableFuture<Message> sendDiscordMessage(PrivateChannel channel, String content, EmbedBuilder embed) {
+    public static CompletableFuture<Message> sendDiscordMessage(PrivateChannel channel, String content, EmbedBuilder embed) {
         return channel.sendMessage(content, embed); // Sending message to private channel
     }
 
@@ -184,11 +187,12 @@ public class MessageManager {
         return message.getContent();
     }
 
-    public class MessageContent {
+    public static class MessageContent {
         private final String type;
         private final String text;
         private final String imageData; // Only for images
         private final String contentType; // Content type for attachments
+
         public MessageContent(String type, String content) {
             this.type = type;
             this.text = content;

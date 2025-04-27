@@ -20,6 +20,10 @@ public class PlayerMessageQueueManager {
 
     private final ConcurrentHashMap<Long, BlockingQueue<String>> messageQueues = new ConcurrentHashMap<>();
 
+    public boolean hasPlayer(Long playerLong) {
+        return messageQueues.containsKey(playerLong);
+    }
+
     public void addPlayer(Long playerLong) {
         messageQueues.put(playerLong, new LinkedBlockingQueue<>());
     }

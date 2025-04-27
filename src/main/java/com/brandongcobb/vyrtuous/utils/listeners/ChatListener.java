@@ -46,6 +46,10 @@ public class ChatListener implements Listener {
         Player player = event.getPlayer();
         String message = event.getMessage();
         long playerId = player.getEntityId();
+        if (chatQueuer.hasPlayer(playerId)) {
+            chatQueuer.enqueueMessage(playerId, message);
+            return;
+        }
         if (message.contains("Vyrtuous")) {
             chatQueuer.addPlayer(playerId);
             Bukkit.getScheduler().runTaskAsynchronously(app, () -> {
@@ -77,7 +81,7 @@ public class ChatListener implements Listener {
                     });
                     break;
                 }
-                AIManager.handleConversation(playerId, message, null).thenAccept(result -> {
+                AIManager.handleConversation(playerId, response, null).thenAccept(result -> {
                     if (result.getValue()) {
                         return;
                     } else {

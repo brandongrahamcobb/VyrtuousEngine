@@ -53,18 +53,22 @@ public class PatreonOAuth {
 
     public PatreonOAuth(Vyrtuous application) {
         this.app = application;
-        this.patreonApiKeys = ConfigManager.getNestedConfigValue("api_keys", "Patreon");
-        this.clientId = patreonApiKeys.getStringValue("client_id");
-        this.clientSecret = patreonApiKeys.getStringValue("client_secret");
-        this.redirectUri = patreonApiKeys.getStringValue("redirect_uri");
     }
 
     public static String getAuthorizationUrl() {
+        patreonApiKeys = ConfigManager.getNestedConfigValue("api_keys", "Patreon");
+        clientId = patreonApiKeys.getStringValue("client_id");
+        clientSecret = patreonApiKeys.getStringValue("client_secret");
+        redirectUri = patreonApiKeys.getStringValue("redirect_uri");
 //        return "https://www.patreon.com/oauth2/authorize/";
         return "https://www.patreon.com/oauth2/authorize?response_type=code&client_id=" + clientId + "&redirect_uri=" + redirectUri + "&scope=identity%20campaigns";
     }
 
     public static String exchangeCodeForToken(String code) throws IOException {
+        patreonApiKeys = ConfigManager.getNestedConfigValue("api_keys", "Patreon");
+        clientId = patreonApiKeys.getStringValue("client_id");
+        clientSecret = patreonApiKeys.getStringValue("client_secret");
+        redirectUri = patreonApiKeys.getStringValue("redirect_uri");
         OkHttpClient client = new OkHttpClient();
         RequestBody body = new FormBody.Builder()
                 .add("code", code)

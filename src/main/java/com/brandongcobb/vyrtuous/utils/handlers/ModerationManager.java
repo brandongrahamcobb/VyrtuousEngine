@@ -43,10 +43,13 @@ public class ModerationManager {
     private static Logger logger;
     private static File temporaryFile;
 
+    static {
+        temporaryFile = new File(app.tempDirectory, "config.yml");
+    }
+
     public ModerationManager(Vyrtuous application) {
         this.app = application;
         this.logger = app.logger;
-        this.temporaryFile = new File(app.tempDirectory, "config.yml");
     }
 
     public static void handleModeration(Message message, String reasonStr) {

@@ -16,6 +16,7 @@ package com.brandongcobb.vyrtuous.utils.listeners;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.utils.handlers.AIManager;
+import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import com.brandongcobb.vyrtuous.utils.handlers.MinecraftUser;
 import com.brandongcobb.vyrtuous.utils.handlers.PlayerMessageQueueManager;
 import java.sql.Timestamp;
@@ -36,7 +37,7 @@ public class ChatListener implements Listener {
     private final PlayerMessageQueueManager chatQueuer;
 
     public ChatListener(Vyrtuous application, PlayerMessageQueueManager chatQueuer) {
-        this.app = application;
+        this.app = ConfigManager.getApp();
         this.chatQueuer = chatQueuer;
     }
 

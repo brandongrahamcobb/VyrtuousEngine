@@ -48,13 +48,13 @@ public class DiscordOAuth {
 
     public DiscordOAuth(Vyrtuous application) {
         this.app = application;
+    }
+
+    public static String getAuthorizationUrl() {
         discordApiKeys = ConfigManager.getNestedConfigValue("api_keys", "Discord");
         clientId = (String) discordApiKeys.getStringValue("client_id");
         clientSecret = (String) discordApiKeys.getStringValue("client_secret");
         redirectUri = (String) discordApiKeys.getStringValue("redirect_uri");
-    }
-
-    public static String getAuthorizationUrl() {
         return "https://discord.com/api/oauth2/authorize" +
                 "?client_id=" + clientId +
                 "&redirect_uri=" + redirectUri +
@@ -65,6 +65,10 @@ public class DiscordOAuth {
     }
 
     public static String exchangeCodeForToken(String code) {
+        discordApiKeys = ConfigManager.getNestedConfigValue("api_keys", "Discord");
+        clientId = (String) discordApiKeys.getStringValue("client_id");
+        clientSecret = (String) discordApiKeys.getStringValue("client_secret");
+        redirectUri = (String) discordApiKeys.getStringValue("redirect_uri");
         String tokenUrl = "https://discord.com/api/oauth2/token";
         Map<String, String> data = new HashMap<>();
         data.put("client_id", clientId);

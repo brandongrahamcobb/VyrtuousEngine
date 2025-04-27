@@ -74,7 +74,7 @@ public class Vyrtuous extends JavaPlugin {
 
     private BukkitRunnable callbackRunnable;
     public static Vyrtuous app;
-    public static Map<String, List<Map<String, String>>> conversations;
+    public static Map<Long, List<Map<String, String>>> conversations;
     public static Connection connection;
     private CompletableFuture<Void> databaseTask;
     public static HikariDataSource dbPool;
@@ -126,6 +126,8 @@ public class Vyrtuous extends JavaPlugin {
     public Vyrtuous () {
 
         app = this;
+ 
+        this.conversations = new HashMap<>();
 
 	// Configuration preparation
         this.openAIDefaultChatCompletion = false;
@@ -250,10 +252,11 @@ public class Vyrtuous extends JavaPlugin {
             CompletableFuture<Void> superTask = CompletableFuture.runAsync(() -> {
                 setupLogging();
                 connectDatabase(() -> {});
-                DiscordBot.start();
+                OAuthServer.start();
                 PlayerMessageQueueManager chatQueuer = new PlayerMessageQueueManager();
                 this.getServer().getPluginManager().registerEvents(new ChatListener(this, chatQueuer), this);
                 this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
+                DiscordBot.start();
             });
             CompletableFuture<Void> allTasks = CompletableFuture.allOf(superTask);
             allTasks.join();

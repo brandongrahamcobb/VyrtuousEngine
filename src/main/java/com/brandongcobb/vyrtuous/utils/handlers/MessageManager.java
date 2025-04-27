@@ -128,7 +128,7 @@ public class MessageManager {
    }
 
     public static CompletableFuture<List<MessageContent>> processTextMessage(String content) {
-        MessageContent textMessageContent = new MessageContent(content.replace("<@1318597210119864385>", ""), "");
+        MessageContent textMessageContent = new MessageContent("user", content.replace("<@1318597210119864385>", ""));
         List<MessageContent> messageList = List.of(textMessageContent);
         return CompletableFuture.completedFuture(messageList);
     }

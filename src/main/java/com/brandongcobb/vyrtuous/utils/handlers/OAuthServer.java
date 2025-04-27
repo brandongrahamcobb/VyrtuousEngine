@@ -53,7 +53,7 @@ public class OAuthServer {
         });
     }
 
-    public void start() {
+    public static void start() {
         Spark.init();
     }
 

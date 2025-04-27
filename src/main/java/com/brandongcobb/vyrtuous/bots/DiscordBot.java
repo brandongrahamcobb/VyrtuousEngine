@@ -51,7 +51,7 @@ public class DiscordBot {
 
     private static void loadCogs() {
         List<Cog> cogs = new ArrayList<>();
-        cogs.add(new EventListeners(app));
+        cogs.add(new EventListeners(ConfigManager.getApp()));
         for (Cog cog : cogs) {
             cog.register(api);
         }

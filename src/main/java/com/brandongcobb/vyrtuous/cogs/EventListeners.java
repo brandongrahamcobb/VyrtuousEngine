@@ -60,9 +60,11 @@ public class EventListeners implements Cog {
                 List<MessageAttachment> attachments = message.getAttachments();
                 if (!Predicator.isDeveloper(sender)) {
                     AIManager.handleConversation(senderId, content, attachments).thenAccept(result -> {
-                        ModerationManager.handleModeration(message, result.getKey());
-                        System.out.println("BLUE");
-                        MessageManager.sendDiscordMessage(message, result.getKey());
+                        if (result.getValue()) {
+                            ModerationManager.handleModeration(message, result.getKey());
+                        } else {
+                            MessageManager.sendDiscordMessage(message, result.getKey());
+                        }
                     })
                     .join();
                 }

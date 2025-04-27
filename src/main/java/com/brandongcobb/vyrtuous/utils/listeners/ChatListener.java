@@ -49,7 +49,7 @@ public class ChatListener implements Listener {
         if (message.contains("Vyrtuous")) {
             chatQueuer.addPlayer(playerId);
             Bukkit.getScheduler().runTaskAsynchronously(app, () -> {
-                handleVyrtuousInteraction(player, message, playerId);
+                handleVyrtuousInteraction(player, message.replace("Vyrtuous", ""), playerId);
             });
         }
     }

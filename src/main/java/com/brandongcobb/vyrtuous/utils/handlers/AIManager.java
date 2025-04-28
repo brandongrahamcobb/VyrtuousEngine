@@ -1,3 +1,18 @@
+/*  AIManager.java The primary purpose of this class is to manage the
+ *  core AI functions of Vyrtuous.
+ *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
@@ -223,7 +238,6 @@ public class AIManager {
                             e.printStackTrace();
                             reasons = "Error parsing moderation data.";
                         }
-    
                         if (flagged) {
                             String finalResponse = "Moderation flagged for: " + reasons;
                             return CompletableFuture.completedFuture(Map.entry(finalResponse, true));
@@ -247,69 +261,7 @@ public class AIManager {
             }
         });
     }
-//    public static CompletableFuture<Map.Entry<String, Boolean>> handleConversation(
-//            long senderId,
-//            String message,
-//            CompletableFuture<List<MessageAttachment>> attachments
-//    ) {
-//        MessageManager.processArray(message, attachments).thenAccept(
-//                try {
-//                    if (ConfigManager.getBooleanValue("openai_chat_moderation")) {
-//                        return getChatModerationCompletion(senderId, inputArray)
-//                            .thenCompose(response -> {
-//                                String reasons = "";
-//                                boolean flagged = false;
-//                                ObjectMapper mapper = new ObjectMapper();
-//                                try {
-//                                    Map<String, Object> responseMap = mapper.readValue(response, new TypeReference<>() {});
-//                                    List<Map<String, Object>> results = (List<Map<String, Object>>) responseMap.get("results");
-//                                    if (results != null && !results.isEmpty()) {
-//                                        Map<String, Object> result = results.get(0);
-//                                        flagged = (Boolean) result.get("flagged");
-//                                        Map<String, Boolean> categories = (Map<String, Boolean>) result.get("categories");
-//                                        StringBuilder reasonsBuilder = new StringBuilder();
-//                                        if (categories != null) {
-//                                            for (Map.Entry<String, Boolean> entry : categories.entrySet()) {
-//                                                if (Boolean.TRUE.equals(entry.getValue())) {
-//                                                    reasonsBuilder
-//                                                        .append(entry.getKey().replace("/", " → ").replace("-", " "))
-//                                                        .append("; ");
-//                                                }
-//                                            }
-//                                        }
-//                                        reasons = reasonsBuilder.toString();
-//                                    }
-//                                } catch (IOException e) {
-//                                    e.printStackTrace();
-//                                    reasons = "Error parsing moderation data.";
-//                                }
-//                                if (flagged) {
-//                                    System.out.println("BLUE");
-//                                    String finalResponse = "Moderation flagged for: " + reasons;
-//                                    return CompletableFuture.completedFuture(Map.entry(finalResponse, true));
-//                                } else {
-//                                    // Not flagged, handle chat response
-//                                    return getCompletion(senderId, inputArray)
-//                                        .thenApply(chatResponse -> {
-//                                            String reply = (chatResponse.length() > 2000)
-//                                                    ? String.join("\n---\n", splitLongResponse(chatResponse, 1950))
-//                                                    : chatResponse;
-//                                            return Map.entry(reply, false);
-//                                        });
-//                                }
-//                            });
-//                    } else {
-//                        return CompletableFuture.completedFuture(Map.entry("Error processing request", false));
-//                    }
-//                } catch (IOException e) {
-//                    // Handle exceptions from processing inputArray
-//                    e.printStackTrace();
-//                    return CompletableFuture.completedFuture(Map.entry("Error processing request", false));
-//                }
-//            });
-//    }
-//
-//
+
     public static List<String> splitLongResponse(String response, int limit) {
         List<String> outputChunks = new ArrayList<>();
         String[] parts = response.split("(?<=```)|(?=```)");

@@ -45,6 +45,19 @@ public class Helpers {
         }
     }
 
+    public static boolean isNotNullOrEmpty(Object[] objects) {
+        for (int i = 0; i < objects.length; i++) {
+            if (objects[i] instanceof String) {
+                if (objects[i] == null || ((String) objects[i]).trim().isEmpty()) {
+                    return false;
+                }
+            } else if (objects[i] == null) {
+                return false;
+            }
+        }
+        return true;
+    }
+
     // Base directories
     public static final String DIR_BASE = Paths.get("/home/spawd/Vystopia/src/main/java/com/brandongcobb/").toAbsolutePath().toString(); // Placeholder
     public static final String DIR_HOME = System.getProperty("user.home");

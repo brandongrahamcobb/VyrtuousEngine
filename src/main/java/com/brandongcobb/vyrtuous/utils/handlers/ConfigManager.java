@@ -1,4 +1,4 @@
-/*  ConfigManager.java The primary purpose of this handler is to 
+/*  ConfigManager.java The primary purpose of this handler is to
  *  manage the configuration.
  *  Copyright (C) 2024  github.com/brandongrahamcobb
  *
@@ -17,16 +17,14 @@ package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.utils.inc.Helpers;
-
 import java.io.*;
 import java.util.HashMap;
 import java.util.logging.Logger;
-import java.util.HashMap;
 import java.util.Map;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
-public  class ConfigManager {
+public class ConfigManager {
 
     private static Vyrtuous app;
     private static Map<String, Object> config;
@@ -164,7 +162,7 @@ public  class ConfigManager {
         if (value instanceof String) {
             return (String) value;
         }
-        return null; // or throw an exception if you expect a String
+        return null;
     }
 
     public static Integer getIntValue(String key) {
@@ -172,17 +170,8 @@ public  class ConfigManager {
         if (value instanceof Number) {
             return ((Number) value).intValue();
         }
-        return null; // or throw an exception if you expect an Integer
+        return null;
     }
-//    public static Float getFloatValue(String key) {
-//        Object value = getConfigValue(key);
-//        if (value instanceof Number) {
-//            return ((Number) value).floatValue();
-//        } else if (value instanceof String) {
-//            return Float.parseFloat((String) value);
-//        }
-//        return null; // or throw an exception if you expect a Float
-//    }
 
     public static Long getLongValue(String key) {
         Object value = getConfigValue(key);
@@ -194,16 +183,14 @@ public  class ConfigManager {
         return null; // or throw an exception if you expect a Float
     }
 
-        // Check if 'api_keys' section exists
     public static Boolean getBooleanValue(String key) {
         Object value = getConfigValue(key);
         if (value instanceof Boolean) {
             return (Boolean) value;
         } else if (value instanceof String) {
-            // Handle string representations of boolean, e.g., "true", "false"
             return Boolean.parseBoolean((String) value);
         }
-        return null; // or throw an exception if you expect a Boolean
+        return null;
     }
 
     private static void saveConfig(File configFile) {
@@ -212,7 +199,7 @@ public  class ConfigManager {
         Yaml yaml = new Yaml(options);
         try {
             if (!app.getDataFolder().exists()) {
-                app.getDataFolder().mkdirs(); // Create directories if they don't exist
+                app.getDataFolder().mkdirs();
             }
             try (Writer writer = new FileWriter(configFile)) {
                 yaml.dump(config, writer);
@@ -234,38 +221,22 @@ public  class ConfigManager {
     }
 
     public static boolean validateConfig() {
-        boolean anyValid = false; // Flag to check if at least one block is compliant
-
-        // Validate each API configuration
+        boolean anyValid = false;
         String[] apis = {"Discord", "Google", "LinkedIn", "OpenAI", "Patreon", "Twitch"};
         for (String api : apis) {
             boolean isValid = validateApiConfig(api);
             if (isValid) {
-                anyValid = true; // At least one API configuration is valid
+                anyValid = true;
             }
         }
-
-        // Validate PostgreSQL Config
         boolean postgresValid = validatePostgresConfig();
-        if (postgresValid) {
-            anyValid = true; // PostgreSQL configuration is valid
-        }
-
+        if (postgresValid) {anyValid = true;}
         boolean sparkValid = validateSparkConfig();
-        if (sparkValid) {
-            anyValid = true; // PostgreSQL configuration is valid
-        }
-
+        if (sparkValid) {anyValid = true;}
         boolean webHeadersValid = validateWebHeadersConfig();
-        if (webHeadersValid) {
-            anyValid = true; // PostgreSQL configuration is valid
-        }
-
+        if (webHeadersValid) {anyValid = true;}
         boolean openAIValid = validateOpenAIConfig();
-        if (openAIValid) {
-            anyValid = true; // PostgreSQL configuration is valid
-        }
-
+        if (openAIValid) {anyValid = true;}
         if (!anyValid) {
             app.logger.severe("No valid API configurations found. Please check your configuration.");
         }
@@ -274,26 +245,18 @@ public  class ConfigManager {
 
     private static boolean validateApiConfig(String api) {
         HashMap<String, String> settings = (HashMap<String, String>) ((Map<String, Object>) config.get("api_keys")).get(api);
-
-        if (settings == null) {
-            app.logger.severe(api + " configuration is missing.");
-            return false; // Configuration block not present
-        }
-
-        boolean hasValidData = false; // Track if any setting is valid
-
+        boolean hasValidData = false;
         for (Map.Entry<String, String> entry : settings.entrySet()) {
             String key = entry.getKey();
             String value = entry.getValue();
-
-            if (value == null || value.trim().isEmpty()) {
+            Object[] values = {settings, key, value};
+            if (Helpers.isNotNullOrEmpty(values)) {
                 app.logger.warning(api + " setting '" + key + "' is missing or invalid.");
             } else {
-                hasValidData = true; // Found at least one valid setting
+                hasValidData = true;
             }
         }
-
-        return hasValidData; // Returns true if at least one setting is valid
+        return hasValidData;
     }
 
     private static boolean validateSparkConfig() {
@@ -301,20 +264,10 @@ public  class ConfigManager {
         String discordEndpoint = (String) config.get("spark_discord_endpoint");
         String patreonEndpoint = (String) config.get("spark_patreon_endpoint");
         String port = (String) config.get("spark_port");
-        if (discordEndpoint == null || patreonEndpoint == null || port == null) {
-            app.logger.warning("spark_discord_endpoint is missing or default.");
-            app.logger.warning("spark_patreon_endpoint is missing or default.");
-            app.logger.warning("spark_port is missing or default.");
+        String[] values = {discordEndpoint, patreonEndpoint, port};
+        if (Helpers.isNotNullOrEmpty(values)) {
+            app.logger.warning("Spark settings are invalid.");
             isValid = false;
-        }
-        if ("/oauth/discord_callback".equals(discordEndpoint)) {
-            app.logger.warning("spark_discord_endpoint is default.");
-        }
-        if ("/oauth/patreon_callback".equals(patreonEndpoint)) {
-            app.logger.warning("spark_patreon_endpoint is default.");
-        }
-        if (port.equals(Helpers.parseCommaNumber("8,000"))) {
-            app.logger.warning("spark_port is default.");
         }
         return isValid;
     }
@@ -325,30 +278,12 @@ public  class ConfigManager {
         String password = (String) config.get("postgres_password");
         String host = (String) config.get("postgres_host");
         String port = (String) config.get("postgres_port");
-
         boolean isValid = true;
-
-        if (database == null || database.trim().isEmpty()) {
-            app.logger.warning("Postgres database setting is missing.");
+        String[] values = {database,user, password, host, port};
+        if (Helpers.isNotNullOrEmpty(values)) {
+            app.logger.warning("Postgres settings are invalid.");
             isValid = false;
         }
-        if (user == null || user.trim().isEmpty()) {
-            app.logger.warning("Postgres user setting is missing.");
-            isValid = false;
-        }
-        if (password == null || password.trim().isEmpty()) {
-            app.logger.warning("Postgres password setting is missing.");
-            isValid = false;
-        }
-        if (host == null || host.trim().isEmpty()) {
-            app.logger.warning("Postgres host setting is missing.");
-            isValid = false;
-        }
-        if (port == null || port.trim().isEmpty()) {
-            app.logger.warning("Postgres port setting is missing.");
-            isValid = false;
-        }
-
         return isValid; // Returns true if the Postgres config is properly set
     }
 
@@ -361,24 +296,9 @@ public  class ConfigManager {
         float openAIChatTemperature = (float) Float.parseFloat(String.valueOf(config.get("openai_chat_temperature")));
         float openAIChatTopP = (float) Float.parseFloat(String.valueOf(config.get("openai_chat_top_p")));
         boolean isValid = true;
-        if (openAIChatModel == null || openAIChatModel.trim().isEmpty()) {
-            app.logger.warning("OpenAI model setting is missing.");
-            isValid = false;
-        }
-        if (openAIChatStop == null || openAIChatStop.trim().isEmpty()) {
-            app.logger.warning("OpenAI user setting is missing.");
-            isValid = false;
-        }
-        if (openAIChatStream == (boolean) false) {
-            app.logger.warning("OpenAI chat streaming is disabled.");
-            isValid = false;
-        }
-        if (openAIChatTopP < 0.0f || openAIChatTopP > 2.0f) {
-            app.logger.warning("OpenAI chat top P is broken.");
-            isValid = false;
-        }
-        if (openAIChatTemperature < 0.0f && openAIChatTemperature > 2.0f) {
-            app.logger.warning("OpenAI chat temperature is broken.");
+        Object[] values = {openAIChatCompletion, openAIChatModel, openAIChatModeration, openAIChatStop, openAIChatStream, openAIChatTemperature, openAIChatTopP};
+        if (Helpers.isNotNullOrEmpty(values)) {
+            app.logger.warning("OpenAI settings are invalid.");
             isValid = false;
         }
         return isValid; // Returns true if the Postgres config is properly set
@@ -386,36 +306,21 @@ public  class ConfigManager {
 
     private static boolean validateWebHeadersConfig() {
         Map<String, Object> webHeaders = (Map<String, Object>) config.get("web_headers");
-    
-        if (webHeaders == null) {
-            app.logger.severe("Web headers configuration is missing.");
-            return false;
-        }
-    
+        boolean isValid = true;
         for (Map.Entry<String, Object> entry : webHeaders.entrySet()) {
             String api = entry.getKey();
             Map<String, String> headers = (Map<String, String>) entry.getValue();
-    
             for (Map.Entry<String, String> header : headers.entrySet()) {
                 String key = header.getKey();
                 String value = header.getValue();
-    
-                if (key == null || value == null) {
-                    app.logger.warning("Web headers configuration is missing key or value.");
-                    return false;
-                }
-    
-                if (key.equals("User-Agent") && value.equals("Vyrtuous https://github.com/brandongrahamcobb/Vyrtuous.git")) {
-                    app.logger.warning("Default User-Agent found for API '" + api + "'.");
-                    return false;
-                } else if (key.equals("api-key") && value.equals("")) {
-                    app.logger.warning("Missing api-key for API '" + api + "'.");
-                    return false;
+                Object[] values = {webHeaders, key, value};
+                if (Helpers.isNotNullOrEmpty(values)) {
+                    app.logger.warning("Web headers configuration is invalid.");
+                    isValid = false;
                 }
             }
         }
-    
-        return true;
+        return isValid;
     }
 
     public static class ConfigSection {
@@ -423,7 +328,7 @@ public  class ConfigManager {
         private Map<String, Object> values;
 
         public ConfigSection(Map<String, Object> values) {
-            this.values = values;
+            values = values;
         }
 
         public String getStringValue(String key) {

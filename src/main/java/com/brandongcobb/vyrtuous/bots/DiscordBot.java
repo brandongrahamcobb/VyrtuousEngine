@@ -26,14 +26,21 @@ import java.util.concurrent.locks.Lock;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.Map;
-import org.javacord.api.DiscordApi;
-import org.javacord.api.DiscordApiBuilder;
-import org.javacord.api.entity.intent.Intent;
+//import org.javacord.api.DiscordApi;
+//import org.javacord.api.DiscordApiBuilder;
+//import org.javacord.api.entity.intent.Intent;
+import javax.security.auth.login.LoginException;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 public class DiscordBot {
 
     private static Vyrtuous app;
-    private static DiscordApi api;
+//    private static DiscordApi api;
+    private static JDA api;
     private static String discordApiKey;
     private static long discordOwnerId;
     private static HikariDataSource dbPool;
@@ -45,7 +52,8 @@ public class DiscordBot {
     }
 
     private static void initiateDiscordApi() {
-        api = new DiscordApiBuilder().setToken(discordApiKey).addIntents(Intent.MESSAGE_CONTENT).login().join();
+        api = JDABuilder.createDefault(discordApiKey).build();
+//        api = new DiscordApiBuilder().setToken(discordApiKey).addIntents(Intent.MESSAGE_CONTENT).login().join();
         loadCogs();
     }
 
@@ -57,7 +65,8 @@ public class DiscordBot {
         }
     }
 
-    public DiscordApi getApi() {
+//    public DiscordApi getApi() {
+    public JDA getApi() {
         return this.api;
     }
 

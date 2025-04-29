@@ -24,16 +24,22 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.TimeUnit;
 import java.util.HashMap;
 import java.util.logging.Logger;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-import org.javacord.api.DiscordApi;
-import org.javacord.api.entity.message.Message;
-import org.javacord.api.entity.channel.PrivateChannel;
-import org.javacord.api.entity.server.Server;
-import org.javacord.api.entity.user.User;
+//import org.javacord.api.DiscordApi;
+//import org.javacord.api.entity.message.Message;
+//import org.javacord.api.entity.channel.PrivateChannel;
+//import org.javacord.api.entity.server.Server;
+//import org.javacord.api.entity.user.User;
+import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.Member;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.User;
 
 public class ModerationManager {
 
@@ -53,15 +59,24 @@ public class ModerationManager {
     }
 
     public static void handleModeration(Message message, String reasonStr) {
-        User author = message.getAuthor().asUser().orElse(null);
-        Server server = message.getServer().orElse(null);
-        if (server == null || author == null) {
+//        User author = message.getAuthor().asUser().orElse(null);
+        User author = message.getAuthor();
+//        Server server = message.getServer().orElse(null);
+        Guild guild = message.getGuild();
+//        if (server == null || author == null) {
+        Member member = guild.getMember(author);
+        if (guild == null || author == null || member == null) {
             return;
         }
-        if (author.getRoles(server).stream().anyMatch(role -> role.getName().equals(ConfigManager.getConfigValue("discord_role_pass")))) {
+//        if (author.getRoles(server).stream().anyMatch(role -> role.getName().equals(ConfigManager.getConfigValue("discord_role_pass")))) {
+        if (member.getRoles().stream().anyMatch(role ->
+            role.getId().equals(ConfigManager.getConfigValue("discord_role_pass"))
+            )
+        ) {
             return;
         }
-        long userId = author.getId();
+//        long userId = author.getId();
+        long userId = author.getIdLong();
         Map<Long, Integer> userCounts = new HashMap<>();
         synchronized (fileLock) {
             if (temporaryFile.exists()) {
@@ -109,7 +124,8 @@ public class ModerationManager {
         } else if (flaggedCount >= 5) {
             MessageManager.sendDiscordMessage(message, moderationWarning + ". Your message was flagged for: " + reasonStr);
             MessageManager.sendDiscordMessage(message, "You have been timed out for 5 minutes due to repeated violations.");
-            author.timeout(server, Duration.ofSeconds(300), reasonStr);
+//            author.timeout(server, Duration.ofSeconds(300), reasonStr);
+            member.timeoutFor(Duration.ofSeconds(300));
             userCounts.put(userId, 0);
             synchronized (fileLock) {
                 try (BufferedWriter writer = new BufferedWriter(new FileWriter(temporaryFile, false))) {

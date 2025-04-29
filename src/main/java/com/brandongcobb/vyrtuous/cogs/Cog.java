@@ -14,8 +14,10 @@
  */
 package com.brandongcobb.vyrtuous.cogs;
 
-import org.javacord.api.DiscordApi;
+import net.dv8tion.jda.api.JDA;
+//import org.javacord.api.DiscordApi;
 
 public interface Cog {
-    void register(DiscordApi api);
+//    void register(DiscordApi api);
+    void register(JDA api);
 }

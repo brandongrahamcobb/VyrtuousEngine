@@ -24,19 +24,31 @@ import com.zaxxer.hikari.HikariDataSource;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 import java.util.List;
-import org.javacord.api.DiscordApi;
-import org.javacord.api.DiscordApiBuilder;
-import org.javacord.api.entity.message.Message;
-import org.javacord.api.entity.message.MessageAttachment;
-import org.javacord.api.entity.channel.PrivateChannel;
-import org.javacord.api.entity.user.User;
-import org.javacord.api.event.message.MessageCreateEvent;
-import org.javacord.api.listener.message.MessageCreateListener;
+import javax.annotation.Nonnull;
+//import org.javacord.api.DiscordApi;
+//import org.javacord.api.DiscordApiBuilder;
+//import org.javacord.api.entity.message.Message;
+//import org.javacord.api.entity.message.MessageAttachment;
+//import org.javacord.api.entity.channel.PrivateChannel;
+//import org.javacord.api.entity.user.User;
+//import org.javacord.api.event.message.MessageCreateEvent;
+//import org.javacord.api.listener.message.MessageCreateListener;
+import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.Message.Attachment;
+import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
+import net.dv8tion.jda.api.entities.Guild;
+//import net.dv8tion.jda.api.entities.IMentionable;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.entities.Message.MentionType;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
-public class EventListeners implements Cog {
+public class EventListeners extends ListenerAdapter implements Cog {
 
     private final Vyrtuous app;
-    private DiscordApi api;
+//    private DiscordApi api;
+    private JDA api;
     private Lock lock;
     private long senderId;
 
@@ -46,38 +58,47 @@ public class EventListeners implements Cog {
     }
 
     @Override
-    public void register (DiscordApi api) {
-        api.addMessageCreateListener(new MessageCreateListener() {
-            @Override
-            public void onMessageCreate(MessageCreateEvent event) {
-                Message message = event.getMessage();
-                if (message.getAuthor().isBotUser()) {
-                    return;
+//    public void register (DiscordApi api) {
+    public void register (JDA api) {
+//        api.addMessageCreateListener(new MessageCreateListener() {
+        api.addEventListener(this);
+    }
+
+//    MessageCreateListener(new MessageCreateListener() {
+    @Override
+  //          public void onMessageCreate(MessageCreateEvent event) {
+    public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
+       Message message = event.getMessage();
+//                if (message.getAuthor().isBotUser()) {
+       if (message.getAuthor().isBot()) {
+           return;
+       }
+//                boolean isMentioned = message.getMentionedUsers().contains(api.getYourself());
+       boolean isMentioned = message.getMentions().getUsers().contains(api.getSelfUser());
+//                String content = event.getMessageContent();
+       String content = message.getContentDisplay();
+//                User sender = message.getAuthor().asUser().orElse(null);
+       User sender = event.getAuthor();
+//       senderId = sender.getId();
+       senderId = sender.getIdLong();
+//                List<MessageAttachment> attachments = message.getAttachments();
+       List<Message.Attachment> attachments = message.getAttachments();
+       if (!Predicator.isDeveloper(sender)) {
+            AIManager.handleConversation(senderId, content, attachments).thenAccept(result -> {
+                boolean handled = false;
+                if ("chat".equals(content.substring(1)) || isMentioned) {
+                    handled = true;
+                    if (result.getValue()) {
+                        ModerationManager.handleModeration(message, result.getKey());
+                    } else {
+                        MessageManager.sendDiscordMessage(message, result.getKey());
+                    }
                 }
-                boolean isMentioned = message.getMentionedUsers().contains(api.getYourself());
-                String content = event.getMessageContent();
-                User sender = message.getAuthor().asUser().orElse(null);
-                senderId = sender.getId();
-                List<MessageAttachment> attachments = message.getAttachments();
-                if (!Predicator.isDeveloper(sender)) {
-                    AIManager.handleConversation(senderId, content, attachments).thenAccept(result -> {
-                        boolean handled = false;
-                        if ("chat".equals(content.substring(1)) || isMentioned) {
-                            handled = true;
-                            if (result.getValue()) {
-                                ModerationManager.handleModeration(message, result.getKey());
-                            } else {
-                                MessageManager.sendDiscordMessage(message, result.getKey());
-                            }
-                        }
-                        if (result.getValue() && !handled) {
-                            ModerationManager.handleModeration(message, result.getKey());
-                        }
-                    })
-                    .join();
+                if (result.getValue() && !handled) {
+                    ModerationManager.handleModeration(message, result.getKey());
                 }
-            }
-        });
+            })
+            .join();
+        }
     }
 }
-

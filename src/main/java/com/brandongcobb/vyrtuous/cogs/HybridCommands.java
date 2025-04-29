@@ -18,6 +18,7 @@ package com.brandongcobb.vyrtuous.cogs;
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import com.brandongcobb.vyrtuous.utils.handlers.DiscordUser;
+import com.brandongcobb.vyrtuous.utils.handlers.MessageManager;
 import com.brandongcobb.vyrtuous.utils.sec.DiscordOAuth;
 import com.brandongcobb.vyrtuous.utils.sec.PatreonOAuth;
 import com.brandongcobb.vyrtuous.utils.handlers.OAuthUserSession;
@@ -32,16 +33,22 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 import java.util.HashMap;
 import java.util.Map;
-import org.javacord.api.DiscordApi;
-import org.javacord.api.DiscordApiBuilder;
-import org.javacord.api.entity.message.Message;
-import org.javacord.api.entity.user.User;
-import org.javacord.api.event.message.MessageCreateEvent;
-import org.javacord.api.listener.message.MessageCreateListener;
+import javax.annotation.Nonnull;
+//import org.javacord.api.DiscordApi;
+//import org.javacord.api.DiscordApiBuilder;
+//import org.javacord.api.entity.message.Message;
+//import org.javacord.api.entity.user.User;
+//import org.javacord.api.event.message.MessageCreateEvent;
+//import org.javacord.api.listener.message.MessageCreateListener;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
-public class HybridCommands implements Cog {
+public class HybridCommands extends ListenerAdapter implements Cog {
 
-    private static DiscordApi api;
+//    private static DiscordApi api;
     private static Vyrtuous app;
     private String authUrl;
     private static Lock lock;
@@ -54,68 +61,73 @@ public class HybridCommands implements Cog {
     }
 
     @Override
-    public void register (DiscordApi api) {
-        api.addMessageCreateListener(new MessageCreateListener() {
-            @Override
-            public void onMessageCreate(MessageCreateEvent event) {
-                Message message = event.getMessage();
-                if (message.getAuthor().isBotUser()) {
-                    return;
-                }
-                User sender = message.getAuthor().asUser().orElse(null);
-                senderId = sender.getId();
-                String content = event.getMessageContent();
-                if (content.startsWith(ConfigManager.getStringValue("discord_command_prefix"))) {
-                    String[] args = content.substring(1).split(" ");
-                    if (args[0].toLowerCase().equals("discord") || args[0].toLowerCase().equals("patreon")) {
-                        DiscordUser discordUser = new DiscordUser(app, senderId);
-                        OAuthUserSession session = new OAuthUserSession(app, discordUser, args[0]);
-                        discordSessions.put(discordUser, session);
-                        try {
-                            String state = URLEncoder.encode(String.valueOf(senderId), "UTF-8");
-                            switch (args[0].toLowerCase()) {
-                                case "patreon":
-                                    authUrl = PatreonOAuth.getAuthorizationUrl() + "&state=" + state;
-                                case "discord":
-                                    authUrl = DiscordOAuth.getAuthorizationUrl() + "&state=" + state;
-                                default:
-                                    break;
-                            }
-                            message.getChannel().sendMessage("Please visit the following URL to authorize: " + authUrl);
-                        } catch (UnsupportedEncodingException uee) {
-                            uee.printStackTrace();
-                        }
-                        session.setWaiting(true);
-                        ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
-                        session.setTimeoutTask(scheduler.schedule(() -> {
-                            session.setWaiting(false);
-                            discordSessions.remove(discordUser);
-                            message.getChannel().sendMessage("Authentication timed out. Please try again.");
-                        }, 10, TimeUnit.MINUTES));
-                    }
-                    switch (args[0].toLowerCase()) {
-                        case "code":
-                            DiscordUser discordUser = new DiscordUser(app, senderId);
-                            OAuthUserSession session = discordSessions.get(discordUser);
-                            if (session == null || !session.isWaiting()) {
-                                 message.getChannel().sendMessage("You don't have an active authentication session. Start with `/patreon` or `/discord` first.");
-                                 return;
-                            }
+//    public void register (DiscordApi api) {
+    public void register (JDA api) {
+//        api.addMessageCreateListener(new MessageCreateListener() {
+        api.addEventListener(this);
+    }
 
-                            String providedCode = args[1];
-                            if (providedCode.equals(session.getAccessToken())) {
-                                session.getTimeoutTask().cancel(false);
-                                discordSessions.remove(discordUser);
-                                message.getChannel().sendMessage("Authentication successful! You are now linked.");
-                            } else {
-                                message.getChannel().sendMessage("Invalid code. Please try again.");
-                            }
+//    public void onMessageCreate(MessageCreateEvent event) {
+    @Override
+    public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
+        Message message = event.getMessage();
+//                if (message.getAuthor().isBotUser()) {
+        if (message.getAuthor().isBot()) {
+            return;
+        }
+//        User sender = message.getAuthor().asUser().orElse(null);
+        User sender = message.getAuthor();
+        senderId = sender.getIdLong();
+//                String content = event.getMessageContent();
+        String content = event.getMessage().getContentDisplay();
+        if (content.startsWith(ConfigManager.getStringValue("discord_command_prefix"))) {
+            String[] args = content.substring(1).split(" ");
+            if (args[0].toLowerCase().equals("discord") || args[0].toLowerCase().equals("patreon")) {
+                DiscordUser discordUser = new DiscordUser(app, senderId);
+                OAuthUserSession session = new OAuthUserSession(app, discordUser, args[0]);
+                discordSessions.put(discordUser, session);
+                try {
+                    String state = URLEncoder.encode(String.valueOf(senderId), "UTF-8");
+                    switch (args[0].toLowerCase()) {
+                        case "patreon":
+                            authUrl = PatreonOAuth.getAuthorizationUrl() + "&state=" + state;
+                        case "discord":
+                            authUrl = DiscordOAuth.getAuthorizationUrl() + "&state=" + state;
                         default:
                             break;
                     }
+                    MessageManager.sendDiscordMessage(message, "Please visit the following URL to authorize: " + authUrl);
+                } catch (UnsupportedEncodingException uee) {
+                    uee.printStackTrace();
                 }
+                session.setWaiting(true);
+                ScheduledExecutorService scheduler = Executors.newSingleThreadScheduledExecutor();
+                session.setTimeoutTask(scheduler.schedule(() -> {
+                    session.setWaiting(false);
+                    discordSessions.remove(discordUser);
+                    MessageManager.sendDiscordMessage(message, "Authentication timed out. Please try again.");
+                }, 10, TimeUnit.MINUTES));
             }
-        });
+            switch (args[0].toLowerCase()) {
+                case "code":
+                    DiscordUser discordUser = new DiscordUser(app, senderId);
+                    OAuthUserSession session = discordSessions.get(discordUser);
+                    if (session == null || !session.isWaiting()) {
+                         MessageManager.sendDiscordMessage(message, "You don't have an active authentication session. Start with `/patreon` or `/discord` first.");
+                         return;
+                    }
+                    String providedCode = args[1];
+                    if (providedCode.equals(session.getAccessToken())) {
+                        session.getTimeoutTask().cancel(false);
+                        discordSessions.remove(discordUser);
+                        MessageManager.sendDiscordMessage(message, "Authentication successful! You are now linked.");
+                    } else {
+                        MessageManager.sendDiscordMessage(message, "Invalid code. Please try again.");
+                    }
+                default:
+                    break;
+            }
+        }
     }
 }
 

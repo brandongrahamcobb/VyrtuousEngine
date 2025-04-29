@@ -21,6 +21,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import java.io.File;
 import java.io.InputStream;
 import java.io.IOException;
+import java.net.URL;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Base64;
@@ -31,11 +32,21 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.Map;
-import org.javacord.api.entity.channel.PrivateChannel;
-import org.javacord.api.entity.message.embed.EmbedBuilder;
-import org.javacord.api.entity.message.Message;
-import org.javacord.api.entity.message.MessageAttachment;
-import org.javacord.api.entity.user.User;
+//import org.javacord.api.entity.channel.PrivateChannel;
+//import org.javacord.api.entity.message.embed.EmbedBuilder;
+//import org.javacord.api.entity.message.Message;
+//import org.javacord.api.entity.message.MessageAttachment;
+//import org.javacord.api.entity.user.User;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.entities.Message.Attachment;
+import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import net.dv8tion.jda.api.EmbedBuilder;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.MessageEmbed;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.utils.FileUpload;
 
 public class MessageManager {
 
@@ -55,7 +66,7 @@ public class MessageManager {
         return Base64.getEncoder().encodeToString(imageBytes);
     }
 
-    public static CompletableFuture<List<MessageContent>> processArray(String content, List<MessageAttachment> attachments) {
+    public static CompletableFuture<List<MessageContent>> processArray(String content, List<Message.Attachment> attachments) {
         List<MessageContent> array = new ArrayList<>();
         if (content != null && !content.trim().isEmpty()) {
             return processTextMessage(content).thenCompose(processedText -> {
@@ -72,17 +83,20 @@ public class MessageManager {
         return CompletableFuture.completedFuture(array);
     }
 
-    public static CompletableFuture<List<MessageContent>> processAttachments(List<MessageAttachment> attachments) {
+//    public static CompletableFuture<List<MessageContent>> processAttachments(List<MessageAttachment> attachments) {
+    public static CompletableFuture<List<MessageContent>> processAttachments(List<Message.Attachment> attachments) {
         logger.info("Entered processAttachments with " + attachments.size() + " attachments");
         List<MessageContent> processedAttachments = Collections.synchronizedList(new ArrayList<>());
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         if (!tempDirectory.exists()) {
             tempDirectory.mkdirs();
         }
-        for (MessageAttachment attachment : attachments) {
+//        for (MessageAttachment attachment : attachments) {
+        for (Message.Attachment attachment : attachments) {
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                 File file = new File(tempDirectory, attachment.getFileName());
-                try (InputStream in = attachment.getUrl().openStream()) {
+//                try (InputStream in = attachment.getUrl().openStream()) {
+                try (InputStream in = new URL(attachment.getUrl()).openStream()) {
                     Files.copy(in, file.toPath());
                     String contentType = getContentTypeFromFileName(attachment.getFileName());
                     if (contentType.startsWith("image/")) {
@@ -151,32 +165,81 @@ public class MessageManager {
         return valid;
     }
 
+//    public static CompletableFuture<Message> sendDM(User user, String content) {
+            //.thenCompose(channel ->
+                //channel.sendMessage(content)
+//                )
     public static CompletableFuture<Message> sendDM(User user, String content) {
-        return user.openPrivateChannel().thenCompose(channel -> channel.sendMessage(content));
+        return user.openPrivateChannel()
+            .submit()
+            .thenCompose(channel ->
+                channel.sendMessage(content)
+                    .submit()
+                    );
+    
+  //      return user.openPrivateChannel().thenCompose(channel -> channel.sendMessage(content));
     }
 
-    public static CompletableFuture<Message> sendDiscordMessage(Message message, String content, EmbedBuilder embed) {
-        return message.getServerTextChannel()
-                .map(channel -> channel.sendMessage(content, embed))
-                .orElseThrow(() -> new IllegalArgumentException("Message is not in a server text channel."));
+//    public static CompletableFuture<Message> sendDiscordMessage(Message message, String content, EmbedBuilder embed) {
+    public static CompletableFuture<Message> sendDiscordMessage(Message message, String content, MessageEmbed embed) {
+//        return message.getTextChannel()
+        return message.getGuildChannel()
+            .asTextChannel()
+            .sendMessage(content)
+            .addEmbeds(embed)
+            .submit();
     }
+//        return message.getServerTextChannel()
+//            .flatma(channel ->
+//                channel.sendMessage(content, embed)
+//                )
+//            .orElseThrow(() ->
+//                new IllegalArgumentException("Message is not in a server text channel.")
+//                )
+//            );
+//    }
 
     public static CompletableFuture<Message> sendDiscordMessage(Message message, String content) {
-        return message.getServerTextChannel()
-                .map(channel -> channel.sendMessage(content))
-                .orElseThrow(() -> new IllegalArgumentException("Message is not in a server text channel."));
+        return message.getGuildChannel()
+            .asTextChannel()
+//        return message.getServerTextChannel()
+            .sendMessage(content)
+            .submit();
     }
 
+//    public static CompletableFuture<Message> sendDiscordMessage(Message message, String content) {
+//        return message.getTextChannel()
+//        return message.getServerTextChannel()
+//                .map(channel ->
+//                    channel.sendMessage(content)
+//                    )
+//                .orElseThrow(() -> new IllegalArgumentException("Message is not in a server text channel.")
+//                .submit());
+//    }
+
     public static CompletableFuture<Message> sendDiscordMessage(Message message, String content, File file) {
-        return message.getChannel().sendMessage(content, file);
+//        return message.getTextChannel()
+        return message.getGuildChannel()
+            .asTextChannel()
+            .sendMessage(content)
+            .addFiles(FileUpload.fromData(file))
+            .submit();
+//        return message.getChannel().sendMessage(content, file);
     }
 
     public static CompletableFuture<Message> sendDiscordMessage(PrivateChannel channel, String content, File file) {
-        return channel.sendMessage(content, file);
+//        return channel.sendMessage(content, file);
+        return channel.sendMessage(content)
+            .addFiles(FileUpload.fromData(file))
+            .submit();
     }
 
-    public static CompletableFuture<Message> sendDiscordMessage(PrivateChannel channel, String content, EmbedBuilder embed) {
-        return channel.sendMessage(content, embed); // Sending message to private channel
+//    public static CompletableFuture<Message> sendDiscordMessage(PrivateChannel channel, String content, EmbedBuilder embed) {
+    public static CompletableFuture<Message> sendDiscordMessage(PrivateChannel channel, String content, MessageEmbed embed) {
+        return channel.sendMessage(content)
+            .addEmbeds(embed)
+            .submit();
+//        return channel.sendMessage(content, embed); // Sending message to private channel
     }
 
     public boolean hasAttachments(Message message) {
@@ -184,7 +247,8 @@ public class MessageManager {
     }
 
     public String getMessageContent(Message message) {
-        return message.getContent();
+//        return message.getContent();
+        return message.getContentDisplay();
     }
 
     public static class MessageContent {

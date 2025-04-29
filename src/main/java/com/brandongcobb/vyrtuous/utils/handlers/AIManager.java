@@ -40,10 +40,12 @@ import org.apache.http.HttpEntity;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
-import org.javacord.api.entity.message.MessageAttachment;
+//import org.javacord.api.entity.message.Message.Attachment;
+import net.dv8tion.jda.api.entities.Message.Attachment;
 import java.util.AbstractMap;
 import java.util.Map;
 import org.yaml.snakeyaml.Yaml;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 
 public class AIManager {
 
@@ -199,7 +201,8 @@ public class AIManager {
     public static CompletableFuture<Map.Entry<String, Boolean>> handleConversation(
             long senderId,
             String message,
-            List<MessageAttachment> attachments) {
+            List<Attachment> attachments) {
+//            List<MessageAttachment> attachments) {
         // First, process message and attachments into a List<MessageContent>
         return MessageManager.processArray(message, attachments)
             .thenCompose(inputArray -> {

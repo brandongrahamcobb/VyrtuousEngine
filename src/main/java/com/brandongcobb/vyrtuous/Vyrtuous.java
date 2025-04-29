@@ -67,8 +67,8 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.javacord.api.DiscordApi;
-import org.javacord.api.DiscordApiBuilder;
+//import org.javacord.api.DiscordApi;
+//import org.javacord.api.DiscordApiBuilder;
 
 public class Vyrtuous extends JavaPlugin {
 

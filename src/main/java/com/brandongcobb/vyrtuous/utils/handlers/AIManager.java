@@ -46,6 +46,9 @@ import java.util.AbstractMap;
 import java.util.Map;
 import org.yaml.snakeyaml.Yaml;
 import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
+import com.knuddels.jtokkit.Encodings;
+import com.knuddels.jtokkit.api.Encoding;
+import com.knuddels.jtokkit.api.EncodingRegistry;
 
 public class AIManager {
 
@@ -55,6 +58,8 @@ public class AIManager {
     private static String openAIAPIKey;
     private int i;
     private CompletableFuture<List<Map<String, Object>>> inputArray;
+    private static EncodingRegistry registry = Encodings.newDefaultEncodingRegistry();
+    private static Encoding encoding;
 
     static {
         conversations = new HashMap<>();
@@ -62,6 +67,46 @@ public class AIManager {
 
     public AIManager(Vyrtuous application) throws IOException {
         this.app = application;
+    }
+
+    public void trimConversationHistory(String model, long customId) {
+        ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(model);
+        List<Map<String, Object>> history = conversations.get(customId);
+        if (history == null) {
+            System.out.println("No conversation history found for customId: " + customId);
+            return;
+        }
+    
+        // Use tiktoken-java tokenizer
+        System.out.println("PINK");
+        try {
+            encoding = registry.getEncodingForModel(model.replace('-', '_'))
+               .orElse(registry.getEncoding("cl200k_base").orElseThrow(() ->
+               new IllegalStateException("Fallback encoding 'cl200k_base' not available")));
+        } catch (Exception e) {
+            System.out.println("Tokenizer not available for model: " + model + ", using cl100k_base as fallback.");
+        }
+
+        long contextLimit = contextInfo.upperLimit();
+        long promptTokens = countTokens(history, encoding);
+    
+        while (promptTokens > contextLimit && !history.isEmpty()) {
+            Map<String, Object> removed = history.remove(0);
+            promptTokens = countTokens(history, encoding); // re-count after removal
+        }
+    
+        conversations.put(customId, history);
+    }
+    
+    private static long countTokens(List<Map<String, Object>> history, Encoding encoding) {
+        long total = 0;
+        for (Map<String, Object> msg : history) {
+            String role = String.valueOf(msg.get("role"));
+            String content = String.valueOf(msg.get("content"));
+            total += encoding.encode(role).size();
+            total += encoding.encode(content).size();
+        }
+        return total;
     }
 
     public static CompletableFuture<String> getChatCompletion(
@@ -88,13 +133,6 @@ public class AIManager {
                     post.setHeader("Content-Type", "application/json");
                     Map<String, Object> requestBody = new HashMap<>();
                     requestBody.put("n", n);
-                    ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(model);
-                    boolean status = contextInfo.status();
-                    if (status) {
-                        requestBody.put("max_completion_tokens", contextInfo.upperLimit());
-                    } else {
-                        requestBody.put("max_tokens", contextInfo.upperLimit());
-                    }
                     requestBody.put("temperature", temperature);
                     requestBody.put("model", model);
                     if (responseFormat != null && !responseFormat.isEmpty()) {
@@ -112,6 +150,27 @@ public class AIManager {
                     }
                     requestBody.put("messages", messagesList); // Add the constructed messages list to the request body
                     conversations.put(customId, messagesList);
+                    try {
+                        encoding = registry.getEncodingForModel(model.replace('-', '_'))
+                           .orElse(registry.getEncoding("cl200k_base").orElseThrow(() ->
+                           new IllegalStateException("Fallback encoding 'cl100k_base' not available")));
+                    } catch (Exception e) {
+                        System.out.println("Tokenizer not available for model: " + model + ", using cl100k_base as fallback.");
+                    }
+                    ModelInfo outputInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(model);
+                    ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
+                    boolean status = contextInfo.status();
+                    long promptTokens = countTokens(messagesList, encoding);
+//                        .sum();
+                    long contextLimit = contextInfo.upperLimit(); // e.g., 128000
+                    long outputLimit = outputInfo.upperLimit();   // e.g., 4096
+                    long calculatedMaxTokens = Math.max(0, Math.min(outputLimit, contextLimit - promptTokens));
+
+                    if (status) {
+                        requestBody.put("max_completion_tokens", calculatedMaxTokens);
+                    } else {
+                        requestBody.put("max_tokens", calculatedMaxTokens);
+                    }
                     if (store) {
                         LocalDateTime now = LocalDateTime.now();
                         Map<String, String> metadataMap = new HashMap<>();
@@ -133,8 +192,103 @@ public class AIManager {
                 } catch (IOException e) {
                     throw new RuntimeException("Failed to get chat completion", e);
                 }
+            }).exceptionally(ex -> {
+                ex.printStackTrace();
+                return "Failed to get chat completion" + ex.getMessage();
             })
         );
+    }
+
+    public static CompletableFuture<Map<String, String>> getResponse(
+            long customId,
+            CompletableFuture<List<MessageContent>> inputArray,
+            long maxOutputTokens,
+            String model,
+            boolean stream,
+            String devInput,
+            float temperature,
+            float top_p,
+            boolean store,
+            boolean addCompletionToHistory) throws IOException {
+        openAIAPIKey = ConfigManager.getNestedConfigValue("api_keys", "OpenAI").getStringValue("api_key");
+        return inputArray.thenCompose(messages ->
+            CompletableFuture.supplyAsync(() -> {
+                String apiUrl = "https://api.openai.com/v1/chat/completions";
+                try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+                    HttpPost post = new HttpPost(apiUrl);
+                    post.setHeader("Authorization", "Bearer " + openAIAPIKey);
+                    post.setHeader("Content-Type", "application/json");
+                    Map<String, Object> requestBody = new HashMap<>();
+                    ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(model);
+                    requestBody.put("max_output_tokens", contextInfo.upperLimit());
+                    requestBody.put("temperature", temperature);
+                    requestBody.put("model", model);
+                    requestBody.put("store", store);
+                    requestBody.put("top_p", top_p);
+                    List<Map<String, Object>> messagesList = new ArrayList<>();
+                    for (MessageContent messageContent : messages) {
+                        Map<String, Object> messageMap = new HashMap<>();
+                        messageMap.put("role", messageContent.getType()); // Assuming getType() returns the role ("user" or "assistant")
+                        messageMap.put("content", messageContent.getText()); // Assuming getText() returns the message content
+                        messagesList.add(messageMap);
+                    }
+                    requestBody.put("input", messagesList); // Add the constructed messages list to the request body
+                    if (store) {
+                        LocalDateTime now = LocalDateTime.now();
+                        Map<String, String> metadataMap = new HashMap<>();
+                        metadataMap.put("user", String.valueOf(customId));
+                        metadataMap.put("timestamp", String.valueOf(now));
+                        requestBody.put("metadata", Collections.singletonList(metadataMap));
+                    }
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    String jsonBody = objectMapper.writeValueAsString(requestBody);
+                    post.setEntity(new StringEntity(jsonBody));
+                    try (CloseableHttpResponse response = httpClient.execute(post)) {
+                        HttpEntity entity = response.getEntity();
+                        String result = EntityUtils.toString(entity, StandardCharsets.UTF_8);
+                        Map<String, Object> responseMap = objectMapper.readValue(result, Map.class);
+                        Map<String, String> map = new HashMap<>();
+                        List<Map<String, Object>> outputList = (List<Map<String, Object>>) responseMap.get("output");
+                        if (outputList != null && !outputList.isEmpty()) {
+                            Map<String, Object> firstOutput = outputList.get(0);
+                            List<Map<String, Object>> contentList = (List<Map<String, Object>>) firstOutput.get("content");
+                            if (contentList != null && !contentList.isEmpty()) {
+                                Map<String, Object> firstContent = contentList.get(0);
+                                String replyText = (String) firstContent.get("text");
+                                map.put(replyText, String.valueOf(responseMap.get("previous_response_id")));
+                                conversations.put(responseMap.get("previous_response_id"), messagesList);
+                            }
+                        }
+                        return map;
+                    } catch (IOException e) {
+                        throw new RuntimeException("Failed to get chat completion", e);
+                    }
+                } catch (IOException e) {
+                    throw new RuntimeException("Failed to get chat completion", e);
+                }
+            })
+        );
+    }
+
+    public static CompletableFuture<String> getResponseWrapper(long customId, CompletableFuture<List<MessageContent>> inputArray) {
+
+        try {
+            ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(ConfigManager.getStringValue("openai_chat_model"));
+            return getChatCompletion(
+                customId,
+                inputArray,
+                contextInfo.upperLimit(),
+                ConfigManager.getStringValue("openai_chat_model"),
+                app.openAIDefaultChatCompletionResponseFormat,
+                ConfigManager.getBooleanValue("openai_chat_stream"),
+                app.openAIDefaultChatCompletionSysInput,
+                (float) Float.parseFloat(String.valueOf(ConfigManager.getConfigValue("openai_chat_temperature"))),                                         // I really want to change this, but it causes errors.
+                (float) Float.parseFloat(String.valueOf(ConfigManager.getConfigValue("openai_chat_top_p"))),                                               // this too
+                app.openAIDefaultChatCompletionAddToHistory,
+                app.openAIDefaultChatCompletionUseHistory
+            );
+        } catch (IOException ioe) {}
+        return null;
     }
 
     public static CompletableFuture<String> getCompletion(long customId, CompletableFuture<List<MessageContent>> inputArray) {
@@ -245,7 +399,6 @@ public class AIManager {
                             String finalResponse = "Moderation flagged for: " + reasons;
                             return CompletableFuture.completedFuture(Map.entry(finalResponse, true));
                         } else {
-                            // Not flagged, handle chat response
                             return getCompletion(senderId, inputFuture).thenApply(chatResponse -> {
                                 String reply = (chatResponse.length() > 2000) ?
                                         String.join("\n---\n", splitLongResponse(chatResponse, 1950)) :
@@ -287,22 +440,22 @@ public class AIManager {
         return outputChunks;
     }
 
-    public void trimConversationHistory(String model, long customId) {
-        ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(model);
-        List<Map<String, Object>> history = conversations.get(customId);
-        if (history == null) {
-            System.out.println("No conversation history found for customId: " + customId);
-            return;
-        }
-        long totalTokens = history.stream()
-            .mapToInt(msg -> String.valueOf(msg.get("content")).length())
-            .sum();
-        while (totalTokens > contextInfo.upperLimit() && !history.isEmpty()) {
-            Map<String, Object> removedMessage = history.remove(0);
-            totalTokens -= String.valueOf(removedMessage.get("content")).length();
-        }
-        conversations.put(customId, history);
-    }
+//    public void trimConversationHistory(String model, long customId) {
+//        ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(model);
+//        List<Map<String, Object>> history = conversations.get(customId);
+//        if (history == null) {
+//            System.out.println("No conversation history found for customId: " + customId);
+//            return;
+//        }
+//        long totalTokens = history.stream()
+//            .mapToInt(msg -> String.valueOf(msg.get("content")).length())
+//            .sum();
+//        while (totalTokens > contextInfo.upperLimit() && !history.isEmpty()) {
+//            Map<String, Object> removedMessage = history.remove(0);
+//            totalTokens -= String.valueOf(removedMessage.get("content")).length();
+//        }
+//        conversations.put(customId, history);
+//    }
 
 
 }

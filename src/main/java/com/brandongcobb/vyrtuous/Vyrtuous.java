@@ -29,9 +29,8 @@ import com.brandongcobb.vyrtuous.utils.handlers.OAuthUserSession;
 import com.brandongcobb.vyrtuous.utils.handlers.PatreonUser;
 import com.brandongcobb.vyrtuous.utils.handlers.Predicator;
 import com.brandongcobb.vyrtuous.utils.handlers.User;
+import com.brandongcobb.vyrtuous.metadata.MetadataContainer;
 import com.brandongcobb.vyrtuous.utils.inc.Helpers;
-import com.brandongcobb.vyrtuous.utils.listeners.ChatListener;
-import com.brandongcobb.vyrtuous.utils.listeners.PlayerJoinListener;
 import com.brandongcobb.vyrtuous.utils.sec.DiscordOAuth;
 import com.brandongcobb.vyrtuous.utils.sec.PatreonOAuth;
 import com.patreon.PatreonAPI;
@@ -50,6 +49,10 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.function.Predicate;
 import java.io.File;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.CompletionException;
 import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -58,23 +61,13 @@ import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Timer;
 import java.util.TimerTask;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
-import org.bukkit.event.EventHandler;
-import org.bukkit.event.player.AsyncPlayerChatEvent;
-import org.bukkit.plugin.java.JavaPlugin;
-import org.bukkit.scheduler.BukkitRunnable;
-//import org.javacord.api.DiscordApi;
-//import org.javacord.api.DiscordApiBuilder;
+import java.net.URI;
+import java.net.URISyntaxException;
 
-public class Vyrtuous extends JavaPlugin {
+public class Vyrtuous {
 
-    private BukkitRunnable callbackRunnable;
+    private final ExecutorService dbExecutor = Executors.newFixedThreadPool(4);
     public static Vyrtuous app;
-    public static Map<Long, List<Map<String, String>>> conversations;
     public static Connection connection;
     private CompletableFuture<Void> databaseTask;
     public static HikariDataSource dbPool;
@@ -88,247 +81,183 @@ public class Vyrtuous extends JavaPlugin {
     public static Logger logger;
     private CompletableFuture<Void> loggingTask;
     private CompletableFuture<Void> managerTask;
+    public MetadataContainer metadataContainer;
     private CompletableFuture<Void> minecraftTask;
     public static OAuthUserSession oAuthUserSession;
-    public static boolean openAIDefaultChatCompletion;
-    public static boolean openAIDefaultChatCompletionAddToHistory;
-    public static String openAIDefaultChatCompletionModel;
-    public static long openAIDefaultChatCompletionMaxTokens;
-    public static long openAIDefaultChatCompletionNumber;
-    public static Map<String, Object> openAIDefaultChatCompletionResponseFormat;
-    public static String openAIDefaultChatCompletionStop;
-    public static boolean openAIDefaultChatCompletionStore;
-    public static boolean openAIDefaultChatCompletionStream;
-    public static String openAIDefaultChatCompletionSysInput;
-    public static float openAIDefaultChatCompletionTemperature;
-    public static float openAIDefaultChatCompletionTopP;
-    public static boolean openAIDefaultChatCompletionUseHistory;
-    public static boolean openAIDefaultChatModeration;
-    public static boolean openAIDefaultChatModerationAddToHistory;
-    public static long openAIDefaultChatModerationNumber;
-    public static long openAIDefaultChatModerationMaxTokens;
-    public static String openAIDefaultChatModerationModel;
-    public static Map<String, Object> openAIDefaultChatModerationResponseFormat;
-    public static String openAIDefaultChatModerationStop;
-    public static boolean openAIDefaultChatModerationStore;
-    public static boolean openAIDefaultChatModerationStream;
-    public static String openAIDefaultChatModerationSysInput;
-    public static float openAIDefaultChatModerationTemperature;
-    public static float openAIDefaultChatModerationTopP;
-    public static boolean openAIDefaultChatModerationUseHistory;
-    public static String openAIGenericApiKey;
     public static Map<MinecraftUser, OAuthUserSession> sessions = new HashMap<>();
     public static File tempDirectory;
     public Timer callbackTimer;
     public static final String ANSI_CYAN = "\u001B[36m";
     public static final String ANSI_RESET = "\u001B[0m";
 
-    public Vyrtuous () {
-
-        app = this;
- 
-        this.conversations = new HashMap<>();
-
-	// Configuration preparation
-        this.openAIDefaultChatCompletion = false;
-        this.openAIDefaultChatCompletionAddToHistory = false;
-        this.openAIDefaultChatCompletionMaxTokens = Helpers.parseCommaNumber("32,768");
-        this.openAIDefaultChatCompletionModel = "gpt-4.1-nano";
-        this.openAIDefaultChatCompletionNumber = 1;
-        this.openAIDefaultChatCompletionResponseFormat = Helpers.OPENAI_CHAT_COMPLETION_RESPONSE_FORMAT;
-        this.openAIDefaultChatCompletionStop = "";
-        this.openAIDefaultChatCompletionStore = false;
-        this.openAIDefaultChatCompletionStream = false;
-        this.openAIDefaultChatCompletionSysInput = Helpers.OPENAI_CHAT_COMPLETION_SYS_INPUT;;
-        this.openAIDefaultChatCompletionTemperature = 0.7f;
-        this.openAIDefaultChatCompletionTopP = 1.0f;
-        this.openAIDefaultChatCompletionUseHistory = false;
-        this.openAIDefaultChatModeration = true;
-        this.openAIDefaultChatModerationAddToHistory = false;
-        this.openAIDefaultChatModerationMaxTokens = Helpers.parseCommaNumber("32,768");
-        this.openAIDefaultChatModerationModel = "gpt-4.1-nano";
-        this.openAIDefaultChatModerationNumber = 1;
-        this.openAIDefaultChatModerationResponseFormat = Helpers.OPENAI_CHAT_MODERATION_RESPONSE_FORMAT;
-        this.openAIDefaultChatModerationStop = "";
-        this.openAIDefaultChatModerationStore = false;
-        this.openAIDefaultChatModerationStream = false;
-        this.openAIDefaultChatModerationSysInput = "All incoming data is subject to moderation. Protect your backend by flagging a message if it is unsuitable for a public community.";
-        this.openAIDefaultChatModerationTemperature = 0.7f;
-        this.openAIDefaultChatModerationTopP = 1.0f;
-        this.openAIDefaultChatModerationUseHistory = false;
-        this.logger = Logger.getLogger("Vyrtuous");
-        this.tempDirectory = new File(System.getProperty("java.io.tmpdir"));
-        this.lock = null;
-        this.loggingTask = new CompletableFuture<Void>(); // Initialize to null
-    }
-
-    public void closeDatabase() {
-        if (dbPool != null && !dbPool.isClosed()) {
-            dbPool.close();
-        }
-    }
-
-   public static Vyrtuous getInstance() {
-       return instance;
-   }
-
-    private void connectDatabase(Runnable afterConnect) {
-        logger.log(Level.INFO, "Initializing PostgreSQL connection pool...");
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                String host = getConfig().getString("postgres_host", "jdbc:postgresql://" + String.valueOf(ConfigManager.getConfigValue("postgres_host")));
-                String db = getConfig().getString("postgres_database", String.valueOf(ConfigManager.getConfigValue("postgres_database")));
-                String user = getConfig().getString("postgres_user", String.valueOf(ConfigManager.getConfigValue("postgres_user")));
-                String password = getConfig().getString("postgres_password", String.valueOf(ConfigManager.getConfigValue("postgres_password")));
-                String port = getConfig().getString("postgres_port", String.valueOf(ConfigManager.getConfigValue("postgres_port")));
-                String jdbcUrl = String.format("jdbc:postgresql://%s:%s/%s", host, port, db);
-                logger.info("Connecting to: " + jdbcUrl);
-                HikariConfig hikariConfig = new HikariConfig();
-                hikariConfig.setJdbcUrl(jdbcUrl);
-                hikariConfig.setUsername(user);
-                hikariConfig.setPassword(password);
-                hikariConfig.setDriverClassName("org.postgresql.Driver");
-                hikariConfig.setLeakDetectionThreshold(2000);
-                try {
-                    dbPool = new HikariDataSource(hikariConfig);
-                    logger.log(Level.INFO, "PostgreSQL connection pool initialized.");
-                    new BukkitRunnable() {
-                        @Override
-                        public void run() {
-                            afterConnect.run();
-                        }
-                    }.runTask(Vyrtuous.this);
-                } catch (Exception e) {
-                    logger.log(Level.SEVERE, "Failed to initialize PostgreSQL connection pool!", e);
-                }
-           }
-        }.runTaskAsynchronously(this);
-    }
-
-    public void getConnection(Consumer<Connection> callback) {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                Connection[] conn = {null}; // Use an array to hold the connection
-                try {
-                    if (dbPool == null) {
-                        logger.warning("DataSource not initialized");
-                        Bukkit.getScheduler().runTask(Vyrtuous.this, () -> callback.accept(null));
-                        return;
-                    }
-                    conn[0] = dbPool.getConnection(); // Get the connection
-                    logger.log(Level.INFO, "PostgreSQL connection opened.");
-                    Bukkit.getScheduler().runTask(Vyrtuous.this, () -> callback.accept(conn[0]));
-                } catch (SQLException e) {
-                    e.printStackTrace(); // Handle potential SQLException
-                    Bukkit.getScheduler().runTask(Vyrtuous.this, () -> callback.accept(null));
-                }
-            }
-        }.runTaskAsynchronously(this); // Run asynchronously
-    }
-
-    public void onDisable() {
-        closeDatabase();
-        logger.log(Level.INFO, "PostgreSQL Example plugin disabled.");
-        OAuthServer.cancelOAuthSession(callbackTimer);
-        OAuthServer.stop();
-    }
-
-    public void onEnable() {
-        try {
+    public static CompletableFuture<File> completeGetDataFolder() {
+        return CompletableFuture.supplyAsync(() -> {
             try {
-                instance = this;
-                ConfigManager.setApp(this);
-                ConfigManager configManager = new ConfigManager();
-                configManager.loadConfig();
-                if (ConfigManager.isConfigSameAsDefault()) {
-                   throw new IllegalStateException("Could not load Vyrtuous, the config is invalid.");
-                }
-            } catch (IOException ioe) {
-                ioe.printStackTrace();
+                // Using the current class's protection domain to get the directory of the program
+                URI location = Vyrtuous.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+                File currentDir = new File(location).getParentFile();
+                return currentDir;
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to determine program folder path", e);
             }
-            ConfigManager.validateConfig();
-            CompletableFuture<Void> superTask = CompletableFuture.runAsync(() -> {
-                setupLogging();
-                connectDatabase(() -> {});
-                OAuthServer.start();
-                PlayerMessageQueueManager chatQueuer = new PlayerMessageQueueManager();
-                this.getServer().getPluginManager().registerEvents(new ChatListener(this, chatQueuer), this);
-                this.getServer().getPluginManager().registerEvents(new PlayerJoinListener(this), this);
-                DiscordBot.start();
-            });
-            CompletableFuture<Void> allTasks = CompletableFuture.allOf(superTask);
-            allTasks.join();
+        });
+    }
+
+    public Vyrtuous() {
+        app = this;
+        this.metadataContainer = new MetadataContainer();
+        logger = Logger.getLogger("Vyrtuous");
+        tempDirectory = new File(System.getProperty("java.io.tmpdir"));
+        lock = null;
+        loggingTask = new CompletableFuture<Void>(); // Initialize if needed
+        CountDownLatch latch = new CountDownLatch(1); // Use CountDownLatch to keep the main thread alive
+        try {
+            instance = this;
+            // Chain the configuration steps.
+            ConfigManager.completeSetApp(this)
+                .thenCompose(ignored -> ConfigManager.completeLoadConfig())
+                .thenCompose(ignored -> ConfigManager.completeIsConfigSameAsDefault())
+                .thenCompose((Boolean isDefault) -> {
+                    if (isDefault) {
+                        return CompletableFuture.failedFuture(
+                            new IllegalStateException("Could not load Vyrtuous, the config is invalid.")
+                        );
+                    } else {
+                        return ConfigManager.completeValidateConfig();
+                    }
+                })
+                .thenRunAsync(() -> {
+                    CompletableFuture<Void> superTask = CompletableFuture.runAsync(() -> {
+                        completeSetupLogging().join();
+                        completeConnectDatabase(() -> {}).join();
+                        OAuthServer.start(this);
+                        new PlayerMessageQueueManager();
+                        DiscordBot.start();
+                    });
+                    superTask.join();
+                })
+                .thenRun(() -> {
+                    // Once all tasks are finished, countdown the latch to allow the main thread to continue
+                    latch.countDown();
+                })
+                .exceptionally(ex -> {
+                    logger.severe("Error initializing the application: " + ex.getMessage());
+                    ex.printStackTrace();
+                    return null;
+                })
+                .join();
         } catch (Exception e) {
             logger.severe("Error initializing the application: " + e.getMessage());
             e.printStackTrace();
         }
+    
+        // Wait for the latch to be decremented before allowing the program to exit
+        try {
+            latch.await();
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
-    @Override
-    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
-        if (!(sender instanceof Player)) return false; // Safety check
-        Player currentPlayer = (Player)sender;
-        MinecraftUser minecraftUser = new MinecraftUser(this, currentPlayer);
-        if (cmd.getName().equalsIgnoreCase("patreon") || cmd.getName().equalsIgnoreCase("discord")) {
+    public CompletableFuture<Void> closeDatabase() {
+        return CompletableFuture.supplyAsync(() -> {
+            if (dbPool != null && !dbPool.isClosed()) {
+                dbPool.close();
+            }
+            return null;
+        });
+    }
+
+    public static CompletableFuture<Vyrtuous> getInstance() {
+       return CompletableFuture.supplyAsync(() -> instance);
+    }
+
+    public CompletableFuture<Void> completeConnectDatabase(Runnable afterConnect) {
+        logger.log(Level.INFO, "Initializing PostgreSQL connection pool asynchronously...");
+        // Wait for all the CompletableFuture values to complete.
+        return CompletableFuture.allOf(
+            ConfigManager.completeGetConfigObjectValue("postgres_host"),
+            ConfigManager.completeGetConfigObjectValue("postgres_database"),
+            ConfigManager.completeGetConfigObjectValue("postgres_user"),
+            ConfigManager.completeGetConfigObjectValue("postgres_password"),
+            ConfigManager.completeGetConfigObjectValue("postgres_port")
+        ).thenApplyAsync(v -> {
+            // Extract the resolved values from the CompletableFutures
+            String host = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_host").join());
+            String db = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_database").join());
+            String user = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_user").join());
+            String password = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_password").join());
+            String port = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_port").join());
+            
+            // Construct the jdbcUrl correctly
+            String jdbcUrl = String.format("jdbc:postgresql://%s:%s/%s", host, port, db);
+            logger.info("Connecting to: " + jdbcUrl);
+    
+            HikariConfig hikariConfig = new HikariConfig();
+            hikariConfig.setJdbcUrl(jdbcUrl);
+            hikariConfig.setUsername(user);
+            hikariConfig.setPassword(password);
+            hikariConfig.setDriverClassName("org.postgresql.Driver");
+            hikariConfig.setLeakDetectionThreshold(2000);
+    
             try {
-                if (callbackRunnable != null) {
-                    callbackRunnable.cancel();
-                }
-                OAuthUserSession session = new OAuthUserSession(this, minecraftUser, cmd.getName());
-                sessions.put(minecraftUser, session);
-                String authUrl;
-                String state = URLEncoder.encode(currentPlayer.getUniqueId().toString(), "UTF-8");;
-                if (cmd.getName().equalsIgnoreCase("patreon")) {
-                    authUrl = PatreonOAuth.getAuthorizationUrl() + "&state=" + state;
-                } else {
-                    authUrl = DiscordOAuth.getAuthorizationUrl() + "&state=" + state;
-                }
-                currentPlayer.sendMessage("Please visit the following URL to authorize: " + authUrl);
-                callbackRunnable = new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        sessions.remove(minecraftUser);
-                        currentPlayer.sendMessage("Waiting for callback has timed out.");
-                    }
-                };
-                callbackRunnable.runTaskLater(this, 20 * 60 * 10); // 10 minutes = 12000 ticks
-                return true;
+                dbPool = new HikariDataSource(hikariConfig);
+                logger.log(Level.INFO, "PostgreSQL connection pool initialized.");
             } catch (Exception e) {
-                logger.warning("Error starting OAuth flow: " + e.getMessage());
+                logger.log(Level.SEVERE, "Failed to initialize PostgreSQL connection pool!", e);
+                throw new RuntimeException(e);
             }
-        }
-        if (cmd.getName().equalsIgnoreCase("code")) {
-            if (args.length < 1) {
-                sender.sendMessage("Please provide an access code after /code.");
-                return false;
-            }
-            OAuthUserSession session = sessions.get(minecraftUser);
-            if (session != null && session.getAccessToken() != null) {
-                String providedCode = args[0];
-                if (providedCode.equals(session.getAccessToken())) {
-                    sessions.remove(currentPlayer.getUniqueId().toString());
-                    // Cancel timeout
-                    if (callbackRunnable != null) {
-                        callbackRunnable.cancel();
-                        callbackRunnable = null;
-                    }
-                    currentPlayer.sendMessage("Authentication successful. Happy mapling!");
-                } else {
-                    currentPlayer.sendMessage("Invalid code, please try again.");
-                }
-            } else {
-                sender.sendMessage("No pending authentication or token not yet received.");
-            }
-            return true;
-        }
-        return false;
+            return null;
+        }, dbExecutor)
+        .thenRun(afterConnect)
+        .exceptionally(ex -> {
+            logger.log(Level.SEVERE, "Error connecting to the database asynchronously", ex);
+            return null;
+        });
     }
 
-    private Logger setupLogging() {
-        logger = Logger.getLogger("Vyrtuous");
-        return logger;
+    public CompletableFuture<Void> completeGetConnection(Consumer<Connection> callback) {
+        return CompletableFuture.supplyAsync(() -> {
+            if (dbPool == null) {
+                logger.warning("DataSource not initialized");
+                return null;
+            }
+            try {
+                Connection conn = dbPool.getConnection();
+                logger.log(Level.INFO, "PostgreSQL connection opened.");
+                return conn;
+            } catch (SQLException e) {
+                throw new CompletionException(e);
+            }
+        }, dbExecutor).thenAccept(conn -> {
+            if (conn != null) {
+                callback.accept(conn);
+            } else {
+                logger.warning("No connection returned from DB pool");
+            }
+        }).exceptionally(ex -> {
+            logger.log(Level.SEVERE, "Error obtaining connection asynchronously", ex);
+            return null;
+        });
+    }
+
+    public CompletableFuture<Void> onDisable() {
+        // Chain the operations in sequence, each producing Void.
+        return closeDatabase()
+              .thenRun(() -> OAuthServer.cancelOAuthSession(callbackTimer))
+              .thenRun(() -> OAuthServer.stop())
+              .thenRun(() -> dbExecutor.shutdown())
+              .thenRun(() -> logger.log(Level.INFO, "PostgreSQL Example plugin disabled."));
+    }
+
+    public static void main(String[] args) {
+        Vyrtuous app = new Vyrtuous();
+    }
+    
+    private CompletableFuture<Logger> completeSetupLogging() {
+        return CompletableFuture.supplyAsync(() -> {
+            logger = Logger.getLogger("Vyrtuous");
+            return logger;
+        });
     }
 }
-

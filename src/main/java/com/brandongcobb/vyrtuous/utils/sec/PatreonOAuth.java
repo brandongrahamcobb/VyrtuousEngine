@@ -35,13 +35,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.Scanner;
+import java.util.concurrent.CompletableFuture;
 import okhttp3.FormBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import org.bukkit.configuration.file.FileConfiguration;
-import org.bukkit.plugin.java.JavaPlugin;
 
 public class PatreonOAuth {
     private Vyrtuous app;
@@ -55,41 +54,60 @@ public class PatreonOAuth {
         this.app = application;
     }
 
-    public static String getAuthorizationUrl() {
-        patreonApiKeys = ConfigManager.getNestedConfigValue("api_keys", "Patreon");
-        clientId = patreonApiKeys.getStringValue("client_id");
-        clientSecret = patreonApiKeys.getStringValue("client_secret");
-        redirectUri = patreonApiKeys.getStringValue("redirect_uri");
-//        return "https://www.patreon.com/oauth2/authorize/";
-        return "https://www.patreon.com/oauth2/authorize?response_type=code&client_id=" + clientId + "&redirect_uri=" + redirectUri + "&scope=identity%20campaigns";
+    public static CompletableFuture<String> completeGetAuthorizationUrl() {
+        return ConfigManager.completeGetNestedConfigValue("api_keys", "Patreon")
+            .thenCompose(patreonApiKeys -> {
+                return patreonApiKeys.completeGetConfigStringValue("client_id")
+                    .thenCombine(patreonApiKeys.completeGetConfigStringValue("redirect_uri"),
+                        (clientId, redirectUri) -> {
+                            return "https://www.patreon.com/oauth2/authorize" +
+                                   "?response_type=code" +
+                                   "&client_id=" + clientId +
+                                   "&redirect_uri=" + redirectUri +
+                                   "&scope=identity%20campaigns";
+                        });
+            });
     }
 
-    public static String exchangeCodeForToken(String code) throws IOException {
-        patreonApiKeys = ConfigManager.getNestedConfigValue("api_keys", "Patreon");
-        clientId = patreonApiKeys.getStringValue("client_id");
-        clientSecret = patreonApiKeys.getStringValue("client_secret");
-        redirectUri = patreonApiKeys.getStringValue("redirect_uri");
-        OkHttpClient client = new OkHttpClient();
-        RequestBody body = new FormBody.Builder()
-                .add("code", code)
-                .add("grant_type", "authorization_code")
-                .add("client_id", clientId)
-                .add("client_secret", clientSecret)
-                .add("redirect_uri", redirectUri)
-                .build();
-        Request request = new Request.Builder()
-                .url("https://www.patreon.com/api/oauth2/token")
-                .post(body)
-                .build();
-        try (Response response = client.newCall(request).execute()) {
-            if (!response.isSuccessful()) {
-                System.out.println("Failed to get token: " + response.code() + " - " + response.body());
-                return null;
-            }
-            String json = response.body().string();
-            JsonElement jsonElement = JsonParser.parseString(json);
-            JsonObject obj = jsonElement.getAsJsonObject();
-            return obj.get("access_token").getAsString();
-        }
+    public static CompletableFuture<String> completeExchangeCodeForToken(String code) {
+        return ConfigManager.completeGetNestedConfigValue("api_keys", "Patreon")
+            .thenCompose(patreonApiKeys -> {
+                CompletableFuture<String> clientIdFuture = patreonApiKeys.completeGetConfigStringValue("client_id");
+                CompletableFuture<String> clientSecretFuture = patreonApiKeys.completeGetConfigStringValue("client_secret");
+                CompletableFuture<String> redirectUriFuture = patreonApiKeys.completeGetConfigStringValue("redirect_uri");
+                return CompletableFuture.allOf(clientIdFuture, clientSecretFuture, redirectUriFuture)
+                    .thenCompose(v -> {
+                        String clientId = clientIdFuture.join();
+                        String clientSecret = clientSecretFuture.join();
+                        String redirectUri = redirectUriFuture.join();
+                        OkHttpClient client = new OkHttpClient();
+                        RequestBody body = new FormBody.Builder()
+                            .add("code", code)
+                            .add("grant_type", "authorization_code")
+                            .add("client_id", clientId)
+                            .add("client_secret", clientSecret)
+                            .add("redirect_uri", redirectUri)
+                            .build();
+                        Request request = new Request.Builder()
+                            .url("https://www.patreon.com/api/oauth2/token")
+                            .post(body)
+                            .build();
+                        return CompletableFuture.supplyAsync(() -> {
+                            try (Response response = client.newCall(request).execute()) {
+                                if (!response.isSuccessful()) {
+                                    System.out.println("Failed to get token: " + response.code() + " - " + response.body());
+                                    return null;
+                                }
+                                String json = response.body().string();
+                                JsonElement jsonElement = JsonParser.parseString(json);
+                                JsonObject obj = jsonElement.getAsJsonObject();
+                                return obj.get("access_token").getAsString();
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                                return null;
+                            }
+                        });
+                    });
+            });
     }
 }

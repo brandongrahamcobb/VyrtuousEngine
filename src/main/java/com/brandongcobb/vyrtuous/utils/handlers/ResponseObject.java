@@ -22,10 +22,11 @@ import java.util.List;
 import java.util.HashMap;
 import java.util.Map;
 
-public class ArtificialIntelligence {
+public class ResponseObject {
 
-    public ArtificialIntelligence () {
-        Map<String, Object> responseMap = new HashMap<>(); //change to actual response map
+    MetadataContainer container;
+
+    public ResponseObject (Map<String, Object> responseMap) {
         MetadataContainer container = new MetadataContainer();
         MetadataKey<String> idKey = new MetadataKey<>("id", String.class);
         String requestId = (String) responseMap.get("id");
@@ -203,6 +204,7 @@ public class ArtificialIntelligence {
                 MetadataKey<List<String>> violenceGraphicInputKey = new MetadataKey<>("violence/graphic", List.class);
                 List<String> moderationViolenceGraphicAppliedType = (List<String>) categoryAppliedInputTypes.get("violence/graphic");
                 container.put(violenceGraphicInputKey, (List<String>) moderationViolenceGraphicAppliedType);
+
             case "response" :
                 MetadataKey<String> responsesIdKey = new MetadataKey<>("id", String.class);
                 String responsesId = (String) responseMap.get("id");
@@ -277,5 +279,15 @@ public class ArtificialIntelligence {
                 String responsesOutputContent = (String) responsesContentList.get(0).get("text");
                 container.put(responsesOutputContentKey, responsesOutputContent);
         }
+    }
+
+    public Boolean getFlagged() {
+        MetadataKey<String> flaggedKey = new MetadataKey<>("flagged", String.class);
+        return Boolean.parseBoolean(container.get(flaggedKey));
+    }
+
+    public String getPreviousResponseId() {
+        MetadataKey<String> previousResponseIdKey = new MetadataKey<>("previous_response_id", String.class);
+        return container.get(previousResponseIdKey);
     }
 }

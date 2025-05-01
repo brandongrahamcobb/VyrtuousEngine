@@ -20,12 +20,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
-//import org.javacord.api.DiscordApi;
-//import org.javacord.api.entity.channel.PrivateChannel;
-//import org.javacord.api.entity.permission.Role;
-//import org.javacord.api.entity.server.Server;
-//import org.javacord.api.entity.channel.ServerTextChannel;
-//import org.javacord.api.entity.user.User;
+import java.util.concurrent.CompletableFuture;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.channel.concrete.PrivateChannel;
@@ -45,69 +40,73 @@ public class Predicator {
         this.bot = app.discordBot;
     }
 
-//    public boolean atHome(Server server) {
-    public boolean atHome(Guild guild) {
-//        return server != null && server.getId() == (long) ConfigManager.getConfigValue("discord_testing_guild_id");
-        return guild != null && Long.parseLong(guild.getId()) == (long) ConfigManager.getConfigValue("discord_testing_guild_id");
+    public CompletableFuture<Boolean> atHome(Guild guild) {
+        if (guild == null) return CompletableFuture.completedFuture(false);
+        return ConfigManager.completeGetConfigObjectValue("discord_testing_guild_id")
+            .thenApply(id -> Long.parseLong(guild.getId()) == (long) id);
     }
 
-//    public boolean releaseMode(User user, ServerTextChannel channel) {
-    public boolean releaseMode(User user, TextChannel channel) {
-//        return (Long) user.getId() == ConfigManager.getConfigValue("discord_owner_id") || // Your developer ID
-        return String.valueOf(user.getIdLong()).equals(ConfigManager.getConfigValue("discord_owner_id")) || // Your developer ID
-               (boolean) ConfigManager.getConfigValue("discord_release_mode") ||
-               (channel instanceof PrivateChannel);
+    public CompletableFuture<Boolean> releaseMode(User user, TextChannel channel) {
+        CompletableFuture<Object> ownerIdFuture = ConfigManager.completeGetConfigObjectValue("discord_owner_id");
+        CompletableFuture<Object> releaseModeFuture = ConfigManager.completeGetConfigObjectValue("discord_release_mode");
+        return ownerIdFuture.thenCombine(releaseModeFuture, (ownerId, releaseMode) ->
+            String.valueOf(user.getIdLong()).equals(String.valueOf(ownerId)) ||
+            (boolean) releaseMode ||
+            channel instanceof PrivateChannel
+        );
     }
 
-    public static boolean isDeveloper(User user) {
-        return user != null && String.valueOf(user.getIdLong()).equals(ConfigManager.getLongValue("discord_owner_id"));
+    public static CompletableFuture<Boolean> isDeveloper(User user) {
+        if (user == null) return CompletableFuture.completedFuture(false);
+        return ConfigManager.completeGetLongValue("discord_owner_id")
+            .thenApply(ownerId -> user.getIdLong() == ownerId);
     }
 
-    public boolean isVeganUser(User user) {
-//        List<Long> serverIds = (List<Long>) ConfigManager.getConfigValue("discord_testing_guild_ids");
-//        for (Long serverId : serverIds) {
-//            Server server = getServerById(serverId);
-//            if (server != null) {
-//                Optional<Role> veganRoleOpt = server.getRoles().stream()
-        List<Long> guildIds = (List<Long>) ConfigManager.getConfigValue("discord_testing_guild_ids");
-        for (Long guildId : guildIds) {
-            Guild guild = getGuildById(guildId);
-            Member member = guild.getMember(user);
-            if (guild != null) {
-                Optional<Role> veganRoleOpt = guild.getRoles().stream()
-                    .filter(role -> role.getName().equals("vegan"))
-                    .findFirst();
-                if (veganRoleOpt.isPresent()) {
-                    Role veganRole = veganRoleOpt.get();
-//                    if (veganRole.getUsers().contains(user)) {
-                    if (guild.getMembersWithRoles(veganRole).contains(member)) {
-                        return true;
-                    }
+    public CompletableFuture<Boolean> isVeganUser(User user) {
+        return ConfigManager.completeGetConfigObjectValue("discord_testing_guild_ids")
+            .thenCompose(obj -> {
+                List<Long> guildIds = (List<Long>) obj;
+                CompletableFuture<Boolean> result = CompletableFuture.completedFuture(false);
+                for (Long guildId : guildIds) {
+                    result = result.thenCompose(res -> getGuildById(guildId).thenCompose(guild -> {
+                        if (guild != null) {
+                            Member member = guild.getMember(user);
+                            if (member == null) return CompletableFuture.completedFuture(false);
+                            Optional<Role> veganRoleOpt = guild.getRoles().stream()
+                                .filter(role -> role.getName().equalsIgnoreCase("vegan"))
+                                .findFirst();
+                            if (veganRoleOpt.isPresent()) {
+                                Role veganRole = veganRoleOpt.get();
+                                if (guild.getMembersWithRoles(veganRole).contains(member)) {
+                                    return CompletableFuture.completedFuture(true);
+                                }
+                            }
+                        }
+                        return CompletableFuture.completedFuture(false);
+                    }));
+                }
+                return result;
+            });
+    }
+
+    public CompletableFuture<Guild> getGuildById(long guildId) {
+        return bot.completeGetApi().thenApply(api -> {
+            for (Guild guild : api.getGuilds()) {
+                if (Long.parseLong(guild.getId()) == guildId) {
+                    return guild;
                 }
             }
-        }
-        return false;
+            return null;
+        });
     }
 
-//    public Server getServerById(long serverId) {
-//        Set<Server> servers = bot.getApi().getServers(); // Get all servers
-//        for (Server server : servers) {
-//            if (server.getId() == serverId) {
-//                return server; // Return the server wrapped in an Optional
-    public Guild getGuildById(long guildId) {
-        List<Guild> guilds = bot.getApi().getGuilds(); // Get all guilds
-        for (Guild guild : guilds) {
-            if (Long.parseLong(guild.getId()) == guildId) {
-                return guild; // Return the guild wrapped in an Optional
-            }
-        }
-        return null;
-    }
-
-//    public boolean isReleaseMode(ServerTextChannel channel, User user) {
-    public boolean isReleaseMode(TextChannel channel, User user) {
-        return String.valueOf(user.getId()).equals(ConfigManager.getConfigValue("discord_owner_id")) || // Your developer ID
-               (boolean) ConfigManager.getConfigValue("discord_release_mode") ||
-               (channel instanceof PrivateChannel);
+    public CompletableFuture<Boolean> isReleaseMode(TextChannel channel, User user) {
+        CompletableFuture<Object> ownerIdFuture = ConfigManager.completeGetConfigObjectValue("discord_owner_id");
+        CompletableFuture<Object> releaseModeFuture = ConfigManager.completeGetConfigObjectValue("discord_release_mode");
+        return ownerIdFuture.thenCombine(releaseModeFuture, (ownerId, releaseMode) ->
+            String.valueOf(user.getId()).equals(String.valueOf(ownerId)) ||
+            (boolean) releaseMode ||
+            channel instanceof PrivateChannel
+        );
     }
 }

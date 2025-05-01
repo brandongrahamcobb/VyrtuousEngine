@@ -17,7 +17,6 @@
  */
 package com.brandongcobb.vyrtuous.utils.handlers;
 
-import com.brandongcobb.vyrtuous.utils.listeners.PlayerJoinListener;
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.utils.sec.PatreonOAuth;
 import com.google.gson.JsonArray;
@@ -46,14 +45,12 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import org.bukkit.Bukkit;
-import org.bukkit.event.player.PlayerChatEvent;
-import org.bukkit.scheduler.BukkitRunnable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.http.HttpMethod;
+import java.util.concurrent.CompletableFuture;
 
 public class DiscordUser implements User {
 
@@ -101,10 +98,8 @@ public class DiscordUser implements User {
     }
 
     @Override
-    public void createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity, Runnable callback) {
-        UserManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity, () -> {
-            callback.run();
-        });
+    public CompletableFuture<Void> createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity) {
+        return UserManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity);
     }
 
     public long getDiscordId(String accessToken) {
@@ -124,7 +119,7 @@ public class DiscordUser implements User {
     }
 
     public void userExists(long discordId, Consumer<Boolean> callback) {
-        app.getConnection(connection -> {
+        app.completeGetConnection(connection -> {
             try {
                 boolean exists = false;
                 if (connection != null) {

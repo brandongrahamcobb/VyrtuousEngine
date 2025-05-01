@@ -20,6 +20,7 @@ import com.brandongcobb.vyrtuous.Vyrtuous;
 import java.security.SecureRandom;
 import java.util.Base64;
 import java.util.Timer;
+import java.util.concurrent.CompletableFuture;
 import spark.Spark;
 import java.util.HashMap;
 import java.util.Map;
@@ -32,28 +33,44 @@ public class OAuthServer {
 
     public OAuthServer(Vyrtuous application) {
         this.app = application;
-        Spark.port(Integer.parseInt(ConfigManager.getStringValue("spark_port")));
-        Spark.get(String.valueOf(ConfigManager.getConfigValue("spark_discord_endpoint")), (req, res) -> {
-            String code = req.queryParams("code");
-            String stateParam = req.queryParams("state");
-            String userId = URLDecoder.decode(stateParam, "UTF-8");
-            String accessToken = DiscordOAuth.exchangeCodeForToken(code);
-            MinecraftUser.link(accessToken, userId);
-            return "Discord OAuth callback processed. Type /code with your code in Minecraft :\n " + accessToken;
-        });
-        Spark.get(String.valueOf(ConfigManager.getConfigValue("spark_patreon_endpoint")), (req, res) -> {
-            String code = req.queryParams("code");
-            String stateParam = req.queryParams("state");
-            String userId = URLDecoder.decode(stateParam, "UTF-8");
-            String accessToken = PatreonOAuth.exchangeCodeForToken(code);
-            MinecraftUser.link(accessToken, userId);
-            return "Patreon OAuth callback processed. Type /code with your code in Minecraft:  \n " + accessToken;
-        });
     }
 
-    public static void start() {
-        OAuthServer server = new OAuthServer(app);
-        Spark.init();
+    public static CompletableFuture<OAuthServer> start(Vyrtuous application) {
+        OAuthServer server = new OAuthServer(application);
+        return ConfigManager.completeGetConfigStringValue("spark_port")
+            .thenApply(Integer::parseInt)
+            .thenCompose(port -> {
+                Spark.port(port);
+                return ConfigManager.completeGetConfigObjectValue("spark_discord_endpoint")
+                    .thenCombine(
+                        ConfigManager.completeGetConfigObjectValue("spark_patreon_endpoint"),
+                        (discordEndpoint, patreonEndpoint) -> {
+                            Spark.get(discordEndpoint.toString(), (req, res) -> {
+                                String code = req.queryParams("code");
+                                String stateParam = req.queryParams("state");
+                                String userId = URLDecoder.decode(stateParam, "UTF-8");
+
+                                DiscordOAuth.completeExchangeCodeForToken(code).thenAccept(accessToken -> {
+                                });
+
+                                return "Discord OAuth callback received. You may now use /code with your token in Minecraft.";
+                            });
+
+                            Spark.get(patreonEndpoint.toString(), (req, res) -> {
+                                String code = req.queryParams("code");
+                                String stateParam = req.queryParams("state");
+                                String userId = URLDecoder.decode(stateParam, "UTF-8");
+
+                                PatreonOAuth.completeExchangeCodeForToken(code).thenAccept(accessToken -> {
+                                });
+
+                                return "Patreon OAuth callback received. You may now use /code with your token in Minecraft.";
+                            });
+                            Spark.init();
+                            return server;
+                        }
+                    );
+            });
     }
 
     public static void stop() {

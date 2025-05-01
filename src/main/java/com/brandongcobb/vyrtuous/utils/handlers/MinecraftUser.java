@@ -8,56 +8,31 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.util.function.Consumer;
-import org.bukkit.entity.Player;
-import org.bukkit.Bukkit;
+import java.util.concurrent.CompletableFuture;
 import java.util.HashMap;
 import java.util.Map;
 public class MinecraftUser implements User {
 
     private static Vyrtuous app;
-    private static Player player;
     private String minecraftId;
     public static Map<MinecraftUser, OAuthUserSession> sessions;
 
-    public MinecraftUser(Vyrtuous application, Player currentPlayer) {
+    public MinecraftUser(Vyrtuous application) {
         this.app = application;
         this.sessions = app.sessions;
-        this.player = currentPlayer;
     }
 
     @Override
-    public void createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity, Runnable callback) {
-        UserManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity, () -> {
-            callback.run();
-        });
-    }
-
-
-    // Override equals() and hashCode() based on UUID
-    @Override
-    public boolean equals(Object o) {
-        if (this == o) return true;
-        if (!(o instanceof MinecraftUser)) return false;
-        MinecraftUser other = (MinecraftUser) o;
-        return this.player.getUniqueId().equals(other.player.getUniqueId());
-    }
-
-    @Override
-    public int hashCode() {
-        return this.player.getUniqueId().hashCode();
+    public CompletableFuture<Void> createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity) {
+        return UserManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity);
     }
 
     public MinecraftUser getCurrentUser() {
         return this;
     }
 
-    public String getCurrentUserId() {
-        String uuidString = player.getUniqueId().toString(); // UUID as string
-        return uuidString;
-    }
-
     public static void userExists(String minecraftId, Consumer<Boolean> callback) {
-        app.getConnection(connection -> {
+        app.completeGetConnection(connection -> {
             try {
                 boolean exists = false; // Default to false
                 if (connection != null) {
@@ -82,15 +57,5 @@ public class MinecraftUser implements User {
                 }
             }
         });
-    }
-
-    public static void link(String accessToken, String userId) {
-         for (MinecraftUser minecraftUser : sessions.keySet()) {
-             if (minecraftUser.getCurrentUserId().equals(userId)) {
-        // found your user
-                 sessions.get(minecraftUser).setAccessToken(accessToken);
-                 break;
-             }
-        }
     }
 }

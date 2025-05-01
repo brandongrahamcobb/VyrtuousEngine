@@ -22,16 +22,17 @@ import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.concurrent.locks.Lock;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.Map;
-//import org.javacord.api.DiscordApi;
-//import org.javacord.api.DiscordApiBuilder;
-//import org.javacord.api.entity.intent.Intent;
 import javax.security.auth.login.LoginException;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.exceptions.RateLimitedException;
+import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -39,7 +40,6 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 public class DiscordBot {
 
     private static Vyrtuous app;
-//    private static DiscordApi api;
     private static JDA api;
     private static String discordApiKey;
     private static long discordOwnerId;
@@ -51,33 +51,72 @@ public class DiscordBot {
         this.app = application;
     }
 
-    private static void initiateDiscordApi() {
-        api = JDABuilder.createDefault(discordApiKey).build();
-//        api = new DiscordApiBuilder().setToken(discordApiKey).addIntents(Intent.MESSAGE_CONTENT).login().join();
-        loadCogs();
+    public static CompletableFuture<Void> start() {
+        return ConfigManager.completeGetApp().thenCompose(appResult -> {
+            app = appResult;
+            logger = app.logger;
+            dbPool = app.dbPool;
+            lock = app.lock;
+    
+            // Get the Discord API key and owner ID
+            return ConfigManager.completeGetNestedConfigValue("api_keys", "Discord")
+                .thenCompose(discordApiKeys ->
+                    discordApiKeys.completeGetConfigStringValue("api_key"))
+                .thenCombine(
+                    ConfigManager.completeGetLongValue("discord_owner_id"),
+                    (apiKey, ownerId) -> {
+                        discordApiKey = apiKey;
+                        discordOwnerId = ownerId;
+                        return null;
+                    }
+                );
+        }).thenCompose(ignore -> {
+            // Initialize the JDA client with the retrieved API key
+            JDABuilder builder = JDABuilder.createDefault(discordApiKey)
+                .enableIntents(GatewayIntent.GUILD_MESSAGES, GatewayIntent.DIRECT_MESSAGES, GatewayIntent.GUILD_MEMBERS); // Add necessary intents
+    
+            // Start the JDA bot and wait for it to be ready
+            try {
+                builder.build().awaitReady();  // This blocks the current thread and keeps the bot alive
+                return CompletableFuture.completedFuture(null); // Return completed future to continue the chain
+            } catch (Exception e) {
+                logger.severe("Failed to start the Discord bot: " + e.getMessage());
+                e.printStackTrace();
+                return CompletableFuture.failedFuture(e);
+            }
+        }).thenRun(() -> {
+            // Once the bot is up and running, log that the bot has started
+            app.logger.info("Discord bot started!");
+        }).exceptionally(ex -> {
+            // Handle any exceptions that occurred during the bot setup process
+            app.logger.severe("Error starting the Discord bot: " + ex.getMessage());
+            ex.printStackTrace();
+            return null;
+        });
     }
 
-    private static void loadCogs() {
-        List<Cog> cogs = new ArrayList<>();
-        cogs.add(new EventListeners(ConfigManager.getApp()));
-        for (Cog cog : cogs) {
-            cog.register(api);
-        }
+    private static CompletableFuture<Void> initiateDiscordApi() {
+        return CompletableFuture.runAsync(() -> {
+            try {
+                api = JDABuilder.createDefault(discordApiKey).build();
+            } catch (Exception e) {
+                throw new CompletionException(e);
+            }
+        }).thenCompose(ignore -> loadCogs());
     }
 
-//    public DiscordApi getApi() {
-    public JDA getApi() {
-        return this.api;
+    private static CompletableFuture<Void> loadCogs() {
+        return ConfigManager.completeGetApp().thenAcceptAsync(appResult -> {
+            app = appResult;
+            List<Cog> cogs = new ArrayList<>();
+            cogs.add(new EventListeners(app));
+            for (Cog cog : cogs) {
+                cog.register(api);
+            }
+        });
     }
 
-    public static void start() {
-        app = ConfigManager.getApp();
-        logger = app.logger;
-        discordApiKey = ConfigManager.getNestedConfigValue("api_keys", "Discord").getStringValue("api_key");
-        discordOwnerId = ConfigManager.getLongValue("discord_owner_id");
-        dbPool = app.dbPool;
-        lock = app.lock;
-        initiateDiscordApi();
-        app.logger.info("Discord bot started!");
+    public CompletableFuture<JDA> completeGetApi() {
+        return CompletableFuture.supplyAsync(() -> api);
     }
 }

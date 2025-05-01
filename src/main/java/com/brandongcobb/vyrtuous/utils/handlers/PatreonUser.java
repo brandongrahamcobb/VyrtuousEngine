@@ -30,6 +30,7 @@ import java.sql.SQLException;
 import java.sql.Timestamp;
 import java.time.format.DateTimeFormatter;
 import java.time.LocalDateTime;
+import java.util.concurrent.CompletableFuture;
 import java.util.function.Consumer;
 import java.util.List;
 import java.util.logging.Level;
@@ -79,10 +80,8 @@ public class PatreonUser implements User {
     }
 
     @Override
-    public void createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity, Runnable callback) {
-        UserManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity, () -> {
-            callback.run();
-        });
+    public CompletableFuture<Void> createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity) {
+        return UserManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity);
     }
 
     private final String API_URL = "https://www.patreon.com/api/oauth2/v2/identity" + "?include=memberships&fields[member]=currently_entitled_amount_cents";
@@ -152,7 +151,7 @@ public class PatreonUser implements User {
     }
 
     public void userExists(long patreonId, Consumer<Boolean> callback) {
-        app.getConnection(connection -> {
+        app.completeGetConnection(connection -> {
             try {
                 boolean exists = false;
                 if (connection != null) {

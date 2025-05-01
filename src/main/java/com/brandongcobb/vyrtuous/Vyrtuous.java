@@ -63,6 +63,10 @@ import java.util.Timer;
 import java.util.TimerTask;
 import java.net.URI;
 import java.net.URISyntaxException;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.JDABuilder;
+import net.dv8tion.jda.api.exceptions.RateLimitedException;
+import net.dv8tion.jda.api.requests.GatewayIntent;
 
 public class Vyrtuous {
 
@@ -93,7 +97,6 @@ public class Vyrtuous {
     public static CompletableFuture<File> completeGetDataFolder() {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                // Using the current class's protection domain to get the directory of the program
                 URI location = Vyrtuous.class.getProtectionDomain().getCodeSource().getLocation().toURI();
                 File currentDir = new File(location).getParentFile();
                 return currentDir;
@@ -105,58 +108,41 @@ public class Vyrtuous {
 
     public Vyrtuous() {
         app = this;
-        this.metadataContainer = new MetadataContainer();
-        logger = Logger.getLogger("Vyrtuous");
-        tempDirectory = new File(System.getProperty("java.io.tmpdir"));
-        lock = null;
-        loggingTask = new CompletableFuture<Void>(); // Initialize if needed
-        CountDownLatch latch = new CountDownLatch(1); // Use CountDownLatch to keep the main thread alive
-        try {
-            instance = this;
-            // Chain the configuration steps.
-            ConfigManager.completeSetApp(this)
-                .thenCompose(ignored -> ConfigManager.completeLoadConfig())
-                .thenCompose(ignored -> ConfigManager.completeIsConfigSameAsDefault())
-                .thenCompose((Boolean isDefault) -> {
-                    if (isDefault) {
-                        return CompletableFuture.failedFuture(
-                            new IllegalStateException("Could not load Vyrtuous, the config is invalid.")
-                        );
-                    } else {
-                        return ConfigManager.completeValidateConfig();
-                    }
-                })
-                .thenRunAsync(() -> {
-                    CompletableFuture<Void> superTask = CompletableFuture.runAsync(() -> {
-                        completeSetupLogging().join();
-                        completeConnectDatabase(() -> {}).join();
-                        OAuthServer.start(this);
-                        new PlayerMessageQueueManager();
-                        DiscordBot.start();
-                    });
-                    superTask.join();
-                })
-                .thenRun(() -> {
-                    // Once all tasks are finished, countdown the latch to allow the main thread to continue
-                    latch.countDown();
-                })
-                .exceptionally(ex -> {
-                    logger.severe("Error initializing the application: " + ex.getMessage());
-                    ex.printStackTrace();
-                    return null;
-                })
-                .join();
-        } catch (Exception e) {
-            logger.severe("Error initializing the application: " + e.getMessage());
-            e.printStackTrace();
-        }
+        instance = this;
     
-        // Wait for the latch to be decremented before allowing the program to exit
-        try {
-            latch.await();
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
+        // Initialize sync components early
+        this.logger = Logger.getLogger("Vyrtuous");
+        this.metadataContainer = new MetadataContainer();
+        this.tempDirectory = new File(System.getProperty("java.io.tmpdir"));
+        this.lock = null;
+        this.loggingTask = new CompletableFuture<>();
+    
+        // Populate default config first and ensure it's available before anything uses it
+        CompletableFuture<Void> initializationFuture = ConfigManager.completeSetApp(this)
+            .thenCompose(ignored -> ConfigManager.completeLoadConfig())
+            .thenCompose(ignored -> ConfigManager.completeIsConfigSameAsDefault())
+            .thenCompose(isDefault -> {
+                if (isDefault) {
+                    return CompletableFuture.failedFuture(new IllegalStateException("Could not load Vyrtuous, the config is invalid."));
+                } else {
+                    return ConfigManager.completeValidateConfig();
+                }
+            })
+            .thenCompose(ignored -> completeConnectDatabase(() -> {})) // DB waits for config
+            .thenCompose(ignored -> completeSetupLogging()) // Wait for logging setup
+            .thenRun(() -> {
+                OAuthServer.start(this);
+                new PlayerMessageQueueManager();
+                DiscordBot.start(() -> {});
+            })
+            .exceptionally(ex -> {
+                logger.severe("Error initializing the application: " + ex.getMessage());
+                ex.printStackTrace();
+                return null;
+            });
+    
+        // Wait for all async startup logic to complete before constructor exits
+        initializationFuture.join();
     }
 
     public CompletableFuture<Void> closeDatabase() {

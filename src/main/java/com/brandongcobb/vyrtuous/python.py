@@ -32,8 +32,8 @@ def replace_in_directory(directory, old_string, new_string):
 script_directory = os.path.dirname(os.path.realpath(__file__))
 
 # Specify the strings to replace
-old_string = 'completeGetConfigStringValue'
-new_string = 'completeGetConfigStringValue'
+old_string = 'GetConfigFloatValue'
+new_string = 'GetConfigFloatValue'
 
 # Start the replacement process in the script's directory
 replace_in_directory(script_directory, old_string, new_string)

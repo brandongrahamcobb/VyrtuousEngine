@@ -42,13 +42,13 @@ public class Predicator {
 
     public CompletableFuture<Boolean> atHome(Guild guild) {
         if (guild == null) return CompletableFuture.completedFuture(false);
-        return ConfigManager.completeGetConfigObjectValue("discord_testing_guild_id")
+        return ConfigManager.completeGetConfigLongValue("discord_testing_guild_id")
             .thenApply(id -> Long.parseLong(guild.getId()) == (long) id);
     }
 
     public CompletableFuture<Boolean> releaseMode(User user, TextChannel channel) {
-        CompletableFuture<Object> ownerIdFuture = ConfigManager.completeGetConfigObjectValue("discord_owner_id");
-        CompletableFuture<Object> releaseModeFuture = ConfigManager.completeGetConfigObjectValue("discord_release_mode");
+        CompletableFuture<String> ownerIdFuture = ConfigManager.completeGetConfigStringValue("discord_owner_id");
+        CompletableFuture<Boolean> releaseModeFuture = ConfigManager.completeGetConfigBooleanValue("discord_release_mode");
         return ownerIdFuture.thenCombine(releaseModeFuture, (ownerId, releaseMode) ->
             String.valueOf(user.getIdLong()).equals(String.valueOf(ownerId)) ||
             (boolean) releaseMode ||
@@ -58,7 +58,7 @@ public class Predicator {
 
     public static CompletableFuture<Boolean> isDeveloper(User user) {
         if (user == null) return CompletableFuture.completedFuture(false);
-        return ConfigManager.completeGetLongValue("discord_owner_id")
+        return ConfigManager.completeGetConfigLongValue("discord_owner_id")
             .thenApply(ownerId -> user.getIdLong() == ownerId);
     }
 

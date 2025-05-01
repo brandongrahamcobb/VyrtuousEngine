@@ -31,13 +31,15 @@ public class ConfigManager {
 
     private static Vyrtuous app;
     private static Map<String, Object> config;
-    private static Map<String, Object> defaultConfig;
+    public static Map<String, Object> defaultConfig;
     private ConfigSection configSection;
     private Map<String, Object> inputConfigMap;
     private static Logger logger;
 
     static {
         config = new HashMap<>();
+        defaultConfig = populateConfig(new HashMap<>());
+    // Instead of an asynchronous thenAccept, do a blocking call:
     }
 
     public static CompletableFuture<Void> completeSetApp(Vyrtuous plugin) {
@@ -62,78 +64,118 @@ public class ConfigManager {
     public static CompletableFuture<Void> completeCreateDefaultConfig() {
         return app.completeGetDataFolder().thenCompose(folder -> {
             File configFile = new File(folder, "config.yml");
-            completePopulateConfig(config); // Synchronously populate the config object
-            return completeSaveConfig(configFile); // Return the async save operation
+            return completeSaveConfig(configFile);
         });
     }
 
-    private static CompletableFuture<Map<String, Object>> completePopulateConfig(Map<String, Object> configMap) {
-        CompletableFuture<Map<String, Object>> completedPopulateConfig = new CompletableFuture<>();
-        return CompletableFuture.supplyAsync(() -> {
-            configMap.put("discord_command_prefix", "!");
-            configMap.put("api_keys", new HashMap<String, Object>() {{
-                    put("Discord", new HashMap<String, String>() {{
-                    put("api_key", "");
-                    put("client_id", "");
-                    put("client_secret", "");
-                    put("redirect_uri", "");
+    private static Map<String, Object> populateConfig(Map<String, Object> configMap) {
+        configMap.put("discord_command_prefix", "!");
+        configMap.put("api_keys", new HashMap<String, Object>() {{
+            put("Discord", new HashMap<String, String>() {{
+                put("api_key", "");
+                put("client_id", "");
+                put("client_secret", "");
+                put("redirect_uri", "");
             }});
-                put("Google", new HashMap<String, String>() {{
-                    put("api_key", "");
-                    put("client_id", "");
-                    put("client_secret", "");
-                    put("redirect_uri", "");
+            // Add other keys...
+            put("Google", new HashMap<String, String>() {{
+                put("api_key", "");
+                put("client_id", "");
+                put("client_secret", "");
+                put("redirect_uri", "");
             }});
-                put("LinkedIn", new HashMap<String, String>() {{
-                    put("api_key", "");
-                    put("client_id", "");
-                    put("client_secret", "");
-                    put("redirect_uri", "");
+            // etc.
+        }});
+        configMap.put("discord_owner_id", "YOUR DISCORD ID");
+        configMap.put("discord_role_pass", "ID FOR MODERATION BYPASS");
+        configMap.put("discord_testing_guild_id", "MAIN GUILD ID");
+        configMap.put("openai_chat_completion", false);
+        configMap.put("openai_chat_moderation", true);
+        configMap.put("openai_chat_stream", true);
+        configMap.put("openai_chat_temperature", 0.7);
+        configMap.put("openai_chat_top_p", 1.0);
+        configMap.put("postgres_database", "");
+        configMap.put("postgres_user", "postgres");
+        configMap.put("postgres_host", "localhost");
+        configMap.put("postgres_password", "");
+        configMap.put("postgres_port", "");
+        configMap.put("spark_discord_endpoint", "/oauth/discord_callback");
+        configMap.put("spark_patreon_endpoint", "/oauth/patreon_callback");
+        configMap.put("spark_port", Helpers.parseCommaNumber("8,000"));
+        configMap.put("web_headers", new HashMap<String, Object>() {{
+            put("API.Bible", new HashMap<String, String>() {{
+                put("User-Agent", "Vyrtuous https://github.com/brandongrahamcobb/Vyrtuous.git");
+                put("api-key", "");
             }});
-                put("OpenAI", new HashMap<String, String>() {{
-                    put("api_key", "");
-                    put("client_id", "");
-                    put("client_secret", "");
-                    put("redirect_uri", "");
-            }});
-                put("Patreon", new HashMap<String, String>() {{
-                    put("api_key", "");
-                    put("client_id", "");
-                    put("client_secret", "");
-                    put("redirect_uri", "");
-            }});
-                put("Twitch", new HashMap<String, String>() {{
-                    put("api_key", "");
-                    put("client_id", "");
-                    put("client_secret", "");
-                    put("redirect_uri", "");
-            }});
-            }});
-            configMap.put("discord_owner_id", "YOUR DISCORD ID");
-            configMap.put("discord_role_pass", "ID FOR MODERATION BYPASS");
-            configMap.put("discord_testing_guild_id", "MAIN GUILD ID");
-            configMap.put("openai_chat_completion", false);
-            configMap.put("openai_chat_moderation", true);
-            configMap.put("openai_chat_stream", true);
-            configMap.put("openai_chat_temperature", 0.7);
-            configMap.put("openai_chat_top_p", 1.0);
-            configMap.put("postgres_database", "");
-            configMap.put("postgres_user", "postgres");
-            configMap.put("postgres_host", "localhost");
-            configMap.put("postgres_password", "");
-            configMap.put("postgres_port", "");
-            configMap.put("spark_discord_endpoint", "/oauth/discord_callback");
-            configMap.put("spark_patreon_endpoint", "/oauth/patreon_callback");
-            configMap.put("spark_port", Helpers.parseCommaNumber("8,000"));
-            configMap.put("web_headers", new HashMap<String, Object>() {{
-                put("API.Bible", new HashMap<String, String>() {{
-                    put("User-Agent", "Vyrtuous https://github.com/brandongrahamcobb/Vyrtuous.git");
-                    put("api-key", "");
-                }});
-            }});
-            return configMap;
-        });
+        }});
+        return configMap;
     }
+//        public static CompletableFuture<Map<String, Object>> completePopulateConfig(Map<String, Object> configMap) {
+//        return CompletableFuture.supplyAsync(() -> {
+//            configMap.put("discord_command_prefix", "!");
+//            configMap.put("api_keys", new HashMap<String, Object>() {{
+//                    put("Discord", new HashMap<String, String>() {{
+//                    put("api_key", "");
+//                    put("client_id", "");
+//                    put("client_secret", "");
+//                    put("redirect_uri", "");
+//            }});
+//                put("Google", new HashMap<String, String>() {{
+//                    put("api_key", "");
+//                    put("client_id", "");
+//                    put("client_secret", "");
+//                    put("redirect_uri", "");
+//            }});
+//                put("LinkedIn", new HashMap<String, String>() {{
+//                    put("api_key", "");
+//                    put("client_id", "");
+//                    put("client_secret", "");
+//                    put("redirect_uri", "");
+//            }});
+//                put("OpenAI", new HashMap<String, String>() {{
+//                    put("api_key", "");
+//                    put("client_id", "");
+//                    put("client_secret", "");
+//                    put("redirect_uri", "");
+//            }});
+//                put("Patreon", new HashMap<String, String>() {{
+//                    put("api_key", "");
+//                    put("client_id", "");
+//                    put("client_secret", "");
+//                    put("redirect_uri", "");
+//            }});
+//                put("Twitch", new HashMap<String, String>() {{
+//                    put("api_key", "");
+//                    put("client_id", "");
+//                    put("client_secret", "");
+//                    put("redirect_uri", "");
+//            }});
+//            }});
+//            configMap.put("discord_owner_id", "YOUR DISCORD ID");
+//            configMap.put("discord_role_pass", "ID FOR MODERATION BYPASS");
+//            configMap.put("discord_testing_guild_id", "MAIN GUILD ID");
+//            configMap.put("openai_chat_completion", false);
+//            configMap.put("openai_chat_moderation", true);
+//            configMap.put("openai_chat_stream", true);
+//            configMap.put("openai_chat_temperature", 0.7);
+//            configMap.put("openai_chat_top_p", 1.0);
+//            configMap.put("postgres_database", "");
+//            configMap.put("postgres_user", "postgres");
+//            configMap.put("postgres_host", "localhost");
+//            configMap.put("postgres_password", "");
+//            configMap.put("postgres_port", "");
+//            configMap.put("spark_discord_endpoint", "/oauth/discord_callback");
+//            configMap.put("spark_patreon_endpoint", "/oauth/patreon_callback");
+//            configMap.put("spark_port", Helpers.parseCommaNumber("8,000"));
+//            configMap.put("web_headers", new HashMap<String, Object>() {{
+//                put("API.Bible", new HashMap<String, String>() {{
+//                    put("User-Agent", "Vyrtuous https://github.com/brandongrahamcobb/Vyrtuous.git");
+//                    put("api-key", "");
+//                }});
+//            }});
+//            return configMap;
+//        });
+//    }
 
     public static CompletableFuture<Boolean> completeIsConfigSameAsDefault() {
         return CompletableFuture.supplyAsync(() -> {
@@ -141,24 +183,58 @@ public class ConfigManager {
         });
     }
 
-
     public static CompletableFuture<Void> completeLoadConfig() {
-        return app.completeGetDataFolder().thenCompose(folder -> {
-            File configFile = new File(folder, "config.yml");
-            CompletableFuture<Void> ensureExists = configFile.exists()
-                ? CompletableFuture.completedFuture(null)
-                : completeCreateDefaultConfig();
-            return ensureExists.thenRunAsync(() -> {
-                try (InputStream inputStream = new FileInputStream(configFile)) {
-                    Yaml yaml = new Yaml();
-                    config = yaml.load(inputStream);
-                } catch (Exception e) {
-                    app.logger.severe("Failed to load config: " + e.getMessage());
-                }
-            });
-        });
+        // Ensure defaultConfig is fully populated before loading the file.
+        return app.completeGetDataFolder()
+          .thenCompose(folder -> {
+              File configFile = new File(folder, "config.yml");
+              CompletableFuture<Void> ensureExists = configFile.exists()
+                  ? CompletableFuture.completedFuture(null)
+                  : completeCreateDefaultConfig();
+              return ensureExists.thenCompose(unused2 -> CompletableFuture.supplyAsync(() -> {
+                  Yaml yaml = new Yaml();
+                  try (InputStream inputStream = new FileInputStream(configFile)) {
+                      Map<String, Object> loadedConfig = yaml.load(inputStream);
+                      if (loadedConfig == null) {
+                          loadedConfig = new HashMap<>();
+                      }
+                      // Merge loadedConfig with defaults (deep merge)
+                      config = deepMerge(defaultConfig, loadedConfig);
+                  } catch (Exception e) {
+                      app.logger.severe("Failed to load config: " + e.getMessage());
+                      throw new RuntimeException("Failed to load config", e);
+                  }
+                  return null;
+              }));
+          }).thenRun(() -> {
+              app.logger.info("All configuration values are loaded and merged successfully.");
+          }).exceptionally(ex -> {
+              app.logger.severe("Failed to load configuration values: " + ex.getMessage());
+              return null;
+          });
     }
 
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> deepMerge(Map<String, Object> defaults, Map<String, Object> loaded) {
+        Map<String, Object> merged = new HashMap<>(defaults);
+        for (Map.Entry<String, Object> entry : loaded.entrySet()) {
+            String key = entry.getKey();
+            Object loadedVal = entry.getValue();
+            if (merged.containsKey(key)) {
+                Object defaultVal = merged.get(key);
+                if (defaultVal instanceof Map && loadedVal instanceof Map) {
+                    merged.put(key, deepMerge((Map<String, Object>) defaultVal, (Map<String, Object>) loadedVal));
+                } else {
+                    // Use the loaded value even if it's empty – user input wins.
+                    merged.put(key, loadedVal);
+                }
+            } else {
+                merged.put(key, loadedVal);
+            }
+        }
+        return merged;
+    }
+    
     public static CompletableFuture<Object> completeGetConfigObjectValue(String key) {
         return CompletableFuture.supplyAsync(() -> {
             return config.get(key);
@@ -175,7 +251,7 @@ public class ConfigManager {
             });
     }
 
-    public static CompletableFuture<Integer> completeGetIntValue(String key) {
+    public static CompletableFuture<Integer> completeGetConfigIntegerValue(String key) {
         return completeGetConfigObjectValue(key)
             .thenApply(value -> {
                 if (value instanceof Number) {
@@ -188,7 +264,7 @@ public class ConfigManager {
     }
 
 
-    public static CompletableFuture<Long> completeGetLongValue(String key) {
+    public static CompletableFuture<Long> completeGetConfigLongValue(String key) {
         return completeGetConfigObjectValue(key)
             .thenApply(value -> {
                 if (value instanceof Number) {
@@ -200,7 +276,19 @@ public class ConfigManager {
             });
     }
 
-    public static CompletableFuture<Boolean> completeGetBooleanValue(String key) {
+    public static CompletableFuture<Float> completeGetConfigFloatValue(String key) {
+        return completeGetConfigObjectValue(key)
+            .thenApply(value -> {
+                if (value instanceof Number) {
+                    return ((Number) value).floatValue();
+                } else if (value instanceof String) {
+                    return Float.parseFloat((String) value);
+                }
+                return null; // or throw an exception if you expect a Float
+            });
+    }
+
+    public static CompletableFuture<Boolean> completeGetConfigBooleanValue(String key) {
         return completeGetConfigObjectValue(key)
             .thenApply(value -> {
                 if (value instanceof Boolean) {
@@ -361,7 +449,7 @@ public class ConfigManager {
         private Map<String, Object> values;
 
         public ConfigSection(Map<String, Object> values) {
-            values = values;
+            this.values = values;
         }
 
         public CompletableFuture<String> completeGetConfigStringValue(String key) {

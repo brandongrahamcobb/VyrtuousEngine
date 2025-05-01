@@ -27,6 +27,7 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.locks.Lock;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.logging.Level;
 import java.util.Map;
 import javax.security.auth.login.LoginException;
 import net.dv8tion.jda.api.JDA;
@@ -41,7 +42,7 @@ public class DiscordBot {
 
     private static Vyrtuous app;
     private static JDA api;
-    private static String discordApiKey;
+    public static String discordApiKey;
     private static long discordOwnerId;
     private static HikariDataSource dbPool;
     private static Lock lock;
@@ -51,7 +52,7 @@ public class DiscordBot {
         this.app = application;
     }
 
-    public static CompletableFuture<Void> start() {
+    public static CompletableFuture<Void> start(Runnable afterConnect) {
         return ConfigManager.completeGetApp().thenCompose(appResult -> {
             app = appResult;
             logger = app.logger;
@@ -63,34 +64,17 @@ public class DiscordBot {
                 .thenCompose(discordApiKeys ->
                     discordApiKeys.completeGetConfigStringValue("api_key"))
                 .thenCombine(
-                    ConfigManager.completeGetLongValue("discord_owner_id"),
+                    ConfigManager.completeGetConfigLongValue("discord_owner_id"),
                     (apiKey, ownerId) -> {
                         discordApiKey = apiKey;
                         discordOwnerId = ownerId;
                         return null;
                     }
                 );
-        }).thenCompose(ignore -> {
-            // Initialize the JDA client with the retrieved API key
-            JDABuilder builder = JDABuilder.createDefault(discordApiKey)
-                .enableIntents(GatewayIntent.GUILD_MESSAGES, GatewayIntent.DIRECT_MESSAGES, GatewayIntent.GUILD_MEMBERS); // Add necessary intents
-    
-            // Start the JDA bot and wait for it to be ready
-            try {
-                builder.build().awaitReady();  // This blocks the current thread and keeps the bot alive
-                return CompletableFuture.completedFuture(null); // Return completed future to continue the chain
-            } catch (Exception e) {
-                logger.severe("Failed to start the Discord bot: " + e.getMessage());
-                e.printStackTrace();
-                return CompletableFuture.failedFuture(e);
-            }
-        }).thenRun(() -> {
-            // Once the bot is up and running, log that the bot has started
-            app.logger.info("Discord bot started!");
-        }).exceptionally(ex -> {
-            // Handle any exceptions that occurred during the bot setup process
-            app.logger.severe("Error starting the Discord bot: " + ex.getMessage());
-            ex.printStackTrace();
+        })
+        .thenRun(afterConnect)
+        .exceptionally(ex -> {
+            logger.log(Level.SEVERE, "Error preparing Discord bot config", ex);
             return null;
         });
     }

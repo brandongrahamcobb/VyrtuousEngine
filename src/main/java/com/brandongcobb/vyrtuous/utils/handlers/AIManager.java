@@ -295,7 +295,7 @@ public class AIManager {
         return ConfigManager.completeGetConfigStringValue("openai_chat_model")
             .thenCompose(model -> {
                 ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
-                CompletableFuture<Boolean> streamFuture = ConfigManager.completeGetBooleanValue("openai_chat_stream");
+                CompletableFuture<Boolean> streamFuture = ConfigManager.completeGetConfigBooleanValue("openai_chat_stream");
                 CompletableFuture<Object> tempFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_temperature");
                 CompletableFuture<Object> topPFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_top_p");
                 return CompletableFuture.allOf(streamFuture, tempFuture, topPFuture)

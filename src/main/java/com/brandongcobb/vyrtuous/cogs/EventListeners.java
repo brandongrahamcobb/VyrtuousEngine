@@ -80,7 +80,7 @@ public class EventListeners extends ListenerAdapter implements Cog {
                         }
                         return AIManager.completeChat(senderId, CompletableFuture.completedFuture(inputArray))
                             .thenCompose(response ->
-                                MessageManager.completeSendDiscordMessage(message, response)
+                                MessageManager.completeSendDiscordMessage(message, response.getOutput())
                             )
                             // Convert the Message (or whatever is returned) to Void
                             .thenApply(sentMsg -> null);

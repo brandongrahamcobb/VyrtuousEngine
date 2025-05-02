@@ -162,80 +162,100 @@ public class Helpers {
     public static final String USER_AGENT = "https://github.com/brandongrahamcobb/Vyrtuous.git";
     public static final String VERSION = "1.0.0";
 
+    @SuppressWarnings("unchecked")
     private static Map<String, Object> createColorizeSchema() {
-        Map<String, Object> schema = new HashMap<>();
-        schema.put("type", "json_schema");
-        Map<String, Object> jsonSchema = new HashMap<>();
-        jsonSchema.put("name", "colorize");
-        jsonSchema.put("description", "A function that returns color values for a given request.");
-        Map<String, Object> innerSchema = new HashMap<>();
-        innerSchema.put("type", "object");
+        // Define the color properties
         Map<String, Object> properties = new HashMap<>();
         properties.put("r", Map.of("type", "integer", "minimum", 0, "maximum", 255));
         properties.put("g", Map.of("type", "integer", "minimum", 0, "maximum", 255));
         properties.put("b", Map.of("type", "integer", "minimum", 0, "maximum", 255));
-        innerSchema.put("properties", properties);
-        innerSchema.put("required", List.of("r", "g", "b"));
-        innerSchema.put("additionalProperties", false);
-        jsonSchema.put("schema", innerSchema);
-        schema.put("json_schema", jsonSchema);
-        return schema;
-    }
-
-    private static Map<String, Object> createModerationSchema() {
+    
+        // Build the schema for the colorize response
         Map<String, Object> schema = new HashMap<>();
-        schema.put("type", "json_schema");
-        Map<String, Object> jsonSchema = new HashMap<>();
-        jsonSchema.put("name", "moderation");
-        jsonSchema.put("description", "A function that returns moderation results according to a specified schema.");
+        schema.put("type", "object");
+        schema.put("properties", properties);
+        schema.put("required", List.of("r", "g", "b"));
+        schema.put("additionalProperties", false);
+    
+        // Define the format containing the schema
+        Map<String, Object> format = new HashMap<>();
+        format.put("type", "json_schema");
+        format.put("strict", true);
+        format.put("schema", schema);
+        format.put("name", "colorize");
+    
+        // Wrap format in the new responses API structure
+        return format;
+    }
+    
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> createModerationSchema() {
+        // Main properties for id and model
         Map<String, Object> properties = new HashMap<>();
         properties.put("id", Map.of("type", "string"));
         properties.put("model", Map.of("type", "string"));
+    
+        // Create properties for each moderation category
         Map<String, Object> categoriesProps = new HashMap<>();
         String[] categoryKeys = {
             "sexual", "hate", "harassment", "self-harm", "sexual/minors",
             "hate/threatening", "violence/graphic", "self-harm/intent",
-            "self-harm/instructions", "harassment/threatening", "violence",
+            "self-harm/instructions", "harassment/threatening", "violence"
         };
         for (String key : categoryKeys) {
             categoriesProps.put(key, Map.of("type", "boolean"));
         }
+    
+        // Build the schema part for "categories"
         Map<String, Object> categories = new HashMap<>();
         categories.put("type", "object");
         categories.put("properties", categoriesProps);
         categories.put("required", Arrays.asList(categoryKeys));
+        categories.put("additionalProperties", false); // Disallow extra props here
         Map<String, Object> scoresProps = new HashMap<>();
         for (String key : categoryKeys) {
-            if (key.equals("animal-derived-technology")) {
-                scoresProps.put(key, Map.of("type", "boolean"));
-            } else {
-                scoresProps.put(key, Map.of("type", "number"));
-            }
+            scoresProps.put(key, Map.of("type", "number"));
         }
         Map<String, Object> categoryScores = new HashMap<>();
         categoryScores.put("type", "object");
         categoryScores.put("properties", scoresProps);
         categoryScores.put("required", Arrays.asList(categoryKeys));
+        categoryScores.put("additionalProperties", false); // Disallow extra props here
+    
+        // Assemble the "result" object schema
         Map<String, Object> resultProps = new HashMap<>();
         resultProps.put("flagged", Map.of("type", "boolean"));
         resultProps.put("categories", categories);
         resultProps.put("category_scores", categoryScores);
+    
+        // Use a mutable map so we can add additionalProperties
         Map<String, Object> resultObject = new HashMap<>();
         resultObject.put("type", "object");
         resultObject.put("properties", resultProps);
-        resultObject.put("required", Arrays.asList("flagged", "categories", "category_scores"));
+        resultObject.put("required", List.of("flagged", "categories", "category_scores"));
+        resultObject.put("additionalProperties", false);  // <-- This line is essential!
+    
+        // Define the results array schema
         Map<String, Object> results = new HashMap<>();
         results.put("type", "array");
         results.put("items", resultObject);
         properties.put("results", results);
+    
+        // Build the main schema for the moderation response
         Map<String, Object> mainSchema = new HashMap<>();
         mainSchema.put("type", "object");
         mainSchema.put("properties", properties);
         mainSchema.put("required", Arrays.asList("id", "model", "results"));
         mainSchema.put("additionalProperties", false);
-        jsonSchema.put("schema", mainSchema);
-        schema.put("json_schema", jsonSchema);
-        return schema;
+    
+        // Wrap it up in a "format" object
+        Map<String, Object> format = new HashMap<>();
+        format.put("type", "json_schema");
+        format.put("strict", true);
+        format.put("name", "moderations");
+        format.put("schema", mainSchema);
+    
+        return format;
     }
 
 }

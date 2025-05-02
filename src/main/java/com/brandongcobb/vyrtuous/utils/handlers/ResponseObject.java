@@ -13,7 +13,7 @@
  *  GNU General Public License for more details.
  *
  *  You should have received a copy of the GNU General Public License
- *  aLong with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *  aInteger with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package com.brandongcobb.vyrtuous.utils.handlers;
 
@@ -37,8 +37,8 @@ public class ResponseObject {
         switch (container.get(objectKey)) {
 
             case "chat.completion" :
-                MetadataKey<Long> completionCreatedKey = new MetadataKey<>("created", Long.class);
-                Long completionCreated = (Long) responseMap.get("created");
+                MetadataKey<Integer> completionCreatedKey = new MetadataKey<>("created", Integer.class);
+                Integer completionCreated = (Integer) responseMap.get("created");
                 container.put(completionCreatedKey, completionCreated);
                 MetadataKey<String> completionModelKey = new MetadataKey<>("model", String.class);
                 String completionModel = (String) responseMap.get("model");
@@ -70,8 +70,8 @@ public class ResponseObject {
                 container.put(completionCompletionTokensKey, completionCompletionTokens);
 
             case "moderation" :
-                MetadataKey<Long> moderationCreatedKey = new MetadataKey<>("created", Long.class);
-                Long moderationCreated = (Long) responseMap.get("created");
+                MetadataKey<Integer> moderationCreatedKey = new MetadataKey<>("created", Integer.class);
+                Integer moderationCreated = (Integer) responseMap.get("created");
                 container.put(moderationCreatedKey, moderationCreated);
                 MetadataKey<String> moderationModelKey = new MetadataKey<>("model", String.class);
                 String moderationModel = (String) responseMap.get("model");
@@ -212,8 +212,8 @@ public class ResponseObject {
                 MetadataKey<String> responsesObjectKey = new MetadataKey<>("object", String.class);
                 String responsesObject = (String) responseMap.get("object");
                 container.put(responsesObjectKey, responsesObject);
-                MetadataKey<Long> responsesCreatedAtKey = new MetadataKey<>("created_at", Long.class);
-                Long responsesCreatedAt = (Long) responseMap.get("created_at");
+                MetadataKey<Integer> responsesCreatedAtKey = new MetadataKey<>("created_at", Integer.class);
+                Integer responsesCreatedAt = (Integer) responseMap.get("created_at");
                 container.put(responsesCreatedAtKey, responsesCreatedAt);
                 MetadataKey<String> responsesStatusKey = new MetadataKey<>("status", String.class);
                 String responsesStatus = (String) responseMap.get("status");
@@ -221,9 +221,10 @@ public class ResponseObject {
                 MetadataKey<String> responsesErrorKey = new MetadataKey<>("error", String.class);
                 String responsesError = (String) responseMap.get("error");
                 container.put(responsesErrorKey, responsesError);
-                MetadataKey<String> responsesIncompleteDetailsKey = new MetadataKey<>("incomplete_details", String.class);
-                String responsesIncompleteDetails = (String) responseMap.get("incomplete_details");
-                container.put(responsesIncompleteDetailsKey, responsesIncompleteDetails);
+                MetadataKey<String> responsesIncompleteDetailsReasonKey = new MetadataKey<>("reason", String.class);
+                Map<String, String> responsesIncompleteDetails = (Map<String, String>) responseMap.get("incomplete_details");
+                String reason = (String) responseMap.get("reason");
+                container.put(responsesIncompleteDetailsReasonKey, reason);
                 MetadataKey<String> responsesInstructionsKey = new MetadataKey<>("instructions", String.class);
                 String responsesInstructions = (String) responseMap.get("instructions");
                 container.put(responsesInstructionsKey, responsesInstructions);
@@ -239,9 +240,13 @@ public class ResponseObject {
                 MetadataKey<String> responsesPreviousResponseIdKey = new MetadataKey<>("previous_response_id", String.class);
                 String responsesPreviousResponseId = (String) responseMap.get("previous_response_id");
                 container.put(responsesPreviousResponseIdKey, responsesPreviousResponseId);
-                MetadataKey<Map<String, Object>> responsesReasoningKey = new MetadataKey<>("reasoning", Map.class);
-                Map<String, Object> responsesReasoning = (Map<String, Object>) responseMap.get("reasoning");
-                container.put(responsesReasoningKey, responsesReasoning);
+                MetadataKey<String> responsesReasoningEffortKey = new MetadataKey<>("effort", String.class);
+                MetadataKey<String> responsesReasoningSummaryKey = new MetadataKey<>("summary", String.class);
+                Map<String, String> responsesReasoning = (Map<String, String>) responseMap.get("reasoning");
+                String responsesReasoningEffort = responsesReasoning.get("effort");
+                container.put(responsesReasoningEffortKey, responsesReasoningEffort);
+                String responsesReasoningSummary = responsesReasoning.get("summary");
+                container.put(responsesReasoningSummaryKey, responsesReasoningSummary);
                 MetadataKey<Boolean> responsesStoreKey = new MetadataKey<>("store", Boolean.class);
                 Boolean responsesStore = (Boolean) responseMap.get("store");
                 MetadataKey<Double> responsesTemperatureKey = new MetadataKey<>("temperature", Double.class);
@@ -262,9 +267,9 @@ public class ResponseObject {
                 MetadataKey<String> responsesTruncationKey = new MetadataKey<>("truncation", String.class);
                 String responsesTruncation = (String) responseMap.get("truncation");
                 container.put(responsesTruncationKey, responsesTruncation);
-                MetadataKey<Long> responsesTotalTokensKey = new MetadataKey<>("total_tokens", Long.class);
+                MetadataKey<Integer> responsesTotalTokensKey = new MetadataKey<>("total_tokens", Integer.class);
                 Map<String, Object> responsesUsage = (Map<String, Object>) responseMap.get("usage");
-                Long responsesTotalTokens = (Long) responsesUsage.get("total_tokens");
+                Integer responsesTotalTokens = (Integer) responsesUsage.get("total_tokens");
                 container.put(responsesTotalTokensKey, responsesTotalTokens);
                 MetadataKey<String> responsesUserKey = new MetadataKey<>("user", String.class);
                 String responsesUser = (String) responseMap.get("user");
@@ -284,6 +289,11 @@ public class ResponseObject {
     public Boolean getFlagged() {
         MetadataKey<String> flaggedKey = new MetadataKey<>("flagged", String.class);
         return Boolean.parseBoolean(container.get(flaggedKey));
+    }
+
+    public String getOutput() {
+        MetadataKey<String> outputKey = new MetadataKey<>("output_content", String.class);
+        return container.get(outputKey);
     }
 
     public String getPreviousResponseId() {

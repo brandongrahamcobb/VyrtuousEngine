@@ -57,6 +57,7 @@ import java.util.stream.Collectors;
 
 public class AIManager {
 
+    private static Vyrtuous app;
     private static String apiUrl;
     private static long calculatedMaxTokens;
     private static long contextLimit;
@@ -89,7 +90,6 @@ public class AIManager {
     private static float openAIDefaultChatModerationTopP = 1.0f;
     private static boolean openAIDefaultChatModerationUseHistory = false;
     private boolean addCompletionToHistory;
-    private static Vyrtuous app;
     private static Map<String, List<Map<String, Object>>> conversations;
     private static String openAIAPIKey;
     private int i;
@@ -125,6 +125,7 @@ public class AIManager {
             .thenCompose(openAIKeys -> openAIKeys.completeGetConfigStringValue("api_key"))
             .thenCompose(apiKey -> CompletableFuture.runAsync(() -> {
                 try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+                    String apiUrl = "https://api.openai.com/v1/responses";
                     HttpPost post = new HttpPost(apiUrl);
                     post.setHeader("Authorization", "Bearer " + apiKey);
                     post.setHeader("Content-Type", "application/json");
@@ -279,15 +280,16 @@ public class AIManager {
     }
 
     public static CompletableFuture<MetadataContainer> completeGetConversationContainer(long customId) {
-        return CompletableFuture.supplyAsync(() -> {
-            MetadataKey<MetadataContainer> conversationContainerKey = new MetadataKey<>("conversation_" + customId, MetadataContainer.class);
-            MetadataContainer conversationContainer = app.metadataContainer.get(conversationContainerKey);
-            if (conversationContainer == null) {
-                // Create a new MetadataContainer if none exists
-                conversationContainer = new MetadataContainer();
-                app.metadataContainer.put(conversationContainerKey, conversationContainer);
+        MetadataKey<MetadataContainer> conversationContainerKey =
+            new MetadataKey<>("conversation_" + customId, MetadataContainer.class);
+        return ConfigManager.completeGetApp().thenCompose(app -> {
+            MetadataContainer existing = app.metadataContainer.get(conversationContainerKey);
+            if (existing != null) {
+                return CompletableFuture.completedFuture(existing);
             }
-            return conversationContainer;
+            MetadataContainer newContainer = new MetadataContainer();
+            app.metadataContainer.put(conversationContainerKey, newContainer);
+            return CompletableFuture.completedFuture(newContainer);
         });
     }
 

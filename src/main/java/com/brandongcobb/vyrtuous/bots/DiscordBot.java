@@ -62,7 +62,6 @@ public class DiscordBot {
             logger = app.logger;
             dbPool = app.dbPool;
             lock = app.lock;
-    
             return ConfigManager.completeGetNestedConfigValue("api_keys", "Discord")
                 .thenCompose(discordApiKeys ->
                     discordApiKeys.completeGetConfigStringValue("api_key"))
@@ -85,10 +84,9 @@ public class DiscordBot {
     private static CompletableFuture<Void> initiateDiscordApi() {
         return CompletableFuture.runAsync(() -> {
             try {
-                api = JDABuilder.createDefault(discordApiKey)
+                api = JDABuilder.createDefault(discordApiKey, GatewayIntent.GUILD_MESSAGES, GatewayIntent.MESSAGE_CONTENT, GatewayIntent.GUILD_MEMBERS)
                     .setActivity(Activity.playing("Starting up..."))
                     .build();
-    
                 api.awaitReady(); // Wait until JDA is ready
             } catch (Exception e) {
                 throw new CompletionException(e);

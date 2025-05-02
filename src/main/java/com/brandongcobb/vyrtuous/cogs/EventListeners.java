@@ -26,14 +26,6 @@ import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 import java.util.List;
 import javax.annotation.Nonnull;
-//import org.javacord.api.DiscordApi;
-//import org.javacord.api.DiscordApiBuilder;
-//import org.javacord.api.entity.message.Message;
-//import org.javacord.api.entity.message.MessageAttachment;
-//import org.javacord.api.entity.channel.PrivateChannel;
-//import org.javacord.api.entity.user.User;
-//import org.javacord.api.event.message.MessageCreateEvent;
-//import org.javacord.api.listener.message.MessageCreateListener;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.entities.Message.Attachment;
 import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
@@ -46,8 +38,8 @@ import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 
 public class EventListeners extends ListenerAdapter implements Cog {
 
-    private final Vyrtuous app;
     private JDA api;
+    private final Vyrtuous app;
     private Lock lock;
     private long senderId;
 
@@ -59,6 +51,7 @@ public class EventListeners extends ListenerAdapter implements Cog {
     @Override
     public void register (JDA api) {
         api.addEventListener(this);
+        this.api = api;
     }
 
     @Override
@@ -71,7 +64,7 @@ public class EventListeners extends ListenerAdapter implements Cog {
         long senderId = sender.getIdLong();
         List<Message.Attachment> attachments = message.getAttachments();
         Predicator.isDeveloper(sender).thenAccept(isDev -> {
-            if (isDev) return;
+            if (!isDev) return;
             MessageManager.processArray(content, attachments)
             .thenCompose(inputArray ->
                 AIManager.completeModeration(senderId, CompletableFuture.completedFuture(inputArray))

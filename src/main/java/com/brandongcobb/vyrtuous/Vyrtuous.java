@@ -70,7 +70,7 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 
 public class Vyrtuous {
 
-    private final ExecutorService dbExecutor = Executors.newFixedThreadPool(4);
+    private static final ExecutorService dbExecutor = Executors.newFixedThreadPool(4);
     public static Vyrtuous app;
     public static Connection connection;
     private CompletableFuture<Void> databaseTask;
@@ -90,7 +90,7 @@ public class Vyrtuous {
     public static OAuthUserSession oAuthUserSession;
     public static Map<MinecraftUser, OAuthUserSession> sessions = new HashMap<>();
     public static File tempDirectory;
-    public Timer callbackTimer;
+    public static Timer callbackTimer;
     public static final String ANSI_CYAN = "\u001B[36m";
     public static final String ANSI_RESET = "\u001B[0m";
 
@@ -109,43 +109,37 @@ public class Vyrtuous {
     public Vyrtuous() {
         app = this;
         instance = this;
-    
-        // Initialize sync components early
         this.logger = Logger.getLogger("Vyrtuous");
         this.metadataContainer = new MetadataContainer();
         this.tempDirectory = new File(System.getProperty("java.io.tmpdir"));
         this.lock = null;
         this.loggingTask = new CompletableFuture<>();
-    
-        // Populate default config first and ensure it's available before anything uses it
         CompletableFuture<Void> initializationFuture = ConfigManager.completeSetApp(this)
             .thenCompose(ignored -> ConfigManager.completeLoadConfig())
             .thenCompose(ignored -> ConfigManager.completeIsConfigSameAsDefault())
             .thenCompose(isDefault -> {
                 if (isDefault) {
-                    return CompletableFuture.failedFuture(new IllegalStateException("Could not load Vyrtuous, the config is invalid."));
+                    return CompletableFuture.failedFuture(
+                            new IllegalStateException("Could not load Vyrtuous, the config is invalid."));
                 } else {
                     return ConfigManager.completeValidateConfig();
                 }
             })
-            .thenCompose(ignored -> completeConnectDatabase(() -> {})) // DB waits for config
-            .thenCompose(ignored -> completeSetupLogging()) // Wait for logging setup
+            .thenCompose(ignored -> completeConnectDatabase(() -> {})) // database aits for config
+            .thenCompose(ignored -> completeSetupLogging()) // wait for logging setup
             .thenRun(() -> {
                 OAuthServer.start(this);
                 new PlayerMessageQueueManager();
-                DiscordBot.start(() -> {});
             })
             .exceptionally(ex -> {
                 logger.severe("Error initializing the application: " + ex.getMessage());
                 ex.printStackTrace();
                 return null;
             });
-    
-        // Wait for all async startup logic to complete before constructor exits
         initializationFuture.join();
     }
 
-    public CompletableFuture<Void> closeDatabase() {
+    public static CompletableFuture<Void> closeDatabase() {
         return CompletableFuture.supplyAsync(() -> {
             if (dbPool != null && !dbPool.isClosed()) {
                 dbPool.close();
@@ -160,7 +154,6 @@ public class Vyrtuous {
 
     public CompletableFuture<Void> completeConnectDatabase(Runnable afterConnect) {
         logger.log(Level.INFO, "Initializing PostgreSQL connection pool asynchronously...");
-        // Wait for all the CompletableFuture values to complete.
         return CompletableFuture.allOf(
             ConfigManager.completeGetConfigObjectValue("postgres_host"),
             ConfigManager.completeGetConfigObjectValue("postgres_database"),
@@ -168,24 +161,19 @@ public class Vyrtuous {
             ConfigManager.completeGetConfigObjectValue("postgres_password"),
             ConfigManager.completeGetConfigObjectValue("postgres_port")
         ).thenApplyAsync(v -> {
-            // Extract the resolved values from the CompletableFutures
             String host = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_host").join());
             String db = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_database").join());
             String user = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_user").join());
             String password = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_password").join());
             String port = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_port").join());
-            
-            // Construct the jdbcUrl correctly
             String jdbcUrl = String.format("jdbc:postgresql://%s:%s/%s", host, port, db);
             logger.info("Connecting to: " + jdbcUrl);
-    
             HikariConfig hikariConfig = new HikariConfig();
             hikariConfig.setJdbcUrl(jdbcUrl);
             hikariConfig.setUsername(user);
             hikariConfig.setPassword(password);
             hikariConfig.setDriverClassName("org.postgresql.Driver");
             hikariConfig.setLeakDetectionThreshold(2000);
-    
             try {
                 dbPool = new HikariDataSource(hikariConfig);
                 logger.log(Level.INFO, "PostgreSQL connection pool initialized.");
@@ -227,7 +215,7 @@ public class Vyrtuous {
         });
     }
 
-    public CompletableFuture<Void> onDisable() {
+    public static CompletableFuture<Void> onDisable() {
         // Chain the operations in sequence, each producing Void.
         return closeDatabase()
               .thenRun(() -> OAuthServer.cancelOAuthSession(callbackTimer))
@@ -238,8 +226,14 @@ public class Vyrtuous {
 
     public static void main(String[] args) {
         Vyrtuous app = new Vyrtuous();
+        try {
+            DiscordBot.start().join();
+        } catch (Exception e) {
+            e.printStackTrace();
+            onDisable();
+        }
     }
-    
+
     private CompletableFuture<Logger> completeSetupLogging() {
         return CompletableFuture.supplyAsync(() -> {
             logger = Logger.getLogger("Vyrtuous");

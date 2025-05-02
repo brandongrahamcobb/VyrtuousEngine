@@ -25,6 +25,8 @@ import java.util.ArrayList;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.locks.Lock;
+import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
 import java.util.List;
 import java.util.logging.Logger;
 import java.util.logging.Level;
@@ -37,6 +39,8 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.OnlineStatus;
+import net.dv8tion.jda.api.entities.Activity;
 
 public class DiscordBot {
 
@@ -52,14 +56,13 @@ public class DiscordBot {
         this.app = application;
     }
 
-    public static CompletableFuture<Void> start(Runnable afterConnect) {
+    public static CompletableFuture<Void> start() {
         return ConfigManager.completeGetApp().thenCompose(appResult -> {
             app = appResult;
             logger = app.logger;
             dbPool = app.dbPool;
             lock = app.lock;
     
-            // Get the Discord API key and owner ID
             return ConfigManager.completeGetNestedConfigValue("api_keys", "Discord")
                 .thenCompose(discordApiKeys ->
                     discordApiKeys.completeGetConfigStringValue("api_key"))
@@ -72,9 +75,9 @@ public class DiscordBot {
                     }
                 );
         })
-        .thenRun(afterConnect)
+        .thenRun(() -> initiateDiscordApi())
         .exceptionally(ex -> {
-            logger.log(Level.SEVERE, "Error preparing Discord bot config", ex);
+            logger.log(Level.SEVERE, "Error starting Discord bot", ex);
             return null;
         });
     }
@@ -82,11 +85,15 @@ public class DiscordBot {
     private static CompletableFuture<Void> initiateDiscordApi() {
         return CompletableFuture.runAsync(() -> {
             try {
-                api = JDABuilder.createDefault(discordApiKey).build();
+                api = JDABuilder.createDefault(discordApiKey)
+                    .setActivity(Activity.playing("Starting up..."))
+                    .build();
+    
+                api.awaitReady(); // Wait until JDA is ready
             } catch (Exception e) {
                 throw new CompletionException(e);
             }
-        }).thenCompose(ignore -> loadCogs());
+        }).thenCompose(ignore -> loadCogs()); // Load cogs after ready
     }
 
     private static CompletableFuture<Void> loadCogs() {

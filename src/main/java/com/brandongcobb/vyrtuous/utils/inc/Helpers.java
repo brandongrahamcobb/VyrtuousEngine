@@ -45,17 +45,17 @@ public class Helpers {
         }
     }
 
-    public static boolean isNotNullOrEmpty(Object[] objects) {
+    public static boolean isNullOrEmpty(Object[] objects) {
         for (int i = 0; i < objects.length; i++) {
             if (objects[i] instanceof String) {
                 if (objects[i] == null || ((String) objects[i]).trim().isEmpty()) {
-                    return false;
+                    return true;
                 }
             } else if (objects[i] == null) {
-                return false;
+                return true;
             }
         }
-        return true;
+        return false;
     }
 
     // Base directories

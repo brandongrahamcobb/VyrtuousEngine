@@ -39,7 +39,6 @@ public class ConfigManager {
     static {
         config = new HashMap<>();
         defaultConfig = populateConfig(new HashMap<>());
-    // Instead of an asynchronous thenAccept, do a blocking call:
     }
 
     public static CompletableFuture<Void> completeSetApp(Vyrtuous plugin) {
@@ -184,7 +183,6 @@ public class ConfigManager {
     }
 
     public static CompletableFuture<Void> completeLoadConfig() {
-        // Ensure defaultConfig is fully populated before loading the file.
         return app.completeGetDataFolder()
           .thenCompose(folder -> {
               File configFile = new File(folder, "config.yml");
@@ -198,8 +196,10 @@ public class ConfigManager {
                       if (loadedConfig == null) {
                           loadedConfig = new HashMap<>();
                       }
-                      // Merge loadedConfig with defaults (deep merge)
                       config = deepMerge(defaultConfig, loadedConfig);
+//                      for (Map.Entry<String, Object> entry : config.entrySet()) {
+//                          System.out.println("Key: " + entry.getKey() + ", Value: " + entry.getValue());
+//                      }
                   } catch (Exception e) {
                       app.logger.severe("Failed to load config: " + e.getMessage());
                       throw new RuntimeException("Failed to load config", e);
@@ -235,8 +235,9 @@ public class ConfigManager {
         return merged;
     }
     
-    public static CompletableFuture<Object> completeGetConfigObjectValue(String key) {
-        return CompletableFuture.supplyAsync(() -> {
+    public static CompletableFuture<Object> completeGetConfigObjectValue(String key) { return 
+        CompletableFuture.supplyAsync(() -> {
+
             return config.get(key);
         });
     }
@@ -362,7 +363,7 @@ public class ConfigManager {
                 String key = entry.getKey();
                 String value = entry.getValue();
                 Object[] values = {settings, key, value};
-                if (Helpers.isNotNullOrEmpty(values)) {
+                if (Helpers.isNullOrEmpty(values)) {
                     app.logger.warning(api + " setting '" + key + "' is missing or invalid.");
                 } else {
                     hasValidData = true;
@@ -379,7 +380,8 @@ public class ConfigManager {
             String patreonEndpoint = (String) config.get("spark_patreon_endpoint");
             String port = String.valueOf(config.get("spark_port"));
             String[] values = {discordEndpoint, patreonEndpoint, port};
-            if (Helpers.isNotNullOrEmpty(values)) {
+            System.out.println(discordEndpoint + patreonEndpoint + port);
+            if (Helpers.isNullOrEmpty(values)) {
                 app.logger.warning("Spark settings are invalid.");
                 isValid = false;
             }
@@ -396,7 +398,7 @@ public class ConfigManager {
             String port = (String) config.get("postgres_port");
             boolean isValid = true;
             String[] values = {database, user, password, host, port};
-            if (Helpers.isNotNullOrEmpty(values)) {
+            if (Helpers.isNullOrEmpty(values)) {
                 app.logger.warning("Postgres settings are invalid.");
                 isValid = false;
             }
@@ -415,7 +417,7 @@ public class ConfigManager {
             float openAIChatTopP = (float) Float.parseFloat(String.valueOf(config.get("openai_chat_top_p")));
             boolean isValid = true;
             Object[] values = {openAIChatCompletion, openAIChatModel, openAIChatModeration, openAIChatStop, openAIChatStream, openAIChatTemperature, openAIChatTopP};
-            if (Helpers.isNotNullOrEmpty(values)) {
+            if (Helpers.isNullOrEmpty(values)) {
                 app.logger.warning("OpenAI settings are invalid.");
                 isValid = false;
             }
@@ -434,7 +436,7 @@ public class ConfigManager {
                     String key = header.getKey();
                     String value = header.getValue();
                     Object[] values = {webHeaders, key, value};
-                    if (Helpers.isNotNullOrEmpty(values)) {
+                    if (Helpers.isNullOrEmpty(values)) {
                         app.logger.warning("Web headers configuration is invalid.");
                         isValid = false;
                     }

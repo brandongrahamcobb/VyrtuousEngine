@@ -113,11 +113,19 @@ public class AIManager {
         });
     }
 
-    public static CompletableFuture<Map<String, Object>> completeInputToModerationRequestBody() {
+    public static CompletableFuture<ResponseObject> completeChat(String fullContent) {
+        return completeInputToTextRequestBody(fullContent)
+            .thenCompose(requestBody ->
+                completeRequestWithRequestBody(requestBody)
+            );
+    }
+
+    public static CompletableFuture<Map<String, Object>> completeInputToModerationRequestBody(String fullContent) {
         return ConfigManager.completeGetConfigStringValue("openai_chat_model")
             .thenCompose(chatModel -> {
                 try {
-                    return formRequestBodyFromConversation(
+                    return completeFormRequestBody(
+                            fullContent,
                             openAIDefaultChatModerationModel,
                             openAIDefaultChatModerationResponseFormat,
                             openAIDefaultChatModerationStore,
@@ -133,6 +141,46 @@ public class AIManager {
                     return failed;
                 }
             });
+    }
+
+private static CompletableFuture<Map<String, Object>> completeFormRequestBody(
+            String fullContent,
+            String model,
+            Map<String, Object> textFormat,
+            boolean store,
+            boolean stream,
+            String instructions,
+            float temperature,
+            float top_p) {
+        return CompletableFuture.supplyAsync(() -> {
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", model);
+            requestBody.put("text", Map.of("format", textFormat));
+            requestBody.put("temperature", temperature);
+            requestBody.put("top_p", top_p);
+            requestBody.put("stream", stream);
+            List<Map<String, Object>> messagesList = new ArrayList<>();
+            Map<String, Object> messageMap = new HashMap<>();
+            messageMap.put("role", "user");
+            messageMap.put("content", fullContent);
+            messagesList.add(messageMap);
+            requestBody.put("input", messagesList);
+            if (store) {
+                LocalDateTime now = LocalDateTime.now();
+                Map<String, String> metadataMap = new HashMap<>();
+                metadataMap.put("user", model);
+                metadataMap.put("timestamp", now.toString());
+                requestBody.put("metadata", List.of(metadataMap));
+            }
+            long tokens = completeCalculateMaxOutputTokens(model, fullContent).join();
+            ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
+            if (contextInfo != null && contextInfo.status()) {
+                requestBody.put("max_output_tokens", tokens);
+            } else {
+                requestBody.put("max_tokens", tokens);
+            }
+            return requestBody;
+        });
     }
 
     private static CompletableFuture<Map<String, Object>> completeInputToTextRequestBody(String text) {
@@ -178,6 +226,13 @@ public class AIManager {
             });
     }
 
+    public static CompletableFuture<ResponseObject> completeModeration(String fullContent) {
+        return completeInputToModerationRequestBody(fullContent)
+            .thenCompose(requestBody ->
+                completeRequestWithRequestBody(requestBody)
+            );
+    }
+
     private static CompletableFuture<ResponseObject> completeRequestWithRequestBody(Map<String, Object> requestBody) {
         return ConfigManager
             .completeGetNestedConfigValue("api_keys", "OpenAI")
@@ -200,7 +255,7 @@ public class AIManager {
                                 new TypeReference<Map<String, Object>>() {}
                             );
                             ResponseObject responseObject = new ResponseObject(responseMap);
-                            return responsesObject;
+                            return responseObject;
                         } else {
                             app.logger.warning("OpenAI API returned status: " + statusCode);
                             return null;

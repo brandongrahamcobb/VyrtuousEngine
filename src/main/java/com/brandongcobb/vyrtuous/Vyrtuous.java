@@ -106,14 +106,8 @@ public class Vyrtuous {
             .thenCompose(ignored -> completeSetupLogging()) // wait for logging setup
             .thenCompose(ignored -> completeInitializeDiscordConfiguration())
             .thenRun(() -> {
-                try {
-                    DiscordBot.start(api);
-                    api.awaitReady();
-                    OAuthServer.start(this);
-                    new PlayerMessageQueueManager();
-                } catch (InterruptedException ie) {
-                    ie.printStackTrace();
-                }
+                OAuthServer.start(this);
+                new PlayerMessageQueueManager();
             })
             .exceptionally(ex -> {
                 logger.severe("Error initializing the application: " + ex.getMessage());

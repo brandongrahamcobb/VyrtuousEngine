@@ -26,7 +26,6 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nonnull;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Message.MentionType;
@@ -57,57 +56,62 @@ public class EventListeners extends ListenerAdapter implements Cog {
     public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
         Message message = event.getMessage();
         if (message.getAuthor().isBot()) return;
+    
         boolean isMentioned = message.getMentions().getUsers().contains(api.getSelfUser());
         String content = message.getContentDisplay();
         User sender = event.getAuthor();
         long senderId = sender.getIdLong();
         List<Attachment> attachments = message.getAttachments();
+    
         app.completeGetInstance().thenAccept(appInstance -> {
+            CompletableFuture<String> fullContentFuture;
+    
             if (attachments != null && !attachments.isEmpty()) {
-                MessageManager.processAttachments(attachments).thenCompose(attachmentContent -> {
-                    String fullContent = attachmentContent + content;
-                    CompletableFuture<Map<String, Object>> moderationFuture =
-                        AIManager.completeConversationToModerationRequestBody(fullContent);
-                    CompletableFuture<Map<String, Object>> chatFuture =
-                        AIManager.completeConversationToTextRequestBody(fullContent);
-                    return moderationFuture.thenCompose(moderationRequestMap -> {
-                        RequestObject moderationRequestObject = new RequestObject(moderationRequestMap);
-                        return moderationRequestObject.completeModeration()
-                            .thenCompose(moderationResponseMap -> {
-                                ResponseObject moderationResponseObject = new ResponseObject(moderationResponseMap);
-                                return moderationResponseObject.completeGetFlagged()
-                                    .thenCompose(flagged -> {
-                                        if (flagged) {
-                                            return moderationResponseObject.completeGetFormatFlaggedReasons()
-                                                .thenCompose(reason ->
-                                                    ModerationManager.completeHandleModeration(message, reason)
-                                                        .thenApply(m -> null)
-                                                );
-                                        }
-                                        boolean shouldChat = (fullContent.length() > 1 &&
-                                                "chat".equalsIgnoreCase(fullContent.substring(1))) || isMentioned;
-                                        if (!shouldChat) {
-                                            return CompletableFuture.completedFuture(null);
-                                        }
-                                        return chatFuture.thenCompose(chatRequestMap ->
-                                            AIManager.completeChat(chatRequestMap)
-                                                .thenCompose(chatResponseMap -> {
-                                                    ResponseObject chatResponseObject = new ResponseObject(chatResponseMap);
-                                                    return chatResponseObject.completeGetOutput()
-                                                        .thenCompose(outputContent ->
-                                                            MessageManager.completeSendDiscordMessage(message, outputContent)
-                                                                .thenApply(m -> null)
-                                                        );
-                                                })
-                                        );
-                                    });
-                            });
-                    });
-                }).exceptionally(ex -> {
-                    ex.printStackTrace();
-                    return null;
-                });
+                fullContentFuture = MessageManager.completeProcessAttachments(attachments)
+                    .thenApply(attachmentContent -> attachmentContent + content);
+            } else {
+                fullContentFuture = CompletableFuture.completedFuture(content);
             }
+    
+            fullContentFuture.thenCompose(fullContent -> {
+                System.out.println("fullContent: " + fullContent);
+    
+                CompletableFuture<ResponseObject> moderationFuture =
+                    AIManager.completeModeration(fullContent);
+                CompletableFuture<ResponseObject> chatFuture =
+                    AIManager.completeChat(fullContent);
+    
+                return moderationFuture.thenCompose(moderationResponseObject ->
+                    moderationResponseObject.completeGetFlagged()
+                        .thenCompose(flagged -> {
+                            if (flagged) {
+                                return moderationResponseObject.completeGetFormatFlaggedReasons()
+                                    .thenCompose(reason ->
+                                        ModerationManager.completeHandleModeration(message, reason)
+                                            .thenApply(m -> null)
+                                    );
+                            }
+    
+                            boolean shouldChat = (fullContent.length() > 1 &&
+                                    "chat".equalsIgnoreCase(fullContent.substring(1))) || isMentioned;
+    
+                            if (!shouldChat) {
+                                return CompletableFuture.completedFuture(null);
+                            }
+    
+                            return chatFuture.thenCompose(chatResponseObject ->
+                                chatResponseObject.completeGetOutput()
+                                    .thenCompose(outputContent ->
+                                        MessageManager.completeSendDiscordMessage(message, outputContent)
+                                            .thenApply(m -> null)
+                                    )
+                            );
+                        })
+                );
+            }).exceptionally(ex -> {
+                ex.printStackTrace();
+                return null;
+            });
         });
     }
 }

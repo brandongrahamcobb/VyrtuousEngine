@@ -78,7 +78,7 @@ public class RequestObject extends MetadataContainer {
             }
         } else if (requestMap.containsKey("max_tokens")) {
             MetadataKey<Long> maxTokensKey = new MetadataKey<>("max_tokens", Long.class);
-            ObjectmaxTokensObj = requestMap.get("max_tokens");
+            Object maxTokensObj = requestMap.get("max_tokens");
             if (maxTokensObj != null) {
                 Long maxTokens = Long.parseLong(maxTokensObj.toString());
                 put(maxTokensKey, maxTokens);
@@ -86,19 +86,4 @@ public class RequestObject extends MetadataContainer {
         }
 
     }
-
-    public static CompletableFuture<ResponseObject> completeChat(String content) {
-        return AIManager.completeInputToTextRequestBody(content)
-            .thenCompose(requestBody ->
-                AIManager.completeRequestWithRequestBody(requestBody)
-            );
-    }
-
-    public static CompletableFuture<ResponseObject> completeModeration() {
-        return AIManager.completeInputToModerationRequestBody()
-            .thenCompose(requestBody ->
-                AIManager.completeRequestWithRequestBody(requestBody)
-            );
-    }
-
 }

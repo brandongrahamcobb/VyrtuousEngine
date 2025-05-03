@@ -18,6 +18,9 @@
  */
 package com.brandongcobb.vyrtuous.metadata;
 
+import java.util.Objects;
+
+
 /**
  * A unique key that identifies a metadata entry, parameterized by the type
  * of its associated value.
@@ -27,7 +30,7 @@ package com.brandongcobb.vyrtuous.metadata;
  *
  * @param <T> the Java type of the metadata value
  */
- public class MetadataKey<T> {
+ public final class MetadataKey<T> {
  
     private final String name;
     private final Class<?> type;
@@ -60,5 +63,18 @@ package com.brandongcobb.vyrtuous.metadata;
      */
     public Class<?> getType() {
         return type;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (!(o instanceof MetadataKey)) return false;
+        MetadataKey<?> that = (MetadataKey<?>) o;
+        return name.equals(that.name); // Optional: && type.equals(that.type)
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(name); // Optional: include type
     }
 }

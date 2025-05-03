@@ -333,7 +333,6 @@ public class ResponseObject extends MetadataContainer{
                     List<Map<String, Object>> responsesContentList = (List<Map<String, Object>>) responsesMessage.get("content");
                     if (responsesContentList != null && !responsesContentList.isEmpty()) {
                         String responsesOutputContent = (String) responsesContentList.get(0).get("text");
-                        System.out.println(responsesOutputContent);
                         put(responsesOutputContentKey, responsesOutputContent);
                     }
                 }
@@ -393,7 +392,6 @@ public class ResponseObject extends MetadataContainer{
     public CompletableFuture<String> completeGetOutput() {
         return CompletableFuture.supplyAsync(() -> {
             MetadataKey<String> outputKey = new MetadataKey<>("output_content", String.class);
-            System.out.println(this.get(outputKey));
             return this.get(outputKey); // this refers to your MetadataContainer or similar
         });
     }

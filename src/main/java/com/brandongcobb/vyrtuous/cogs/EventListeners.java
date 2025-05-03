@@ -18,8 +18,6 @@ import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.utils.handlers.AIManager;
 import com.brandongcobb.vyrtuous.utils.handlers.MessageManager;
 import com.brandongcobb.vyrtuous.utils.handlers.ModerationManager;
-import com.brandongcobb.vyrtuous.utils.handlers.PatreonUser;
-import com.brandongcobb.vyrtuous.utils.handlers.Predicator;
 import com.brandongcobb.vyrtuous.utils.handlers.RequestObject;
 import com.brandongcobb.vyrtuous.utils.handlers.ResponseObject;
 import java.util.concurrent.CompletableFuture;
@@ -56,31 +54,25 @@ public class EventListeners extends ListenerAdapter implements Cog {
     public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
         Message message = event.getMessage();
         if (message.getAuthor().isBot()) return;
-    
         boolean isMentioned = message.getMentions().getUsers().contains(api.getSelfUser());
-        String content = message.getContentDisplay();
+        String content = message.getContentDisplay().replace("@Vyrtuous", "");
         User sender = event.getAuthor();
         long senderId = sender.getIdLong();
         List<Attachment> attachments = message.getAttachments();
-    
         app.completeGetInstance().thenAccept(appInstance -> {
             CompletableFuture<String> fullContentFuture;
-    
             if (attachments != null && !attachments.isEmpty()) {
                 fullContentFuture = MessageManager.completeProcessAttachments(attachments)
                     .thenApply(attachmentContent -> attachmentContent + content);
             } else {
                 fullContentFuture = CompletableFuture.completedFuture(content);
             }
-    
             fullContentFuture.thenCompose(fullContent -> {
                 System.out.println("fullContent: " + fullContent);
-    
                 CompletableFuture<ResponseObject> moderationFuture =
                     AIManager.completeModeration(fullContent);
                 CompletableFuture<ResponseObject> chatFuture =
                     AIManager.completeChat(fullContent);
-    
                 return moderationFuture.thenCompose(moderationResponseObject ->
                     moderationResponseObject.completeGetFlagged()
                         .thenCompose(flagged -> {
@@ -91,14 +83,11 @@ public class EventListeners extends ListenerAdapter implements Cog {
                                             .thenApply(m -> null)
                                     );
                             }
-    
                             boolean shouldChat = (fullContent.length() > 1 &&
                                     "chat".equalsIgnoreCase(fullContent.substring(1))) || isMentioned;
-    
                             if (!shouldChat) {
                                 return CompletableFuture.completedFuture(null);
                             }
-    
                             return chatFuture.thenCompose(chatResponseObject ->
                                 chatResponseObject.completeGetOutput()
                                     .thenCompose(outputContent ->

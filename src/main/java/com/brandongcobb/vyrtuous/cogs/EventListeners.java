@@ -20,10 +20,13 @@ import com.brandongcobb.vyrtuous.utils.handlers.MessageManager;
 import com.brandongcobb.vyrtuous.utils.handlers.ModerationManager;
 import com.brandongcobb.vyrtuous.utils.handlers.PatreonUser;
 import com.brandongcobb.vyrtuous.utils.handlers.Predicator;
+import com.brandongcobb.vyrtuous.utils.handlers.RequestObject;
+import com.brandongcobb.vyrtuous.utils.handlers.ResponseObject;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Message.MentionType;
@@ -53,52 +56,59 @@ public class EventListeners extends ListenerAdapter implements Cog {
     @Override
     public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
         Message message = event.getMessage();
-        if (message.getAuthor().isBot()) {
-            return;
-        }
-    
+        if (message.getAuthor().isBot()) return;
         boolean isMentioned = message.getMentions().getUsers().contains(api.getSelfUser());
         String content = message.getContentDisplay();
         User sender = event.getAuthor();
         long senderId = sender.getIdLong();
         List<Attachment> attachments = message.getAttachments();
-    
         app.completeGetInstance().thenAccept(appInstance -> {
-            MessageManager.completeProcessConversation(senderId, content, attachments)
-                .thenCompose(conversationContainer -> 
-                    AIManager.completeModeration(conversationContainer)
-                        .thenCompose(moderationResponse -> 
-                            moderationResponse.completeGetFlagged(conversationContainer).thenCompose(flagged -> {
-                                if (flagged) {
-                                    return moderationResponse
-                                        .completeGetFormatFlaggedReasons(conversationContainer)
-                                        .thenCompose(reason ->
-                                            ModerationManager.completeHandleModeration(message, reason)
-                                                .thenApply(m -> null) // ⬅ normalize return type to Void
+            if (attachments != null && !attachments.isEmpty()) {
+                MessageManager.processAttachments(attachments).thenCompose(attachmentContent -> {
+                    String fullContent = attachmentContent + content;
+                    CompletableFuture<Map<String, Object>> moderationFuture =
+                        AIManager.completeConversationToModerationRequestBody(fullContent);
+                    CompletableFuture<Map<String, Object>> chatFuture =
+                        AIManager.completeConversationToTextRequestBody(fullContent);
+                    return moderationFuture.thenCompose(moderationRequestMap -> {
+                        RequestObject moderationRequestObject = new RequestObject(moderationRequestMap);
+                        return moderationRequestObject.completeModeration()
+                            .thenCompose(moderationResponseMap -> {
+                                ResponseObject moderationResponseObject = new ResponseObject(moderationResponseMap);
+                                return moderationResponseObject.completeGetFlagged()
+                                    .thenCompose(flagged -> {
+                                        if (flagged) {
+                                            return moderationResponseObject.completeGetFormatFlaggedReasons()
+                                                .thenCompose(reason ->
+                                                    ModerationManager.completeHandleModeration(message, reason)
+                                                        .thenApply(m -> null)
+                                                );
+                                        }
+                                        boolean shouldChat = (fullContent.length() > 1 &&
+                                                "chat".equalsIgnoreCase(fullContent.substring(1))) || isMentioned;
+                                        if (!shouldChat) {
+                                            return CompletableFuture.completedFuture(null);
+                                        }
+                                        return chatFuture.thenCompose(chatRequestMap ->
+                                            AIManager.completeChat(chatRequestMap)
+                                                .thenCompose(chatResponseMap -> {
+                                                    ResponseObject chatResponseObject = new ResponseObject(chatResponseMap);
+                                                    return chatResponseObject.completeGetOutput()
+                                                        .thenCompose(outputContent ->
+                                                            MessageManager.completeSendDiscordMessage(message, outputContent)
+                                                                .thenApply(m -> null)
+                                                        );
+                                                })
                                         );
-                                }
-    
-                                boolean shouldChat = (content.length() > 1 && "chat".equalsIgnoreCase(content.substring(1))) || isMentioned;
-                                if (!shouldChat) {
-                                    return CompletableFuture.completedFuture(null);
-                                }
-    
-                                return AIManager.completeChat(conversationContainer)
-                                    .thenCompose(responseObject ->
-                                        responseObject.completeGetOutput(conversationContainer)
-                                            .thenCompose(outputContent ->
-                                                MessageManager.completeSendDiscordMessage(message, outputContent)
-                                                    .thenApply(m -> null) // ⬅ normalize return type to Void
-                                            )
-                                    );
-                            })
-                        )
-                )
-                .exceptionally(ex -> {
+                                    });
+                            });
+                    });
+                }).exceptionally(ex -> {
                     ex.printStackTrace();
                     return null;
                 });
+            }
         });
     }
-
 }
+

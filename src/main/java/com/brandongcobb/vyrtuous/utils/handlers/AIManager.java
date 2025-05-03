@@ -59,11 +59,14 @@ import net.dv8tion.jda.api.entities.Message;
 public class AIManager {
 
     private static Vyrtuous app;
-    private static String apiUrl;
     private static long calculatedMaxTokens;
     private static long contextLimit;
-    private static long customId;
     private long promptTokens;
+    private static ModelInfo contextInfo;
+    private static ModelInfo outputInfo;
+    private static EncodingRegistry registry = Encodings.newDefaultEncodingRegistry();
+    private static Encoding encoding;
+
     private static boolean openAIDefaultChatCompletion = false;
     private static boolean openAIDefaultChatCompletionAddToHistory = false;
     private static long openAIDefaultChatCompletionMaxTokens = Helpers.parseCommaNumber("32,768");
@@ -89,18 +92,7 @@ public class AIManager {
     private static String openAIDefaultChatModerationSysInput = "All incoming data is subject to moderation. Protect your backend by flagging a message if it is unsuitable for a public community.";
     private static float openAIDefaultChatModerationTemperature = 0.7f;
     private static float openAIDefaultChatModerationTopP = 1.0f;
-    private static boolean openAIDefaultChatModerationUseHistory = false;
-    private boolean addCompletionToHistory;
-    private static String openAIAPIKey;
-    private int i;
-    private static MetadataContainer conversationContainer;
-    private static ModelInfo contextInfo;
-    private static ModelInfo outputInfo;
-    private static MetadataContainer metadataContainer;
-    private static EncodingRegistry registry = Encodings.newDefaultEncodingRegistry();
-    public static ResponseObject responseObject;
-    private static Encoding encoding;
-
+    
     public static CompletableFuture<Long> completeCalculateMaxOutputTokens(String model, String prompt) {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -121,153 +113,11 @@ public class AIManager {
         });
     }
 
-    private static CompletableFuture<ResponseObject> completeRequestWithRequestBody(
-            MetadataContainer conversationContainer,
-            Map<String, Object> requestBody) {
-        
-        return ConfigManager
-            .completeGetNestedConfigValue("api_keys", "OpenAI")
-            .thenCompose(openAIKeys -> openAIKeys.completeGetConfigStringValue("api_key"))
-            .thenCompose(apiKey -> CompletableFuture.supplyAsync(() -> {
-                try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-                    String apiUrl = "https://api.openai.com/v1/responses";
-                    HttpPost post = new HttpPost(apiUrl);
-                    post.setHeader("Authorization", "Bearer " + apiKey);
-                    post.setHeader("Content-Type", "application/json");
-                    ObjectMapper objectMapper = new ObjectMapper();
-                    String jsonBody = objectMapper.writeValueAsString(requestBody);
-                    post.setEntity(new StringEntity(jsonBody));
-                    try (CloseableHttpResponse response = httpClient.execute(post)) {
-                        int statusCode = response.getStatusLine().getStatusCode();
-                        String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
-                        System.out.println(responseBody);
-                        if (statusCode >= 200 && statusCode < 300) {
-                            Map<String, Object> responseMap = objectMapper.readValue(
-                                responseBody,
-                                new TypeReference<Map<String, Object>>() {});
-                            return new ResponseObject(responseMap);
-                        } else {
-                            app.logger.warning("OpenAI API returned status: " + statusCode);
-                            return null;
-                        }
-                    }
-                } catch (IOException e) {
-                    app.logger.warning("Request failed: " + e.getMessage());
-                    return null;
-                }
-            }))
-            .thenApply(responseObject -> {
-                if (responseObject != null) {
-                    MetadataKey<ResponseObject> responseObjectKey = new MetadataKey<>("responseObject", ResponseObject.class);
-                    conversationContainer.put(responseObjectKey, responseObject);
-                    app.logger.info("Stored OpenAI response in conversation container.");
-                }
-                return responseObject;
-            });
-    }
-
-    public static CompletableFuture<ResponseObject> completeChat(MetadataContainer conversationContainer) {
-        return completeConversationToTextRequestBody(conversationContainer)
-            .thenCompose(requestBody ->
-                completeRequestWithRequestBody(conversationContainer, requestBody)
-            );
-    }
-    
-    public static CompletableFuture<MetadataContainer> completeGetConversationContainer(long customId) {
-        MetadataKey<MetadataContainer> conversationContainerKey =
-            new MetadataKey<>("conversation_" + customId, MetadataContainer.class);
-        return ConfigManager.completeGetApp().thenCompose(appInstance -> {
-            MetadataContainer existing = appInstance.metadataContainer.get(conversationContainerKey);
-            if (existing != null) {
-                return CompletableFuture.completedFuture(existing);
-            }
-            MetadataContainer newContainer = new MetadataContainer();
-            appInstance.metadataContainer.put(conversationContainerKey, newContainer);
-            return CompletableFuture.completedFuture(newContainer);
-        });
-    }
-
-    private static CompletableFuture<Map<String, Object>> completeConversationToTextRequestBody(
-            MetadataContainer conversationContainer) {
-    
-        // Fetch the model from the ConfigManager
-        return ConfigManager.completeGetConfigStringValue("openai_chat_model")
-            .thenCompose(model -> {
-                // Fetch configuration values for stream, temperature, and top_p
-                CompletableFuture<Boolean> streamFuture = ConfigManager.completeGetConfigBooleanValue("openai_chat_stream");
-                CompletableFuture<Object> tempFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_temperature");
-                CompletableFuture<Object> topPFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_top_p");
-                
-                return CompletableFuture.allOf(streamFuture, tempFuture, topPFuture)
-                    .thenCompose(v -> {
-                        // Get the values from the futures
-                        float temperature = Float.parseFloat(String.valueOf(tempFuture.join()));
-                        float topP = Float.parseFloat(String.valueOf(topPFuture.join()));
-                        boolean stream = streamFuture.join();
-    
-                        // Prepare the request body
-                        Map<String, Object> requestBody = new HashMap<>();
-                        requestBody.put("model", model);
-                        requestBody.put("temperature", temperature);
-                        requestBody.put("top_p", topP);
-                        requestBody.put("stream", stream);
-    
-                        // Fetch conversation text and role from the MetadataContainer
-                        MetadataKey<String> textKey = new MetadataKey<>("conversation.text", String.class);
-                        MetadataKey<String> roleKey = new MetadataKey<>("conversation.role", String.class);
-                        String text = conversationContainer.get(textKey);
-                        String role = conversationContainer.get(roleKey);
-    
-                        // Fallbacks if values are null
-                        if (text == null) {
-                            text = "";
-                        }
-                        if (role == null) {
-                            role = "user";
-                        }
-    
-                        // Prepare messages list with role and content
-                        List<Map<String, Object>> messagesList = new ArrayList<>();
-                        Map<String, Object> messageMap = new HashMap<>();
-                        messageMap.put("role", role);
-                        messageMap.put("content", text);
-                        messagesList.add(messageMap);
-                        requestBody.put("input", messagesList);
-    
-                        // Optional: Store metadata for OpenAI if configured
-                        if (openAIDefaultChatCompletionStore) {
-                            LocalDateTime now = LocalDateTime.now();
-                            Map<String, String> metadataMap = new HashMap<>();
-                            metadataMap.put("user", model);
-                            metadataMap.put("timestamp", now.toString());
-                            requestBody.put("metadata", List.of(metadataMap));
-                        }
-    
-                        // Calculate the maximum output tokens
-                        return completeCalculateMaxOutputTokens(model, text)
-                            .thenApply(calculatedTokens -> {
-                                ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
-                                if (contextInfo != null && contextInfo.status()) {
-                                    requestBody.put("max_output_tokens", calculatedTokens);
-                                } else {
-                                    requestBody.put("max_tokens", calculatedTokens);
-                                }
-                                return requestBody;
-                            });
-                    });
-            });
-    }
-
-    public static CompletableFuture<Map<String, Object>> completeConversationToModerationRequestBody(
-            MetadataContainer conversationContainer) {
-    
-        // Fetch the model from the ConfigManager
+    public static CompletableFuture<Map<String, Object>> completeInputToModerationRequestBody() {
         return ConfigManager.completeGetConfigStringValue("openai_chat_model")
             .thenCompose(chatModel -> {
                 try {
-                    // Directly use the passed in conversationContainer
                     return formRequestBodyFromConversation(
-                            conversationContainer,
                             openAIDefaultChatModerationModel,
                             openAIDefaultChatModerationResponseFormat,
                             openAIDefaultChatModerationStore,
@@ -285,82 +135,81 @@ public class AIManager {
             });
     }
 
-    private static CompletableFuture<Map<String, Object>> formRequestBodyFromConversation(
-            MetadataContainer conversationContainer,
-            String model,
-            Map<String, Object> textFormat,
-            boolean store,
-            boolean stream,
-            String instructions,
-            float temperature,
-            float top_p) {
-        return CompletableFuture.supplyAsync(() -> {
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("model", model);
-            requestBody.put("text", Map.of("format", textFormat));
-            requestBody.put("temperature", temperature);
-            requestBody.put("top_p", top_p);
-            requestBody.put("stream", stream);
-            MetadataKey<String> textKey = new MetadataKey<>("conversation.text", String.class);
-            MetadataKey<String> roleKey = new MetadataKey<>("conversation.role", String.class);
-            String text = conversationContainer.get(textKey);
-            String role = conversationContainer.get(roleKey);
-            if(text == null) {
-                text = "";
-            }
-            if(role == null) {
-                role = "user";
-            }
-            List<Map<String, Object>> messagesList = new ArrayList<>();
-            Map<String, Object> messageMap = new HashMap<>();
-            messageMap.put("role", role);
-            messageMap.put("content", text);
-            messagesList.add(messageMap);
-            requestBody.put("input", messagesList);
-            if (store) {
-                LocalDateTime now = LocalDateTime.now();
-                Map<String, String> metadataMap = new HashMap<>();
-                metadataMap.put("user", model);
-                metadataMap.put("timestamp", now.toString());
-                requestBody.put("metadata", List.of(metadataMap));
-            }
-            long tokens = completeCalculateMaxOutputTokens(model, text).join();
-            ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
-            if (contextInfo != null && contextInfo.status()) {
-                requestBody.put("max_output_tokens", tokens);
-            } else {
-                requestBody.put("max_tokens", tokens);
-            }
-            return requestBody;
-        });
+    private static CompletableFuture<Map<String, Object>> completeInputToTextRequestBody(String text) {
+        return ConfigManager.completeGetConfigStringValue("openai_chat_model")
+            .thenCompose(model -> {
+                CompletableFuture<Boolean> streamFuture = ConfigManager.completeGetConfigBooleanValue("openai_chat_stream");
+                CompletableFuture<Object> tempFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_temperature");
+                CompletableFuture<Object> topPFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_top_p");
+                return CompletableFuture.allOf(streamFuture, tempFuture, topPFuture)
+                    .thenCompose(v -> {
+                        float temperature = Float.parseFloat(String.valueOf(tempFuture.join()));
+                        float topP = Float.parseFloat(String.valueOf(topPFuture.join()));
+                        boolean stream = streamFuture.join();
+                        Map<String, Object> requestBody = new HashMap<>();
+                        requestBody.put("model", model);
+                        requestBody.put("temperature", temperature);
+                        requestBody.put("top_p", topP);
+                        requestBody.put("stream", stream);
+                        List<Map<String, Object>> messagesList = new ArrayList<>();
+                        Map<String, Object> messageMap = new HashMap<>();
+                        messageMap.put("role", "user");
+                        messageMap.put("content", text);
+                        messagesList.add(messageMap);
+                        requestBody.put("input", messagesList);
+                        if (openAIDefaultChatCompletionStore) {
+                            LocalDateTime now = LocalDateTime.now();
+                            Map<String, String> metadataMap = new HashMap<>();
+                            metadataMap.put("user", model);
+                            metadataMap.put("timestamp", now.toString());
+                            requestBody.put("metadata", List.of(metadataMap));
+                        }
+                        return completeCalculateMaxOutputTokens(model, text)
+                            .thenApply(calculatedTokens -> {
+                                ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
+                                if (contextInfo != null && contextInfo.status()) {
+                                    requestBody.put("max_output_tokens", calculatedTokens);
+                                } else {
+                                    requestBody.put("max_tokens", calculatedTokens);
+                                }
+                                return requestBody;
+                            });
+                    });
+            });
     }
 
-    public static CompletableFuture<ResponseObject> completeModeration(MetadataContainer conversationContainer) {
-        return completeConversationToModerationRequestBody(conversationContainer)
-            .thenCompose(requestBody ->
-                completeRequestWithRequestBody(conversationContainer, requestBody)
-            );
-    }
-
-    public static List<String> splitLongResponse(String response, int limit) {
-        List<String> outputChunks = new ArrayList<>();
-        String[] parts = response.split("(?<=```)|(?=```)");
-        boolean inCode = false;
-        for (String part : parts) {
-            if (part.equals("```")) {
-                inCode = !inCode;
-                continue;
-            }
-            if (inCode) {
-                outputChunks.add("```" + part + "```");
-                inCode = false;
-            } else {
-                for (int i = 0; i < part.length(); i += limit) {
-                    int end = Math.min(i + limit, part.length());
-                    outputChunks.add(part.substring(i, end));
+    private static CompletableFuture<ResponseObject> completeRequestWithRequestBody(Map<String, Object> requestBody) {
+        return ConfigManager
+            .completeGetNestedConfigValue("api_keys", "OpenAI")
+            .thenCompose(openAIKeys -> openAIKeys.completeGetConfigStringValue("api_key"))
+            .thenCompose(apiKey -> CompletableFuture.supplyAsync(() -> {
+                try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
+                    String apiUrl = "https://api.openai.com/v1/responses"; // Verify this endpoint is correct
+                    HttpPost post = new HttpPost(apiUrl);
+                    post.setHeader("Authorization", "Bearer " + apiKey);
+                    post.setHeader("Content-Type", "application/json");
+                    ObjectMapper objectMapper = new ObjectMapper();
+                    String jsonBody = objectMapper.writeValueAsString(requestBody);
+                    post.setEntity(new StringEntity(jsonBody));
+                    try (CloseableHttpResponse response = httpClient.execute(post)) {
+                        int statusCode = response.getStatusLine().getStatusCode();
+                        String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
+                        if (statusCode >= 200 && statusCode < 300) {
+                            Map<String, Object> responseMap = objectMapper.readValue(
+                                responseBody,
+                                new TypeReference<Map<String, Object>>() {}
+                            );
+                            ResponseObject responseObject = new ResponseObject(responseMap);
+                            return responsesObject;
+                        } else {
+                            app.logger.warning("OpenAI API returned status: " + statusCode);
+                            return null;
+                        }
+                    }
+                } catch (IOException e) {
+                    app.logger.warning("Request failed: " + e.getMessage());
+                    return null;
                 }
-            }
-        }
-        return outputChunks;
+            }));
     }
 }

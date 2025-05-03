@@ -6,7 +6,7 @@ def find_get_lines_with_info(file_path):
     try:
         with open(file_path, 'r', encoding='utf-8') as file:
             for idx, line in enumerate(file, start=1):
-                if 'GetConversation' in line:
+                if 'default' in line:
                     matches.append((file_path, idx, line.strip()))
     except (UnicodeDecodeError, FileNotFoundError):
         pass  # Skip unreadable files

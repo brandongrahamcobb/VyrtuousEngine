@@ -58,44 +58,30 @@ public class MessageManager {
         this.tempDirectory = app.tempDirectory;
     }
 
+    public static List<String> splitLongResponse(String response, int limit) {
+        List<String> outputChunks = new ArrayList<>();
+        String[] parts = response.split("(?<=```)|(?=```)");
+        boolean inCode = false;
+        for (String part : parts) {
+            if (part.equals("```")) {
+                inCode = !inCode;
+                continue;
+            }
+            if (inCode) {
+                outputChunks.add("```" + part + "```");
+                inCode = false;
+            } else {
+                for (int i = 0; i < part.length(); i += limit) {
+                    int end = Math.min(i + limit, part.length());
+                    outputChunks.add(part.substring(i, end));
+                }
+            }
+        }
+        return outputChunks;
+    }
+
     public static String encodeImage(byte[] imageBytes) {
         return Base64.getEncoder().encodeToString(imageBytes);
-    }
-
-    public static CompletableFuture<MetadataContainer> completeProcessConversation(long senderId, String content, List<Attachment> attachments) {
-        return AIManager.completeGetConversationContainer(senderId).thenCompose(container -> {
-            if (content != null && !content.trim().isEmpty()) {
-                String role = "user";
-                String name = null;
-                String processedText = content;
-                if (content.startsWith("[") && content.contains("]")) {
-                    int closingBracket = content.indexOf("]");
-                    name = content.substring(1, closingBracket).trim();
-                    processedText = content.substring(closingBracket + 1).trim();
-                }
-                MetadataKey<String> textKey = new MetadataKey<>("conversation.text", String.class);
-                MetadataKey<String> roleKey = new MetadataKey<>("conversation.role", String.class);
-                MetadataKey<String> nameKey = new MetadataKey<>("conversation.name", String.class);
-                container.put(textKey, processedText);
-                container.put(roleKey, role);
-                if (name != null && !name.isEmpty()) {
-                    container.put(nameKey, name);
-                }
-            }
-            if (attachments != null && !attachments.isEmpty()) {
-                return completeProcessAttachments(attachments).thenApply(attachmentData -> {
-                    MetadataKey<List<String>> attachmentsKey = new MetadataKey<>("conversation.attachments", List.class);
-                    container.put(attachmentsKey, attachmentData);
-                    return container;
-                });
-            }
-
-            return CompletableFuture.completedFuture(container);
-        });
-    }
-
-    public static CompletableFuture<MetadataContainer> completeGetAppConversationContainer() {
-        return app.completeGetMetadataContainer();
     }
 
     public static CompletableFuture<List<String>> completeProcessAttachments(List<Attachment> attachments) {
@@ -188,13 +174,5 @@ public class MessageManager {
         return channel.sendMessage(content)
             .addEmbeds(embed)
             .submit();
-    }
-
-    public boolean hasAttachments(Message message) {
-        return !message.getAttachments().isEmpty();
-    }
-
-    public String getMessageContent(Message message) {
-        return message.getContentDisplay();
     }
 }

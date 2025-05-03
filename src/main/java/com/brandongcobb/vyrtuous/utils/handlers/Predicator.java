@@ -33,11 +33,9 @@ import net.dv8tion.jda.api.entities.Role;
 public class Predicator {
 
     private Vyrtuous app;
-    private DiscordBot bot;
 
     public Predicator(Vyrtuous application) {
         this.app = application;
-        this.bot = app.discordBot;
     }
 
     public CompletableFuture<Boolean> atHome(Guild guild) {
@@ -90,14 +88,16 @@ public class Predicator {
     }
 
     public CompletableFuture<Guild> getGuildById(long guildId) {
-        return bot.completeGetApi().thenApply(api -> {
-            for (Guild guild : api.getGuilds()) {
-                if (Long.parseLong(guild.getId()) == guildId) {
-                    return guild;
+        return app.completeGetInstance().thenCompose(app ->
+            app.completeGetApi().thenApply(api -> {
+                for (Guild guild : api.getGuilds()) {
+                    if (Long.parseLong(guild.getId()) == guildId) {
+                        return guild;
+                    }
                 }
-            }
-            return null;
-        });
+                return null;
+            })
+        );
     }
 
     public CompletableFuture<Boolean> isReleaseMode(TextChannel channel, User user) {

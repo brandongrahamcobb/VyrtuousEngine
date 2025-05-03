@@ -16,6 +16,7 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
+import com.brandongcobb.vyrtuous.metadata.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.File;
@@ -61,31 +62,51 @@ public class MessageManager {
         return Base64.getEncoder().encodeToString(imageBytes);
     }
 
-    public static CompletableFuture<List<MessageContent>> processArray(String content, List<Message.Attachment> attachments) {
-        List<MessageContent> array = new ArrayList<>();
-        if (content != null && !content.trim().isEmpty()) {
-            return processTextMessage(content).thenCompose(processedText -> {
-                array.addAll(processedText);
-                if (attachments != null && !attachments.isEmpty()) {
-                    return processAttachments(attachments).thenApply(processedAttachments -> {
-                        array.addAll(processedAttachments);
-                        return array;
-                    });
+    public static CompletableFuture<MetadataContainer> completeProcessConversation(long senderId, String content, List<Attachment> attachments) {
+        return AIManager.completeGetConversationContainer(senderId).thenCompose(container -> {
+            if (content != null && !content.trim().isEmpty()) {
+                String role = "user";
+                String name = null;
+                String processedText = content;
+                if (content.startsWith("[") && content.contains("]")) {
+                    int closingBracket = content.indexOf("]");
+                    name = content.substring(1, closingBracket).trim();
+                    processedText = content.substring(closingBracket + 1).trim();
                 }
-                return CompletableFuture.completedFuture(array);
-            });
-        }
-        return CompletableFuture.completedFuture(array);
+                MetadataKey<String> textKey = new MetadataKey<>("conversation.text", String.class);
+                MetadataKey<String> roleKey = new MetadataKey<>("conversation.role", String.class);
+                MetadataKey<String> nameKey = new MetadataKey<>("conversation.name", String.class);
+                container.put(textKey, processedText);
+                container.put(roleKey, role);
+                if (name != null && !name.isEmpty()) {
+                    container.put(nameKey, name);
+                }
+            }
+            if (attachments != null && !attachments.isEmpty()) {
+                return completeProcessAttachments(attachments).thenApply(attachmentData -> {
+                    MetadataKey<List<String>> attachmentsKey = new MetadataKey<>("conversation.attachments", List.class);
+                    container.put(attachmentsKey, attachmentData);
+                    return container;
+                });
+            }
+
+            return CompletableFuture.completedFuture(container);
+        });
     }
 
-    public static CompletableFuture<List<MessageContent>> processAttachments(List<Message.Attachment> attachments) {
+    public static CompletableFuture<MetadataContainer> completeGetAppConversationContainer() {
+        return app.completeGetMetadataContainer();
+    }
+
+    public static CompletableFuture<List<String>> completeProcessAttachments(List<Attachment> attachments) {
         logger.info("Entered processAttachments with " + attachments.size() + " attachments");
-        List<MessageContent> processedAttachments = Collections.synchronizedList(new ArrayList<>());
+        List<String> processedAttachments = Collections.synchronizedList(new ArrayList<>());
         List<CompletableFuture<Void>> futures = new ArrayList<>();
         if (!tempDirectory.exists()) {
             tempDirectory.mkdirs();
         }
-        for (Message.Attachment attachment : attachments) {
+    
+        for (Attachment attachment : attachments) {
             CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
                 File file = new File(tempDirectory, attachment.getFileName());
                 try (InputStream in = new URL(attachment.getUrl()).openStream()) {
@@ -95,17 +116,12 @@ public class MessageManager {
                         byte[] imageBytes = Files.readAllBytes(file.toPath());
                         String base64Image = encodeImage(imageBytes);
                         Map<String, String> urlData = new HashMap<>();
-                        urlData.put("data_url", "data:image/jpeg;base64, " + base64Image);
-                        String contentJson = mapper.writeValueAsString(urlData);
-                        Map<String, String> messageMap = new HashMap<>();
-                        messageMap.put("content", contentJson);
-                        String messageJson = mapper.writeValueAsString(messageMap);
-                        MessageContent attachmentMessageContent = new MessageContent("user", messageJson);
-                        processedAttachments.add(attachmentMessageContent);
+                        urlData.put("data_url", "data:" + contentType + ";base64," + base64Image);
+                        String json = mapper.writeValueAsString(urlData);
+                        processedAttachments.add(json);
                     } else if (contentType.startsWith("text/")) {
                         String textContent = new String(Files.readAllBytes(file.toPath()));
-                        MessageContent textMessageContent = new MessageContent("user", textContent);
-                        processedAttachments.add(textMessageContent);
+                        processedAttachments.add(textContent);
                     }
                 } catch (IOException e) {
                     logger.severe("Error processing file " + attachment.getFileName() + ": " + e.getMessage());
@@ -120,54 +136,26 @@ public class MessageManager {
             });
     }
 
-   private static String getContentTypeFromFileName(String fileName) {
-       if (fileName.endsWith(".png")) {
-           return "image/png";
-       } else if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
-           return "image/jpeg";
-       } else if (fileName.endsWith(".gif")) {
-           return "image/gif";
-       } else if (fileName.endsWith(".txt")) {
-           return "text/plain";
-       }
-       return "application/octet-stream"; // Default type
-   }
-
-    public static CompletableFuture<List<MessageContent>> processTextMessage(String content) {
-        MessageContent textMessageContent = new MessageContent("user", content.replace("<@1318597210119864385>", ""));
-        List<MessageContent> messageList = List.of(textMessageContent);
-        return CompletableFuture.completedFuture(messageList);
-    }
-
-    public boolean validateArray(List<MessageContent> array) {
-        boolean valid = true;
-        for (MessageContent item : array) {
-            if ("image_base64".equals(item.getType())) {
-                if (item.getImageData() == null || item.getContentType() == null) {
-                    logger.severe("Invalid Base64 image data: " + item);
-                    valid = false;
-                }
-            } else if ("text".equals(item.getType())) {
-                if (item.getText() == null || item.getText().trim().isEmpty()) {
-                    logger.severe("Invalid text content: " + item);
-                    valid = false;
-                }
-            }
+    private static String getContentTypeFromFileName(String fileName) {
+        if (fileName.endsWith(".png")) {
+            return "image/png";
+        } else if (fileName.endsWith(".jpg") || fileName.endsWith(".jpeg")) {
+            return "image/jpeg";
+        } else if (fileName.endsWith(".gif")) {
+            return "image/gif";
+        } else if (fileName.endsWith(".txt")) {
+            return "text/plain";
         }
-        return valid;
+        return "application/octet-stream"; // Default type
     }
 
     public static CompletableFuture<Message> completeSendDM(User user, String content) {
         return user.openPrivateChannel()
             .submit()
-            .thenCompose(channel ->
-                channel.sendMessage(content)
-                    .submit()
-                    );
+            .thenCompose(channel -> channel.sendMessage(content).submit());
     }
 
     public static CompletableFuture<Message> completeSendDiscordMessage(Message message, String content, MessageEmbed embed) {
-//        return message.getTextChannel()
         return message.getGuildChannel()
             .asTextChannel()
             .sendMessage(content)
@@ -208,37 +196,5 @@ public class MessageManager {
 
     public String getMessageContent(Message message) {
         return message.getContentDisplay();
-    }
-
-    public static class MessageContent {
-        private final String type;
-        private final String text;
-        private final String imageData; // Only for images
-        private final String contentType; // Content type for attachments
-
-        public MessageContent(String type, String content) {
-            this.type = type;
-            this.text = content;
-            this.imageData = null;
-            this.contentType = null;
-        }
-        public MessageContent(String type, String imageData, String contentType) {
-            this.type = type;
-            this.text = null;
-            this.imageData = imageData;
-            this.contentType = contentType;
-        }
-        public String getType() {
-            return type;
-        }
-        public String getText() {
-            return text;
-        }
-        public String getImageData() {
-            return imageData;
-        }
-        public String getContentType() {
-            return contentType;
-        }
     }
 }

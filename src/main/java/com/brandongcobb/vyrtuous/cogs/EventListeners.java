@@ -20,28 +20,24 @@ import com.brandongcobb.vyrtuous.utils.handlers.MessageManager;
 import com.brandongcobb.vyrtuous.utils.handlers.ModerationManager;
 import com.brandongcobb.vyrtuous.utils.handlers.PatreonUser;
 import com.brandongcobb.vyrtuous.utils.handlers.Predicator;
-import com.zaxxer.hikari.HikariDataSource;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 import java.util.List;
 import javax.annotation.Nonnull;
-import net.dv8tion.jda.api.entities.User;
-import net.dv8tion.jda.api.entities.Message.Attachment;
-import net.dv8tion.jda.api.entities.channel.middleman.MessageChannel;
-import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.entities.Message.MentionType;
 import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.Message.Attachment;
+import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 public class EventListeners extends ListenerAdapter implements Cog {
 
     private JDA api;
     private final Vyrtuous app;
     private Lock lock;
-    private long senderId;
 
     public EventListeners (Vyrtuous application) {
         this.app = application;
@@ -57,38 +53,52 @@ public class EventListeners extends ListenerAdapter implements Cog {
     @Override
     public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
         Message message = event.getMessage();
-        if (message.getAuthor().isBot()) return;
+        if (message.getAuthor().isBot()) {
+            return;
+        }
+    
         boolean isMentioned = message.getMentions().getUsers().contains(api.getSelfUser());
         String content = message.getContentDisplay();
         User sender = event.getAuthor();
         long senderId = sender.getIdLong();
-        List<Message.Attachment> attachments = message.getAttachments();
-        Predicator.isDeveloper(sender).thenAccept(isDev -> {
-            if (!isDev) return;
-            MessageManager.processArray(content, attachments)
-            .thenCompose(inputArray ->
-                AIManager.completeModeration(senderId, CompletableFuture.completedFuture(inputArray))
-                    .thenCompose(moderationResponse -> {
-                        if (moderationResponse != null && !moderationResponse.isEmpty()) {
-                            return ModerationManager.completeHandleModeration(message, moderationResponse);
-                        }
-                        boolean shouldChat = content.length() > 1 &&
-                                             "chat".equalsIgnoreCase(content.substring(1)) ||
-                                             isMentioned;
-                        if (!shouldChat) {
-                            return CompletableFuture.completedFuture(null);
-                        }
-                        return AIManager.completeChat(senderId, CompletableFuture.completedFuture(inputArray))
-                            .thenCompose(response ->
-                                MessageManager.completeSendDiscordMessage(message, response.getOutput())
-                            )
-                            // Convert the Message (or whatever is returned) to Void
-                            .thenApply(sentMsg -> null);
-                    })
-            ).exceptionally(ex -> {
-                ex.printStackTrace();
-                return null;
-            });
+        List<Attachment> attachments = message.getAttachments();
+    
+        app.completeGetInstance().thenAccept(appInstance -> {
+            MessageManager.completeProcessConversation(senderId, content, attachments)
+                .thenCompose(conversationContainer -> 
+                    AIManager.completeModeration(conversationContainer)
+                        .thenCompose(moderationResponse -> 
+                            moderationResponse.completeGetFlagged(conversationContainer).thenCompose(flagged -> {
+                                if (flagged) {
+                                    return moderationResponse
+                                        .completeGetFormatFlaggedReasons(conversationContainer)
+                                        .thenCompose(reason ->
+                                            ModerationManager.completeHandleModeration(message, reason)
+                                                .thenApply(m -> null) // ⬅ normalize return type to Void
+                                        );
+                                }
+    
+                                boolean shouldChat = (content.length() > 1 && "chat".equalsIgnoreCase(content.substring(1))) || isMentioned;
+                                if (!shouldChat) {
+                                    return CompletableFuture.completedFuture(null);
+                                }
+    
+                                return AIManager.completeChat(conversationContainer)
+                                    .thenCompose(responseObject ->
+                                        responseObject.completeGetOutput(conversationContainer)
+                                            .thenCompose(outputContent ->
+                                                MessageManager.completeSendDiscordMessage(message, outputContent)
+                                                    .thenApply(m -> null) // ⬅ normalize return type to Void
+                                            )
+                                    );
+                            })
+                        )
+                )
+                .exceptionally(ex -> {
+                    ex.printStackTrace();
+                    return null;
+                });
         });
     }
+
 }

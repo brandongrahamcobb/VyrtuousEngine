@@ -15,37 +15,26 @@
  */
 package com.brandongcobb.vyrtuous.bots;
 
-import com.brandongcobb.vyrtuous.cogs.EventListeners;
 import com.brandongcobb.vyrtuous.cogs.Cog;
+import com.brandongcobb.vyrtuous.cogs.EventListeners;
 import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.locks.Lock;
-import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-import java.util.List;
 import java.util.logging.Logger;
 import java.util.logging.Level;
 import java.util.Map;
-import javax.security.auth.login.LoginException;
 import net.dv8tion.jda.api.JDA;
-import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.exceptions.RateLimitedException;
-import net.dv8tion.jda.api.requests.GatewayIntent;
-import net.dv8tion.jda.api.entities.Message;
-import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-import net.dv8tion.jda.api.hooks.ListenerAdapter;
-import net.dv8tion.jda.api.OnlineStatus;
-import net.dv8tion.jda.api.entities.Activity;
 
 public class DiscordBot {
 
-    private static Vyrtuous app;
     private static JDA api;
+    private static Vyrtuous app;
     public static String discordApiKey;
     private static long discordOwnerId;
     private static HikariDataSource dbPool;
@@ -56,47 +45,24 @@ public class DiscordBot {
         this.app = application;
     }
 
-    public static CompletableFuture<Void> start() {
-        return ConfigManager.completeGetApp().thenCompose(appResult -> {
-            app = appResult;
-            logger = app.logger;
-            dbPool = app.dbPool;
-            lock = app.lock;
-            return ConfigManager.completeGetNestedConfigValue("api_keys", "Discord")
-                .thenCompose(discordApiKeys ->
-                    discordApiKeys.completeGetConfigStringValue("api_key"))
-                .thenCombine(
-                    ConfigManager.completeGetConfigLongValue("discord_owner_id"),
-                    (apiKey, ownerId) -> {
-                        discordApiKey = apiKey;
-                        discordOwnerId = ownerId;
-                        return null;
-                    }
-                );
-        })
-        .thenRun(() -> initiateDiscordApi())
-        .exceptionally(ex -> {
+    public static CompletableFuture<Void> start(JDA jda) {
+        return CompletableFuture.runAsync(() -> {
+            api = jda;
+            initiateDiscordApi();
+        }).exceptionally(ex -> {
             logger.log(Level.SEVERE, "Error starting Discord bot", ex);
             return null;
         });
     }
 
     private static CompletableFuture<Void> initiateDiscordApi() {
-        return CompletableFuture.runAsync(() -> {
-            try {
-                api = JDABuilder.createDefault(discordApiKey, GatewayIntent.GUILD_MESSAGES, GatewayIntent.MESSAGE_CONTENT, GatewayIntent.GUILD_MEMBERS)
-                    .setActivity(Activity.playing("Starting up..."))
-                    .build();
-                api.awaitReady(); // Wait until JDA is ready
-            } catch (Exception e) {
-                throw new CompletionException(e);
-            }
-        }).thenCompose(ignore -> loadCogs()); // Load cogs after ready
+        return app.completeGetInstance().thenAcceptAsync(app -> {
+            loadCogs();
+        });
     }
 
     private static CompletableFuture<Void> loadCogs() {
-        return ConfigManager.completeGetApp().thenAcceptAsync(appResult -> {
-            app = appResult;
+        return app.completeGetInstance().thenAcceptAsync(app -> {
             List<Cog> cogs = new ArrayList<>();
             cogs.add(new EventListeners(app));
             for (Cog cog : cogs) {
@@ -105,7 +71,4 @@ public class DiscordBot {
         });
     }
 
-    public CompletableFuture<JDA> completeGetApi() {
-        return CompletableFuture.supplyAsync(() -> api);
-    }
 }

@@ -77,11 +77,12 @@ public class OAuthServer {
         Spark.stop();
     }
 
-    public static void cancelOAuthSession(Timer callbackTimer) {
+    public static CompletableFuture<Void> cancelOAuthSession(Timer callbackTimer) {
         boolean listeningForCallback = false; // End the current OAuth flow
         if (callbackTimer != null) {
             callbackTimer.cancel(); // Cancel the timer
             callbackTimer = null;
         }
+        return CompletableFuture.completedFuture(null);
     }
 }

@@ -35,12 +35,6 @@ import java.util.logging.Logger;
 import java.util.HashMap;
 import java.util.Map;
 import javax.annotation.Nonnull;
-//import org.javacord.api.DiscordApi;
-//import org.javacord.api.DiscordApiBuilder;
-//import org.javacord.api.entity.message.Message;
-//import org.javacord.api.entity.user.User;
-//import org.javacord.api.event.message.MessageCreateEvent;
-//import org.javacord.api.listener.message.MessageCreateListener;
 import net.dv8tion.jda.api.entities.Message;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.JDA;
@@ -50,7 +44,6 @@ import java.util.concurrent.CompletionException;
 
 public class HybridCommands extends ListenerAdapter implements Cog {
 
-//    private static DiscordApi api;
     private static Vyrtuous app;
     private String authUrl;
     private static Lock lock;

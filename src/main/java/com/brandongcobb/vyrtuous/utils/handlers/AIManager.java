@@ -16,12 +16,12 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.utils.handlers.MessageManager.MessageContent;
 import com.brandongcobb.vyrtuous.utils.inc.Helpers;
 import com.brandongcobb.vyrtuous.utils.inc.ModelRegistry;
 import com.brandongcobb.vyrtuous.records.ModelInfo;
 import com.brandongcobb.vyrtuous.metadata.MetadataContainer;
 import com.brandongcobb.vyrtuous.metadata.MetadataKey;
+import com.brandongcobb.vyrtuous.utils.handlers.ResponseObject;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -97,76 +97,34 @@ public class AIManager {
     private static ModelInfo contextInfo;
     private static ModelInfo outputInfo;
     private static MetadataContainer metadataContainer;
-    private CompletableFuture<List<MessageManager.MessageContent>> inputArray;
     private static EncodingRegistry registry = Encodings.newDefaultEncodingRegistry();
     public static ResponseObject responseObject;
     private static Encoding encoding;
 
-//    public static CompletableFuture<Long> completeCalculateMaxOutputTokens(String model, String prompt) {
-//        return CompletableFuture.supplyAsync(() -> {
-//            Encoding encoding;
-//            try {
-//                encoding = registry.getEncoding("cl200k_base").orElseThrow(() ->
-//
-//                //registry.getEncodingForModel(model.replace('-', '_'))
-//                        new IllegalStateException("Fallback encoding 'cl200k_base' not available")));
-//                long promptTokens = encoding.encode(prompt).size();
-//                ModelInfo outputInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(model);
-//                long outputLimit = outputInfo != null ? outputInfo.upperLimit() : 4096; // default fallback
-//                long tokens = Math.max(1, outputLimit - promptTokens - 20); // Ensure max output is always positive
-//                if (tokens < 16) {
-//                    tokens = 16;
-//                }
-//                return tokens;
-//            } catch (Exception e) {
-//                System.out.println("Tokenizer not available for model: " + model + ", using cl200k_base as fallback.");
-//                return 0L; // Return 0 in case of failure
-//            }
-//        });
-//    }
-
-    public static CompletableFuture<Long> completeCalculateMaxOutputTokens(
-            String model,
-            String prompt,
-            String name,
-            String role
-             // consists of role, content, and optional name
-    ) {
+    public static CompletableFuture<Long> completeCalculateMaxOutputTokens(String model, String prompt) {
         return CompletableFuture.supplyAsync(() -> {
-            Encoding encoding = registry.getEncodingForModel(model)
-                .orElseThrow(() -> new IllegalArgumentException("Encoding not found for model: " + model));
-    
-            long tokensPerMessage;
-            long tokensPerName;
-            if (model.startsWith("gpt-4")) {
-                tokensPerMessage = 3;
-                tokensPerName = 1;
-            } else if (model.startsWith("gpt-3.5-turbo")) {
-                tokensPerMessage = 4;
-                tokensPerName = -1;
-            } else {
-                throw new IllegalArgumentException("Unsupported model: " + model);
-            }
-    
-            long sum = 0;
-            sum += tokensPerMessage;
-            sum += encoding.countTokens(prompt);
-            sum += encoding.countTokens(role);
-            if (true) {
-                sum += encoding.countTokens(name);
-                sum += tokensPerName;
-            }
-    
-            sum += 3; // every reply is primed with <|start|>assistant<|message|>
-            if (sum < 16) {
-                return 16L;
-            } else {
-                return sum;
+            try {
+                Encoding encoding = registry.getEncoding("cl100k_base").orElseThrow(() ->
+                    new IllegalStateException("Fallback encoding 'cl100k_base' not available"));
+                long promptTokens = encoding.encode(prompt).size();
+                ModelInfo outputInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(model);
+                long outputLimit = outputInfo != null ? outputInfo.upperLimit() : 4096; // default fallback
+                long tokens = Math.max(1, outputLimit - promptTokens - 20); // Ensure positive value
+                if (tokens < 16) {
+                    tokens = 16;
+                }
+                return tokens;
+            } catch (Exception e) {
+                System.out.println("Tokenizer not available for model: " + model + ", using fallback.");
+                return 0L;
             }
         });
     }
 
-    private static CompletableFuture<ResponseObject> completeRequestWithRequestBody(long customId, Map<String, Object> requestBody) {
+    private static CompletableFuture<ResponseObject> completeRequestWithRequestBody(
+            MetadataContainer conversationContainer,
+            Map<String, Object> requestBody) {
+        
         return ConfigManager
             .completeGetNestedConfigValue("api_keys", "OpenAI")
             .thenCompose(openAIKeys -> openAIKeys.completeGetConfigStringValue("api_key"))
@@ -176,11 +134,9 @@ public class AIManager {
                     HttpPost post = new HttpPost(apiUrl);
                     post.setHeader("Authorization", "Bearer " + apiKey);
                     post.setHeader("Content-Type", "application/json");
-    
                     ObjectMapper objectMapper = new ObjectMapper();
                     String jsonBody = objectMapper.writeValueAsString(requestBody);
                     post.setEntity(new StringEntity(jsonBody));
-    
                     try (CloseableHttpResponse response = httpClient.execute(post)) {
                         int statusCode = response.getStatusLine().getStatusCode();
                         String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
@@ -188,8 +144,7 @@ public class AIManager {
                         if (statusCode >= 200 && statusCode < 300) {
                             Map<String, Object> responseMap = objectMapper.readValue(
                                 responseBody,
-                                new TypeReference<Map<String, Object>>() {}
-                            );
+                                new TypeReference<Map<String, Object>>() {});
                             return new ResponseObject(responseMap);
                         } else {
                             app.logger.warning("OpenAI API returned status: " + statusCode);
@@ -201,221 +156,128 @@ public class AIManager {
                     return null;
                 }
             }))
-            .thenCompose(responseObject -> {
-                if (responseObject == null) {
-                    return CompletableFuture.completedFuture(null);
+            .thenApply(responseObject -> {
+                if (responseObject != null) {
+                    MetadataKey<ResponseObject> responseObjectKey = new MetadataKey<>("responseObject", ResponseObject.class);
+                    conversationContainer.put(responseObjectKey, responseObject);
+                    app.logger.info("Stored OpenAI response in conversation container.");
                 }
-                MetadataKey<ResponseObject> outputKey = new MetadataKey<>("output_content", ResponseObject.class);
-                return completeGetConversationContainer(customId)
-                    .thenApply(conversationContainer -> {
-                        conversationContainer.put(outputKey, responseObject);
-                        app.logger.info("Stored OpenAI response in conversation container.");
-                        return responseObject;
-                    });
+                return responseObject;
             });
     }
 
-    private CompletableFuture<ResponseObject> completeLoadModerationIntoContainer(
-            CompletableFuture<List<MessageContent>> inputArray, long customId) {
-        return completeInputArrayToModerationRequestBody(inputArray)
-            .thenCompose(requestBody -> completeRequestWithRequestBody(customId, requestBody));
-    }
-
-    private CompletableFuture<ResponseObject> completeLoadChatIntoContainer(
-            CompletableFuture<List<MessageContent>> inputArray, long customId) {
-        return completeInputArrayToTextRequestBody(inputArray)
-            .thenCompose(requestBody -> completeRequestWithRequestBody(customId, requestBody));
-    }
-
-    public static CompletableFuture<ResponseObject> completeChat(long customId, CompletableFuture<List<MessageContent>> inputArray) {
-        return completeGetConversationContainer(customId)
-            .thenCompose(conversationContainer ->
-                completeInputArrayToTextRequestBody(inputArray)
-                    .thenCompose(requestBody ->
-                        completeRequestWithRequestBody(customId, requestBody)
-                    )
+    public static CompletableFuture<ResponseObject> completeChat(MetadataContainer conversationContainer) {
+        return completeConversationToTextRequestBody(conversationContainer)
+            .thenCompose(requestBody ->
+                completeRequestWithRequestBody(conversationContainer, requestBody)
             );
     }
-
-    public static CompletableFuture<String> completeModeration(long customId, CompletableFuture<List<MessageContent>> inputArray) {
-        return completeGetConversationContainer(customId)
-            .thenCompose(conversationContainer ->
-                completeInputArrayToModerationRequestBody(inputArray)
-                    .thenCompose(requestBody ->
-                        completeRequestWithRequestBody(customId, requestBody)
-                            .thenApply(ignored -> {
-                                MetadataKey<Boolean> flaggedKey = new MetadataKey<>("flagged", Boolean.class);
-                                Boolean flagged = conversationContainer.get(flaggedKey);
-                                if (Boolean.TRUE.equals(flagged)) {
-                                    String[] keys = {
-                                        "sexual",
-                                        "sexual/minors",
-                                        "harassment",
-                                        "harassment/threatening",
-                                        "hate",
-                                        "hate/threatening",
-                                        "illicit",
-                                        "illicit/violent",
-                                        "self-harm",
-                                        "self-harm/intent",
-                                        "self-harm/instructions",
-                                        "violence",
-                                        "violence/graphic"
-                                    };
-                                    Map<String, Boolean> reasonValues = new LinkedHashMap<>();
-                                    for (String key : keys) {
-                                        MetadataKey<Boolean> keyObj = new MetadataKey<>(key, Boolean.class);
-                                        Boolean value = conversationContainer.get(keyObj);
-                                        reasonValues.put(key, value != null && value);
-                                    }
-                                    String joinedReasons = reasonValues.entrySet().stream()
-                                        .filter(entry -> Boolean.TRUE.equals(entry.getValue()))
-                                        .map(Map.Entry::getKey)
-                                        .collect(Collectors.joining(", "));
-                                    return "⚠️ Flagged for: " + joinedReasons;
-                                }
-                                return "✅ Not flagged.";
-                            })
-                    )
-            )
-            .exceptionally(ex -> {
-                ex.printStackTrace();
-                return "Error while processing request";
-            });
-    }
-
-
-    /**
-     * Extracts the previous response ID from the given ResponseObject,
-     * storing it in a per‑conversation metadata container keyed by customId.
-     *
-     * @param customId         a unique conversation identifier
-     * @param responseObject   a ResponseObject that provides the previous response ID
-     * @return a CompletableFuture that, when complete, returns the previous response ID as a String
-     */
-    public static CompletableFuture<Map<String, Object>> formRequestBody(
-            CompletableFuture<List<MessageContent>> inputArray,
-            String model,
-            Map<String, Object> textFormat,  // this is the `format` object (e.g., type/json_schema/strict/schema)
-            boolean store,
-            boolean stream,
-            String instructions,
-            float temperature,
-            float top_p
-    ) {
-        return inputArray.thenCompose(messages ->
-            CompletableFuture.supplyAsync(() -> {
-                Map<String, Object> requestBody = new HashMap<>();
-                requestBody.put("model", model);
-                
-                // Wrap the text.format correctly
-                requestBody.put("text", Map.of("format", textFormat));
     
-                requestBody.put("temperature", temperature);
-                requestBody.put("top_p", top_p);
-                requestBody.put("stream", stream);
-    
-                List<Map<String, Object>> messagesList = new ArrayList<>();
-                List<CompletableFuture<Void>> tokenFutures = new ArrayList<>();
-    
-                for (MessageContent messageContent : messages) {
-                    Map<String, Object> messageMap = new HashMap<>(); 
-                    messageMap.put("role", messageContent.getType()); // e.g. "user", "assistant" w
-                    messageMap.put("content", messageContent.getText());
-                    messagesList.add(messageMap);
-    
-                    CompletableFuture<Void> tokenFuture = completeCalculateMaxOutputTokens(model, messageContent.getText(), "Spawd", "assistant")
-                        .thenAccept(calculatedTokens -> {
-                            ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
-                            if (contextInfo != null && contextInfo.status()) {
-                                requestBody.put("max_output_tokens", calculatedTokens);
-                            } else {
-                                requestBody.put("max_tokens", calculatedTokens);
-                            }
-                        });
-                    tokenFutures.add(tokenFuture);
-                }
-    
-                requestBody.put("input", messagesList);
-    
-                if (store) {
-                    LocalDateTime now = LocalDateTime.now();
-                    Map<String, String> metadataMap = new HashMap<>();
-                    metadataMap.put("user", String.valueOf(model));
-                    metadataMap.put("timestamp", String.valueOf(now));
-                    requestBody.put("metadata", List.of(metadataMap));
-                }
-    
-                CompletableFuture.allOf(tokenFutures.toArray(new CompletableFuture[0])).join();
-                return requestBody;
-            })
-        );
-    }
-
     public static CompletableFuture<MetadataContainer> completeGetConversationContainer(long customId) {
         MetadataKey<MetadataContainer> conversationContainerKey =
             new MetadataKey<>("conversation_" + customId, MetadataContainer.class);
-        return ConfigManager.completeGetApp().thenCompose(app -> {
-            MetadataContainer existing = app.metadataContainer.get(conversationContainerKey);
+        return ConfigManager.completeGetApp().thenCompose(appInstance -> {
+            MetadataContainer existing = appInstance.metadataContainer.get(conversationContainerKey);
             if (existing != null) {
                 return CompletableFuture.completedFuture(existing);
             }
             MetadataContainer newContainer = new MetadataContainer();
-            app.metadataContainer.put(conversationContainerKey, newContainer);
+            appInstance.metadataContainer.put(conversationContainerKey, newContainer);
             return CompletableFuture.completedFuture(newContainer);
         });
     }
 
-    public static CompletableFuture<Map<String, Object>> completeInputArrayToTextRequestBody(CompletableFuture<List<MessageContent>> inputArray) {
+    private static CompletableFuture<Map<String, Object>> completeConversationToTextRequestBody(
+            MetadataContainer conversationContainer) {
+    
+        // Fetch the model from the ConfigManager
         return ConfigManager.completeGetConfigStringValue("openai_chat_model")
             .thenCompose(model -> {
-                ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
+                // Fetch configuration values for stream, temperature, and top_p
                 CompletableFuture<Boolean> streamFuture = ConfigManager.completeGetConfigBooleanValue("openai_chat_stream");
                 CompletableFuture<Object> tempFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_temperature");
                 CompletableFuture<Object> topPFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_top_p");
+                
                 return CompletableFuture.allOf(streamFuture, tempFuture, topPFuture)
                     .thenCompose(v -> {
+                        // Get the values from the futures
                         float temperature = Float.parseFloat(String.valueOf(tempFuture.join()));
                         float topP = Float.parseFloat(String.valueOf(topPFuture.join()));
                         boolean stream = streamFuture.join();
-                        try {
-                            return formRequestBody(
-                                inputArray,
-                                model,
-                                openAIDefaultChatCompletionResponseFormat,
-                                openAIDefaultChatCompletionStore,
-                                stream,
-                                openAIDefaultChatCompletionSysInput,
-                                temperature,
-                                topP
-                            );
-                        } catch (Exception ioe) {
-                            ioe.printStackTrace();
-                            Map<String, Object> empty = new HashMap<>();
-                            return (CompletableFuture<Map<String, Object>>) empty;
+    
+                        // Prepare the request body
+                        Map<String, Object> requestBody = new HashMap<>();
+                        requestBody.put("model", model);
+                        requestBody.put("temperature", temperature);
+                        requestBody.put("top_p", topP);
+                        requestBody.put("stream", stream);
+    
+                        // Fetch conversation text and role from the MetadataContainer
+                        MetadataKey<String> textKey = new MetadataKey<>("conversation.text", String.class);
+                        MetadataKey<String> roleKey = new MetadataKey<>("conversation.role", String.class);
+                        String text = conversationContainer.get(textKey);
+                        String role = conversationContainer.get(roleKey);
+    
+                        // Fallbacks if values are null
+                        if (text == null) {
+                            text = "";
                         }
+                        if (role == null) {
+                            role = "user";
+                        }
+    
+                        // Prepare messages list with role and content
+                        List<Map<String, Object>> messagesList = new ArrayList<>();
+                        Map<String, Object> messageMap = new HashMap<>();
+                        messageMap.put("role", role);
+                        messageMap.put("content", text);
+                        messagesList.add(messageMap);
+                        requestBody.put("input", messagesList);
+    
+                        // Optional: Store metadata for OpenAI if configured
+                        if (openAIDefaultChatCompletionStore) {
+                            LocalDateTime now = LocalDateTime.now();
+                            Map<String, String> metadataMap = new HashMap<>();
+                            metadataMap.put("user", model);
+                            metadataMap.put("timestamp", now.toString());
+                            requestBody.put("metadata", List.of(metadataMap));
+                        }
+    
+                        // Calculate the maximum output tokens
+                        return completeCalculateMaxOutputTokens(model, text)
+                            .thenApply(calculatedTokens -> {
+                                ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
+                                if (contextInfo != null && contextInfo.status()) {
+                                    requestBody.put("max_output_tokens", calculatedTokens);
+                                } else {
+                                    requestBody.put("max_tokens", calculatedTokens);
+                                }
+                                return requestBody;
+                            });
                     });
             });
     }
 
-
-    public static CompletableFuture<Map<String, Object>> completeInputArrayToModerationRequestBody(CompletableFuture<List<MessageContent>> inputArray) {
-        return ConfigManager.completeGetConfigStringValue("openai_chat_model") // Assuming this is an async method.
+    public static CompletableFuture<Map<String, Object>> completeConversationToModerationRequestBody(
+            MetadataContainer conversationContainer) {
+    
+        // Fetch the model from the ConfigManager
+        return ConfigManager.completeGetConfigStringValue("openai_chat_model")
             .thenCompose(chatModel -> {
                 try {
-                    ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(chatModel);
-                    return formRequestBody(
-                        inputArray,
-                        openAIDefaultChatModerationModel,
-                        openAIDefaultChatModerationResponseFormat,
-                        openAIDefaultChatModerationStore,
-                        openAIDefaultChatModerationStream,
-                        openAIDefaultChatModerationSysInput,
-                        openAIDefaultChatModerationTemperature,
-                        openAIDefaultChatModerationTopP
+                    // Directly use the passed in conversationContainer
+                    return formRequestBodyFromConversation(
+                            conversationContainer,
+                            openAIDefaultChatModerationModel,
+                            openAIDefaultChatModerationResponseFormat,
+                            openAIDefaultChatModerationStore,
+                            openAIDefaultChatModerationStream,
+                            openAIDefaultChatModerationSysInput,
+                            openAIDefaultChatModerationTemperature,
+                            openAIDefaultChatModerationTopP
                     );
                 } catch (Exception ioe) {
-                    // Handle exception (perhaps return a failed CompletableFuture)
+                    // Handle any exceptions and complete the future exceptionally
                     CompletableFuture<Map<String, Object>> failed = new CompletableFuture<>();
                     failed.completeExceptionally(ioe);
                     return failed;
@@ -423,19 +285,76 @@ public class AIManager {
             });
     }
 
+    private static CompletableFuture<Map<String, Object>> formRequestBodyFromConversation(
+            MetadataContainer conversationContainer,
+            String model,
+            Map<String, Object> textFormat,
+            boolean store,
+            boolean stream,
+            String instructions,
+            float temperature,
+            float top_p) {
+        return CompletableFuture.supplyAsync(() -> {
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", model);
+            requestBody.put("text", Map.of("format", textFormat));
+            requestBody.put("temperature", temperature);
+            requestBody.put("top_p", top_p);
+            requestBody.put("stream", stream);
+            MetadataKey<String> textKey = new MetadataKey<>("conversation.text", String.class);
+            MetadataKey<String> roleKey = new MetadataKey<>("conversation.role", String.class);
+            String text = conversationContainer.get(textKey);
+            String role = conversationContainer.get(roleKey);
+            if(text == null) {
+                text = "";
+            }
+            if(role == null) {
+                role = "user";
+            }
+            List<Map<String, Object>> messagesList = new ArrayList<>();
+            Map<String, Object> messageMap = new HashMap<>();
+            messageMap.put("role", role);
+            messageMap.put("content", text);
+            messagesList.add(messageMap);
+            requestBody.put("input", messagesList);
+            if (store) {
+                LocalDateTime now = LocalDateTime.now();
+                Map<String, String> metadataMap = new HashMap<>();
+                metadataMap.put("user", model);
+                metadataMap.put("timestamp", now.toString());
+                requestBody.put("metadata", List.of(metadataMap));
+            }
+            long tokens = completeCalculateMaxOutputTokens(model, text).join();
+            ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
+            if (contextInfo != null && contextInfo.status()) {
+                requestBody.put("max_output_tokens", tokens);
+            } else {
+                requestBody.put("max_tokens", tokens);
+            }
+            return requestBody;
+        });
+    }
+
+    public static CompletableFuture<ResponseObject> completeModeration(MetadataContainer conversationContainer) {
+        return completeConversationToModerationRequestBody(conversationContainer)
+            .thenCompose(requestBody ->
+                completeRequestWithRequestBody(conversationContainer, requestBody)
+            );
+    }
+
     public static List<String> splitLongResponse(String response, int limit) {
         List<String> outputChunks = new ArrayList<>();
         String[] parts = response.split("(?<=```)|(?=```)");
         boolean inCode = false;
-        for (String part : parts) { if (part.equals("```")) {
-                inCode = !inCode; // toggle code mode
+        for (String part : parts) {
+            if (part.equals("```")) {
+                inCode = !inCode;
                 continue;
             }
             if (inCode) {
                 outputChunks.add("```" + part + "```");
-                inCode = false; // code block closed
+                inCode = false;
             } else {
-                // Split plain text into chunks
                 for (int i = 0; i < part.length(); i += limit) {
                     int end = Math.min(i + limit, part.length());
                     outputChunks.add(part.substring(i, end));

@@ -17,76 +17,55 @@
 package com.brandongcobb.vyrtuous;
 
 import com.brandongcobb.vyrtuous.bots.DiscordBot;
+import com.brandongcobb.vyrtuous.metadata.MetadataContainer;
+import com.brandongcobb.vyrtuous.utils.handlers.Database;
 import com.brandongcobb.vyrtuous.utils.handlers.PlayerMessageQueueManager;
-import com.brandongcobb.vyrtuous.utils.handlers.AIManager;
 import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
-import com.brandongcobb.vyrtuous.utils.handlers.DiscordUser;
-import com.brandongcobb.vyrtuous.utils.handlers.MessageManager;
 import com.brandongcobb.vyrtuous.utils.handlers.MinecraftUser;
-import com.brandongcobb.vyrtuous.utils.handlers.ModerationManager;
 import com.brandongcobb.vyrtuous.utils.handlers.OAuthServer;
 import com.brandongcobb.vyrtuous.utils.handlers.OAuthUserSession;
-import com.brandongcobb.vyrtuous.utils.handlers.PatreonUser;
-import com.brandongcobb.vyrtuous.utils.handlers.Predicator;
-import com.brandongcobb.vyrtuous.utils.handlers.User;
-import com.brandongcobb.vyrtuous.metadata.MetadataContainer;
 import com.brandongcobb.vyrtuous.utils.inc.Helpers;
-import com.brandongcobb.vyrtuous.utils.sec.DiscordOAuth;
-import com.brandongcobb.vyrtuous.utils.sec.PatreonOAuth;
-import com.patreon.PatreonAPI;
-import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import java.io.File;
 import java.io.IOException;
-import java.net.URLEncoder;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.sql.Connection;
 import java.sql.SQLException;
-import java.sql.Timestamp;
-import java.time.LocalDateTime;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.locks.Lock;
-import java.util.function.Consumer;
 import java.util.ArrayList;
 import java.util.HashMap;
-import java.util.function.Predicate;
-import java.io.File;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.Executor;
+import java.util.function.Consumer;
 import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.CompletionException;
 import java.util.Iterator;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.List;
-import java.time.LocalDateTime;
 import java.util.Map;
 import java.util.Timer;
-import java.util.TimerTask;
-import java.net.URI;
-import java.net.URISyntaxException;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.JDABuilder;
-import net.dv8tion.jda.api.exceptions.RateLimitedException;
 import net.dv8tion.jda.api.requests.GatewayIntent;
+import net.dv8tion.jda.api.OnlineStatus;
+import net.dv8tion.jda.api.entities.Activity;
 
 public class Vyrtuous {
 
-    private static final ExecutorService dbExecutor = Executors.newFixedThreadPool(4);
+    public static final ExecutorService dbExecutor = Executors.newFixedThreadPool(4);
+    public JDA api;
     public static Vyrtuous app;
     public static Connection connection;
-    private CompletableFuture<Void> databaseTask;
     public static HikariDataSource dbPool;
     public static String discordApiKey;
-    public static Long discordOwnerId;
-    public static DiscordBot discordBot;
-    private CompletableFuture<Void> discordTask;
-    private static Vyrtuous instance;
-    private boolean listeningForCallback;
+    public static long discordOwnerId;
     public static Lock lock;
     public static Logger logger;
-    private CompletableFuture<Void> loggingTask;
-    private CompletableFuture<Void> managerTask;
     public MetadataContainer metadataContainer;
-    private CompletableFuture<Void> minecraftTask;
     public static OAuthUserSession oAuthUserSession;
     public static Map<MinecraftUser, OAuthUserSession> sessions = new HashMap<>();
     public static File tempDirectory;
@@ -108,12 +87,10 @@ public class Vyrtuous {
 
     public Vyrtuous() {
         app = this;
-        instance = this;
         this.logger = Logger.getLogger("Vyrtuous");
         this.metadataContainer = new MetadataContainer();
         this.tempDirectory = new File(System.getProperty("java.io.tmpdir"));
         this.lock = null;
-        this.loggingTask = new CompletableFuture<>();
         CompletableFuture<Void> initializationFuture = ConfigManager.completeSetApp(this)
             .thenCompose(ignored -> ConfigManager.completeLoadConfig())
             .thenCompose(ignored -> ConfigManager.completeIsConfigSameAsDefault())
@@ -125,11 +102,18 @@ public class Vyrtuous {
                     return ConfigManager.completeValidateConfig();
                 }
             })
-            .thenCompose(ignored -> completeConnectDatabase(() -> {})) // database aits for config
+            .thenCompose(ignored -> new Database().completeConnectDatabase(this, () -> {})) // database aits for config
             .thenCompose(ignored -> completeSetupLogging()) // wait for logging setup
+            .thenCompose(ignored -> completeInitializeDiscordConfiguration())
             .thenRun(() -> {
-                OAuthServer.start(this);
-                new PlayerMessageQueueManager();
+                try {
+                    DiscordBot.start(api);
+                    api.awaitReady();
+                    OAuthServer.start(this);
+                    new PlayerMessageQueueManager();
+                } catch (InterruptedException ie) {
+                    ie.printStackTrace();
+                }
             })
             .exceptionally(ex -> {
                 logger.severe("Error initializing the application: " + ex.getMessage());
@@ -139,55 +123,51 @@ public class Vyrtuous {
         initializationFuture.join();
     }
 
-    public static CompletableFuture<Void> closeDatabase() {
-        return CompletableFuture.supplyAsync(() -> {
-            if (dbPool != null && !dbPool.isClosed()) {
-                dbPool.close();
-            }
-            return null;
+    public CompletableFuture<Void> completeInitializeDiscordConfiguration() {
+        return completeGetInstance().thenCompose(appInstance ->
+            ConfigManager.completeGetNestedConfigValue("api_keys", "Discord")
+                .thenCompose(discordApiKeys ->
+                    discordApiKeys.completeGetConfigStringValue("api_key")
+                )
+                .thenCombine(
+                    ConfigManager.completeGetConfigLongValue("discord_owner_id"),
+                    (apiKey, ownerId) -> {
+                        this.discordApiKey = apiKey;
+                        this.discordOwnerId = ownerId;
+                        this.api = JDABuilder.createDefault(discordApiKey,
+                                GatewayIntent.GUILD_MESSAGES,
+                                GatewayIntent.MESSAGE_CONTENT,
+                                GatewayIntent.GUILD_MEMBERS)
+                            .setActivity(Activity.playing("Starting up..."))
+                            .build();
+                        return null;
+                    }
+                )
+        );
+    }
+
+    public static CompletableFuture<ExecutorService> completeGetDatabaseExecutor() {
+       return CompletableFuture.supplyAsync(() -> app.dbExecutor);
+    }
+    
+    public CompletableFuture<JDA> completeGetApi() {
+        return CompletableFuture.supplyAsync(() -> api);
+    }
+
+    public static CompletableFuture<Void> completeSetDatabasePool(HikariDataSource dbPool) {
+        return CompletableFuture.runAsync(() -> {
+            app.dbPool = dbPool;
         });
     }
 
-    public static CompletableFuture<Vyrtuous> getInstance() {
-       return CompletableFuture.supplyAsync(() -> instance);
+    public static CompletableFuture<Vyrtuous> completeGetInstance() {
+       return CompletableFuture.supplyAsync(() -> app);
     }
 
-    public CompletableFuture<Void> completeConnectDatabase(Runnable afterConnect) {
-        logger.log(Level.INFO, "Initializing PostgreSQL connection pool asynchronously...");
-        return CompletableFuture.allOf(
-            ConfigManager.completeGetConfigObjectValue("postgres_host"),
-            ConfigManager.completeGetConfigObjectValue("postgres_database"),
-            ConfigManager.completeGetConfigObjectValue("postgres_user"),
-            ConfigManager.completeGetConfigObjectValue("postgres_password"),
-            ConfigManager.completeGetConfigObjectValue("postgres_port")
-        ).thenApplyAsync(v -> {
-            String host = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_host").join());
-            String db = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_database").join());
-            String user = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_user").join());
-            String password = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_password").join());
-            String port = String.valueOf(ConfigManager.completeGetConfigObjectValue("postgres_port").join());
-            String jdbcUrl = String.format("jdbc:postgresql://%s:%s/%s", host, port, db);
-            logger.info("Connecting to: " + jdbcUrl);
-            HikariConfig hikariConfig = new HikariConfig();
-            hikariConfig.setJdbcUrl(jdbcUrl);
-            hikariConfig.setUsername(user);
-            hikariConfig.setPassword(password);
-            hikariConfig.setDriverClassName("org.postgresql.Driver");
-            hikariConfig.setLeakDetectionThreshold(2000);
-            try {
-                dbPool = new HikariDataSource(hikariConfig);
-                logger.log(Level.INFO, "PostgreSQL connection pool initialized.");
-            } catch (Exception e) {
-                logger.log(Level.SEVERE, "Failed to initialize PostgreSQL connection pool!", e);
-                throw new RuntimeException(e);
-            }
-            return null;
-        }, dbExecutor)
-        .thenRun(afterConnect)
-        .exceptionally(ex -> {
-            logger.log(Level.SEVERE, "Error connecting to the database asynchronously", ex);
-            return null;
-        });
+    public static CompletableFuture<MetadataContainer> completeGetMetadataContainer() {
+       return CompletableFuture.supplyAsync(() -> {
+           return app.metadataContainer;
+       });
     }
 
     public CompletableFuture<Void> completeGetConnection(Consumer<Connection> callback) {
@@ -215,19 +195,22 @@ public class Vyrtuous {
         });
     }
 
+    public static CompletableFuture<Void> completeSetAppContainer(MetadataContainer metadataContainer) {
+        return CompletableFuture.runAsync(() -> {
+            app.metadataContainer = metadataContainer;
+        });
+    }
+
     public static CompletableFuture<Void> onDisable() {
-        // Chain the operations in sequence, each producing Void.
-        return closeDatabase()
-              .thenRun(() -> OAuthServer.cancelOAuthSession(callbackTimer))
+        return OAuthServer.cancelOAuthSession(callbackTimer)
               .thenRun(() -> OAuthServer.stop())
-              .thenRun(() -> dbExecutor.shutdown())
               .thenRun(() -> logger.log(Level.INFO, "PostgreSQL Example plugin disabled."));
     }
 
     public static void main(String[] args) {
         Vyrtuous app = new Vyrtuous();
         try {
-            DiscordBot.start().join();
+            DiscordBot.start(app.api).join();
         } catch (Exception e) {
             e.printStackTrace();
             onDisable();

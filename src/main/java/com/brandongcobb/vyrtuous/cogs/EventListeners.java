@@ -70,12 +70,10 @@ public class EventListeners extends ListenerAdapter implements Cog {
             CompletableFuture<String> fullContentFuture;
     
             if (attachments != null && !attachments.isEmpty()) {
-                System.out.println("Attachments found: " + attachments.size());
                 fullContentFuture = MessageManager.completeProcessAttachments(attachments)
                     .thenApply(attachmentContentList -> {
                         String joinedAttachmentContent = String.join("\n", attachmentContentList);
                         String fullCombined = joinedAttachmentContent + "\n" + content;
-                        System.out.println("Built fullContent: " + fullCombined);
                         return fullCombined;
                     });
             } else {

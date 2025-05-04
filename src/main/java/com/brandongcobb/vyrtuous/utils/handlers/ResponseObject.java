@@ -395,4 +395,18 @@ public class ResponseObject extends MetadataContainer{
             return this.get(outputKey); // this refers to your MetadataContainer or similar
         });
     }
+    
+    public CompletableFuture<String> completeGetPreviousResponseId() {
+        return CompletableFuture.supplyAsync(() -> {
+            MetadataKey<String> previousResponseIdKey = new MetadataKey<>("previous_response_id", String.class);
+            return this.get(previousResponseIdKey); // this refers to your MetadataContainer or similar
+        });
+    }
+
+    public CompletableFuture<Void> completeSetPreviousResponseId(String previousResponseId) {
+        return CompletableFuture.runAsync(() -> {
+            MetadataKey<String> previousResponseIdKey = new MetadataKey<>("previous_response_id", String.class);
+            put(previousResponseIdKey, previousResponseId);
+        });
+    }
 }

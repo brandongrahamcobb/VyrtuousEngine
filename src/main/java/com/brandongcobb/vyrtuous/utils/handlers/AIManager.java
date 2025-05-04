@@ -113,8 +113,8 @@ public class AIManager {
         });
     }
 
-    public static CompletableFuture<ResponseObject> completeChat(String fullContent) {
-        return completeInputToTextRequestBody(fullContent)
+    public static CompletableFuture<ResponseObject> completeChat(String fullContent, String previousResponseId) {
+        return completeInputToTextRequestBody(fullContent, previousResponseId)
             .thenCompose(requestBody ->
                 completeRequestWithRequestBody(requestBody)
             );
@@ -132,7 +132,8 @@ public class AIManager {
                             openAIDefaultChatModerationStream,
                             openAIDefaultChatModerationSysInput,
                             openAIDefaultChatModerationTemperature,
-                            openAIDefaultChatModerationTopP
+                            openAIDefaultChatModerationTopP,
+                            null
                     );
                 } catch (Exception ioe) {
                     // Handle any exceptions and complete the future exceptionally
@@ -143,7 +144,7 @@ public class AIManager {
             });
     }
 
-private static CompletableFuture<Map<String, Object>> completeFormRequestBody(
+    private static CompletableFuture<Map<String, Object>> completeFormRequestBody(
             String fullContent,
             String model,
             Map<String, Object> textFormat,
@@ -151,39 +152,54 @@ private static CompletableFuture<Map<String, Object>> completeFormRequestBody(
             boolean stream,
             String instructions,
             float temperature,
-            float top_p) {
-        return CompletableFuture.supplyAsync(() -> {
-            Map<String, Object> requestBody = new HashMap<>();
-            requestBody.put("model", model);
-            requestBody.put("text", Map.of("format", textFormat));
-            requestBody.put("temperature", temperature);
-            requestBody.put("top_p", top_p);
-            requestBody.put("stream", stream);
-            List<Map<String, Object>> messagesList = new ArrayList<>();
-            Map<String, Object> messageMap = new HashMap<>();
-            messageMap.put("role", "user");
-            messageMap.put("content", fullContent);
-            messagesList.add(messageMap);
-            requestBody.put("input", messagesList);
-            if (store) {
-                LocalDateTime now = LocalDateTime.now();
-                Map<String, String> metadataMap = new HashMap<>();
-                metadataMap.put("user", model);
-                metadataMap.put("timestamp", now.toString());
-                requestBody.put("metadata", List.of(metadataMap));
-            }
-            long tokens = completeCalculateMaxOutputTokens(model, fullContent).join();
-            ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
-            if (contextInfo != null && contextInfo.status()) {
-                requestBody.put("max_output_tokens", tokens);
-            } else {
-                requestBody.put("max_tokens", tokens);
-            }
-            return requestBody;
-        });
+            float top_p,
+            String previousResponseId) {
+    
+        Map<String, Object> requestBody = new HashMap<>();
+    
+        // Set required fields
+        requestBody.put("model", model);
+        requestBody.put("text", Map.of("format", textFormat));
+        requestBody.put("temperature", temperature);
+        requestBody.put("top_p", top_p);
+        requestBody.put("stream", stream);
+    
+        // Optionally include previous response ID
+        if (previousResponseId != null && !previousResponseId.isEmpty()) {
+            requestBody.put("previous_response_id", previousResponseId);
+        }
+    
+        // Build messages list
+        List<Map<String, Object>> messagesList = new ArrayList<>();
+        Map<String, Object> messageMap = new HashMap<>();
+        messageMap.put("role", "user");
+        messageMap.put("content", fullContent);
+        messagesList.add(messageMap);
+        requestBody.put("input", messagesList);
+    
+        // Optionally add metadata
+        if (store) {
+            LocalDateTime now = LocalDateTime.now();
+            Map<String, String> metadataMap = new HashMap<>();
+            metadataMap.put("user", model);
+            metadataMap.put("timestamp", now.toString());
+            requestBody.put("metadata", List.of(metadataMap));
+        }
+    
+        // Calculate token limits
+        long tokens = completeCalculateMaxOutputTokens(model, fullContent).join();
+        ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
+    
+        if (contextInfo != null && contextInfo.status()) {
+            requestBody.put("max_output_tokens", tokens);
+        } else {
+            requestBody.put("max_tokens", tokens);
+        }
+    
+        return CompletableFuture.completedFuture(requestBody);
     }
 
-    private static CompletableFuture<Map<String, Object>> completeInputToTextRequestBody(String text) {
+    private static CompletableFuture<Map<String, Object>> completeInputToTextRequestBody(String text, String previousResponseId) {
         return ConfigManager.completeGetConfigStringValue("openai_chat_model")
             .thenCompose(model -> {
                 CompletableFuture<Boolean> streamFuture = ConfigManager.completeGetConfigBooleanValue("openai_chat_stream");
@@ -191,10 +207,13 @@ private static CompletableFuture<Map<String, Object>> completeFormRequestBody(
                 CompletableFuture<Object> topPFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_top_p");
                 return CompletableFuture.allOf(streamFuture, tempFuture, topPFuture)
                     .thenCompose(v -> {
+                        Map<String, Object> requestBody = new HashMap<>();
+                        if (previousResponseId != null) {
+                            requestBody.put("previous_response_id", previousResponseId);
+                        }
                         float temperature = Float.parseFloat(String.valueOf(tempFuture.join()));
                         float topP = Float.parseFloat(String.valueOf(topPFuture.join()));
                         boolean stream = streamFuture.join();
-                        Map<String, Object> requestBody = new HashMap<>();
                         requestBody.put("model", model);
                         requestBody.put("temperature", temperature);
                         requestBody.put("top_p", topP);

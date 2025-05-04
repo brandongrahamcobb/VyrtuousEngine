@@ -24,6 +24,8 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
 import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Message.MentionType;
@@ -35,6 +37,7 @@ import net.dv8tion.jda.api.hooks.ListenerAdapter;
 
 public class EventListeners extends ListenerAdapter implements Cog {
 
+    private final Map<Long, ResponseObject> userResponseMap = new ConcurrentHashMap<>();
     private JDA api;
     private final Vyrtuous app;
     private Lock lock;
@@ -54,25 +57,44 @@ public class EventListeners extends ListenerAdapter implements Cog {
     public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
         Message message = event.getMessage();
         if (message.getAuthor().isBot()) return;
+    
         boolean isMentioned = message.getMentions().getUsers().contains(api.getSelfUser());
         String content = message.getContentDisplay().replace("@Vyrtuous", "");
         User sender = event.getAuthor();
         long senderId = sender.getIdLong();
         List<Attachment> attachments = message.getAttachments();
-        app.completeGetInstance().thenAccept(appInstance -> {
+    
+        ResponseObject previousResponse = userResponseMap.get(senderId);
+    
+        app.completeGetInstance().thenCompose(appInstance -> {
             CompletableFuture<String> fullContentFuture;
+    
             if (attachments != null && !attachments.isEmpty()) {
+                System.out.println("Attachments found: " + attachments.size());
                 fullContentFuture = MessageManager.completeProcessAttachments(attachments)
-                    .thenApply(attachmentContent -> attachmentContent + content);
+                    .thenApply(attachmentContentList -> {
+                        String joinedAttachmentContent = String.join("\n", attachmentContentList);
+                        String fullCombined = joinedAttachmentContent + "\n" + content;
+                        System.out.println("Built fullContent: " + fullCombined);
+                        return fullCombined;
+                    });
             } else {
                 fullContentFuture = CompletableFuture.completedFuture(content);
             }
-            fullContentFuture.thenCompose(fullContent -> {
-                System.out.println("fullContent: " + fullContent);
-                CompletableFuture<ResponseObject> moderationFuture =
-                    AIManager.completeModeration(fullContent);
-                CompletableFuture<ResponseObject> chatFuture =
-                    AIManager.completeChat(fullContent);
+    
+            return fullContentFuture.thenCompose(fullContent -> {
+                System.out.println("Processing fullContent: " + fullContent);
+    
+                CompletableFuture<ResponseObject> moderationFuture = AIManager.completeModeration(fullContent);
+    
+                CompletableFuture<CompletableFuture<ResponseObject>> chatFutureWrapper;
+                if (previousResponse != null) {
+                    chatFutureWrapper = previousResponse.completeGetPreviousResponseId()
+                        .thenApply(prevId -> AIManager.completeChat(fullContent, prevId));
+                } else {
+                    chatFutureWrapper = CompletableFuture.completedFuture(AIManager.completeChat(fullContent, null));
+                }
+    
                 return moderationFuture.thenCompose(moderationResponseObject ->
                     moderationResponseObject.completeGetFlagged()
                         .thenCompose(flagged -> {
@@ -83,25 +105,42 @@ public class EventListeners extends ListenerAdapter implements Cog {
                                             .thenApply(m -> null)
                                     );
                             }
+    
                             boolean shouldChat = (fullContent.length() > 1 &&
                                     "chat".equalsIgnoreCase(fullContent.substring(1))) || isMentioned;
                             if (!shouldChat) {
                                 return CompletableFuture.completedFuture(null);
                             }
-                            return chatFuture.thenCompose(chatResponseObject ->
-                                chatResponseObject.completeGetOutput()
-                                    .thenCompose(outputContent ->
-                                        MessageManager.completeSendDiscordMessage(message, outputContent)
-                                            .thenApply(m -> null)
-                                    )
+    
+                            return chatFutureWrapper.thenCompose(chatFuture ->
+                                chatFuture.thenCompose(chatResponseObject -> {
+                                    CompletableFuture<Void> setPrevFuture;
+                                    if (previousResponse != null) {
+                                        setPrevFuture = previousResponse.completeGetPreviousResponseId()
+                                            .thenCompose(prevId -> chatResponseObject.completeSetPreviousResponseId(prevId));
+                                    } else {
+                                        setPrevFuture = chatResponseObject.completeSetPreviousResponseId(null);
+                                    }
+    
+                                    return setPrevFuture.thenCompose(v -> {
+                                        userResponseMap.put(senderId, chatResponseObject);
+                                        return chatResponseObject.completeGetOutput()
+                                            .thenCompose(outputContent ->
+                                                MessageManager.completeSendResponse(message, outputContent)
+                                                    .thenApply(m -> null)
+                                            );
+                                    });
+                                })
                             );
                         })
                 );
-            }).exceptionally(ex -> {
-                ex.printStackTrace();
-                return null;
             });
+        }).exceptionally(ex -> {
+            ex.printStackTrace();
+            return null;
         });
     }
+
+
 }
 

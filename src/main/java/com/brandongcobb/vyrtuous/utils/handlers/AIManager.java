@@ -66,6 +66,7 @@ public class AIManager {
     private static ModelInfo outputInfo;
     private static EncodingRegistry registry = Encodings.newDefaultEncodingRegistry();
     private static Encoding encoding;
+    private static ResponseObject responseObject;
 
     private static boolean openAIDefaultChatCompletion = false;
     private static boolean openAIDefaultChatCompletionAddToHistory = false;
@@ -113,8 +114,8 @@ public class AIManager {
         });
     }
 
-    public static CompletableFuture<ResponseObject> completeChat(String fullContent, String previousResponseId) {
-        return completeInputToTextRequestBody(fullContent, previousResponseId)
+    public static CompletableFuture<ResponseObject> completeChat(String fullContent, String previousResponseId, String model) {
+        return completeInputToTextRequestBody(fullContent, previousResponseId, model)
             .thenCompose(requestBody ->
                 completeRequestWithRequestBody(requestBody)
             );
@@ -142,6 +143,58 @@ public class AIManager {
                     return failed;
                 }
             });
+    }
+
+    public static CompletableFuture<String> completeResolveModel(String content, Boolean multiModal) {
+        return ConfigManager.completeGetConfigStringValue("openai_chat_model")
+            .thenCompose(model ->
+                completePerplexity(content)
+            )
+            .thenCompose((ResponseObject responseObject) ->
+                responseObject.completeGetPerplexity().thenApply(responsePerplexity -> {
+                    Double perplexity = (Double) responsePerplexity;
+                    if (perplexity < 1.0d) {
+                        return "gpt-4.1-nano";
+                    } else if (perplexity > 1.0d && perplexity < 1.5d && Boolean.TRUE.equals(multiModal)) {
+                        return "o4-mini";
+                    } else if (perplexity > 1.75d && perplexity < 2.0d && Boolean.TRUE.equals(multiModal)) {
+                        return "gpt-4.1";
+                    } else {
+                        return "o3-mini";
+                    }
+                })
+            );
+    }
+
+    public static CompletableFuture<Map<String, Object>> completeInputToPerplexityRequestBody(String fullContent, Map<String, Object> format) {
+        return ConfigManager.completeGetConfigStringValue("openai_chat_model")
+            .thenCompose(chatModel -> {
+                try {
+                    return completeFormRequestBody(
+                            fullContent,
+                            chatModel,
+                            format,
+                            false,
+                            false,
+                            "You determine how perplexing text is to you on a float scale from 0 (not perplexing) to 2 (most perplexing.",
+                            0.7f,
+                            1.0f,
+                            null
+                    );
+                } catch (Exception ioe) {
+                    // Handle any exceptions and complete the future exceptionally
+                    CompletableFuture<Map<String, Object>> failed = new CompletableFuture<>();
+                    failed.completeExceptionally(ioe);
+                    return failed;
+                }
+            });
+    }
+
+    public static CompletableFuture<ResponseObject> completePerplexity(String fullContent) {
+        return completeInputToPerplexityRequestBody(fullContent, Helpers.OPENAI_RESPONSES_TEXT_PERPLEXITY)
+            .thenCompose(requestBody ->
+                completeRequestWithRequestBody(requestBody)
+            );
     }
 
     private static CompletableFuture<Map<String, Object>> completeFormRequestBody(
@@ -200,58 +253,50 @@ public class AIManager {
         return CompletableFuture.completedFuture(requestBody);
     }
 
-    private static CompletableFuture<Map<String, Object>> completeInputToTextRequestBody(String text, String previousResponseId) {
-        return ConfigManager.completeGetConfigStringValue("openai_chat_model")
-            .thenCompose(model -> {
-                // CompletableFuture<Boolean> streamFuture = ConfigManager.completeGetConfigBooleanValue("openai_chat_stream");
-                // CompletableFuture<Object> tempFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_temperature");
-                // CompletableFuture<Object> topPFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_top_p");
+    private static CompletableFuture<Map<String, Object>> completeInputToTextRequestBody(
+            String text, String previousResponseId, String model) {
+        // Start with an async task that returns null.
+        return CompletableFuture.supplyAsync(() -> null)
+            // then flatten with thenCompose to build your request body
+            .thenCompose(ignored -> {
+                Map<String, Object> requestBody = new HashMap<>();
+                if (previousResponseId != null) {
+                    requestBody.put("previous_response_id", previousResponseId);
+                }
+                requestBody.put("model", model);
     
-                // return CompletableFuture.allOf(streamFuture, tempFuture, topPFuture)
-                //     .thenCompose(v -> {
-                return CompletableFuture.completedFuture(null).thenCompose(v -> { // temp replacement to preserve syntax
-                    Map<String, Object> requestBody = new HashMap<>();
-                    if (previousResponseId != null) {
-                        requestBody.put("previous_response_id", previousResponseId);
-                    }
+                List<Map<String, Object>> messagesList = new ArrayList<>();
+                Map<String, Object> messageMap = new HashMap<>();
+                messageMap.put("role", "user");
+                messageMap.put("content", text);
+                messagesList.add(messageMap);
+                requestBody.put("input", messagesList);
     
-                    // float temperature = Float.parseFloat(String.valueOf(tempFuture.join()));
-                    // float topP = Float.parseFloat(String.valueOf(topPFuture.join()));
-                    // boolean stream = streamFuture.join();
+                if (openAIDefaultChatCompletionStore) {
+                    LocalDateTime now = LocalDateTime.now();
+                    Map<String, String> metadataMap = new HashMap<>();
+                    metadataMap.put("user", model);
+                    metadataMap.put("timestamp", now.toString());
+                    requestBody.put("metadata", List.of(metadataMap));
+                }
     
-                    requestBody.put("model", model);
-                    // requestBody.put("temperature", temperature);
-                    // requestBody.put("top_p", topP);
-                    // requestBody.put("stream", stream);
-    
-                    List<Map<String, Object>> messagesList = new ArrayList<>();
-                    Map<String, Object> messageMap = new HashMap<>();
-                    messageMap.put("role", "user");
-                    messageMap.put("content", text);
-                    messagesList.add(messageMap);
-                    requestBody.put("input", messagesList);
-    
-                    if (openAIDefaultChatCompletionStore) {
-                        LocalDateTime now = LocalDateTime.now();
-                        Map<String, String> metadataMap = new HashMap<>();
-                        metadataMap.put("user", model);
-                        metadataMap.put("timestamp", now.toString());
-                        requestBody.put("metadata", List.of(metadataMap));
-                    }
-    
-                    return completeCalculateMaxOutputTokens(model, text)
-                        .thenApply(calculatedTokens -> {
-                            ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
-                            if (contextInfo != null && contextInfo.status()) {
-                                requestBody.put("max_output_tokens", calculatedTokens);
-                            } else {
-                                requestBody.put("max_tokens", calculatedTokens);
-                            }
-                            return requestBody;
-                        });
-                });
+                // Complete the chain by calculating tokens, then adding it to the request body.
+                return completeCalculateMaxOutputTokens(model, text)
+                    .thenApply(calculatedTokens -> {
+                        ModelInfo contextInfo = 
+                            ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
+                        // Use one key or another depending on the model info.
+                        if (contextInfo != null && contextInfo.status()) {
+                            requestBody.put("max_output_tokens", calculatedTokens);
+                        } else {
+                            requestBody.put("max_tokens", calculatedTokens);
+                        }
+                        return requestBody;
+                    });
             });
     }
+
+
 
     public static CompletableFuture<ResponseObject> completeModeration(String fullContent) {
         return completeInputToModerationRequestBody(fullContent)

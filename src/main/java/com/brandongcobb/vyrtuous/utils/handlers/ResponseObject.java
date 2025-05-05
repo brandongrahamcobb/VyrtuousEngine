@@ -18,11 +18,14 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.metadata.*;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.core.type.TypeReference;
 import java.util.List;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 
 public class ResponseObject extends MetadataContainer{
@@ -416,11 +419,24 @@ public class ResponseObject extends MetadataContainer{
     public CompletableFuture<String> completeGetOutput() {
         return CompletableFuture.supplyAsync(() -> {
             MetadataKey<String> outputKey = new MetadataKey<>("output_content", String.class);
-            System.out.println(this.get(outputKey));
             return this.get(outputKey); // this refers to your MetadataContainer or similar
         });
     }
-    
+
+    public CompletableFuture<Double> completeGetPerplexity() {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                MetadataKey<String> outputKey = new MetadataKey<>("output_content", String.class);
+                ObjectMapper objectMapper = new ObjectMapper();
+                String json = this.get(outputKey); // Assuming `this.get(...)` returns JSON string
+                Map<String, Double> responseMap = objectMapper.readValue(json, new TypeReference<Map<String, Double>>() {});
+                return responseMap.get("perplexity");
+            } catch (Exception e) {
+                throw new CompletionException(e); // wrap checked exceptions
+            }
+        });
+    }
+
     public CompletableFuture<String> completeGetPreviousResponseId() {
         return CompletableFuture.supplyAsync(() -> {
             MetadataKey<String> previousResponseIdKey = new MetadataKey<>("previous_response_id", String.class);

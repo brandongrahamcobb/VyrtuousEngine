@@ -66,6 +66,9 @@ public class EventListeners extends ListenerAdapter implements Cog {
     
         ResponseObject previousResponse = userResponseMap.get(senderId);
     
+        // Multimodal flag in an array so it is mutable inside lambda
+        final boolean[] multimodal = new boolean[]{false};
+    
         app.completeGetInstance().thenCompose(appInstance -> {
             CompletableFuture<String> fullContentFuture;
     
@@ -73,9 +76,10 @@ public class EventListeners extends ListenerAdapter implements Cog {
                 fullContentFuture = MessageManager.completeProcessAttachments(attachments)
                     .thenApply(attachmentContentList -> {
                         String joinedAttachmentContent = String.join("\n", attachmentContentList);
-                        String fullCombined = joinedAttachmentContent + "\n" + content;
-                        return fullCombined;
+                        // Combine attachment content with the text content
+                        return joinedAttachmentContent + "\n" + content;
                     });
+                multimodal[0] = true;
             } else {
                 fullContentFuture = CompletableFuture.completedFuture(content);
             }
@@ -83,54 +87,60 @@ public class EventListeners extends ListenerAdapter implements Cog {
             return fullContentFuture.thenCompose(fullContent -> {
                 System.out.println("Processing fullContent: " + fullContent);
     
+                //Start moderation. (We no longer start the model future concurrently.)
                 CompletableFuture<ResponseObject> moderationFuture = AIManager.completeModeration(fullContent);
     
-                CompletableFuture<CompletableFuture<ResponseObject>> chatFutureWrapper;
-                if (previousResponse != null) {
-                    chatFutureWrapper = previousResponse.completeGetPreviousResponseId()
-                        .thenApply(prevId -> AIManager.completeChat(fullContent, prevId));
-                } else {
-                    chatFutureWrapper = CompletableFuture.completedFuture(AIManager.completeChat(fullContent, null));
-                }
-    
                 return moderationFuture.thenCompose(moderationResponseObject ->
-                    moderationResponseObject.completeGetFlagged()
-                        .thenCompose(flagged -> {
-                            if (flagged) {
-                                return moderationResponseObject.completeGetFormatFlaggedReasons()
+                    moderationResponseObject.completeGetFlagged().thenCompose(flagged -> {
+                        if (flagged) {
+                            // If moderated content is flagged, handle moderation reasons.
+                            return moderationResponseObject.completeGetFormatFlaggedReasons()
                                     .thenCompose(reason ->
                                         ModerationManager.completeHandleModeration(message, reason)
-                                            .thenApply(m -> null)
+                                            .thenApply(ignored -> null)
                                     );
-                            }
-    
+                        } else {
+                            // If nothing is flagged, decide whether to run a chat.
                             boolean shouldChat = (fullContent.length() > 1 &&
-                                    "chat".equalsIgnoreCase(fullContent.substring(1))) || isMentioned;
+                                  "chat".equalsIgnoreCase(fullContent.substring(1))) || isMentioned;
                             if (!shouldChat) {
+                                // Nothing else to do.
                                 return CompletableFuture.completedFuture(null);
                             }
-    
-                            return chatFutureWrapper.thenCompose(chatFuture ->
-                                chatFuture.thenCompose(chatResponseObject -> {
-                                    CompletableFuture<Void> setPrevFuture;
+                            // Now resolve the model needed for chatting.
+                            return AIManager.completeResolveModel(content, multimodal[0])
+                                .thenCompose(model -> {
+                                    CompletableFuture<CompletableFuture<ResponseObject>> chatFutureWrapper;
                                     if (previousResponse != null) {
-                                        setPrevFuture = previousResponse.completeGetPreviousResponseId()
-                                            .thenCompose(prevId -> chatResponseObject.completeSetPreviousResponseId(prevId));
+                                        chatFutureWrapper = previousResponse.completeGetPreviousResponseId()
+                                                .thenApply(prevId -> AIManager.completeChat(fullContent, prevId, model));
                                     } else {
-                                        setPrevFuture = chatResponseObject.completeSetPreviousResponseId(null);
+                                        chatFutureWrapper = CompletableFuture.completedFuture(
+                                                AIManager.completeChat(fullContent, null, model)
+                                        );
                                     }
-    
-                                    return setPrevFuture.thenCompose(v -> {
-                                        userResponseMap.put(senderId, chatResponseObject);
-                                        return chatResponseObject.completeGetOutput()
-                                            .thenCompose(outputContent ->
-                                                MessageManager.completeSendResponse(message, outputContent)
-                                                    .thenApply(m -> null)
-                                            );
-                                    });
-                                })
-                            );
-                        })
+                                    return chatFutureWrapper.thenCompose(chatFuture ->
+                                        chatFuture.thenCompose(chatResponseObject -> {
+                                            CompletableFuture<Void> setPrevFuture;
+                                            if (previousResponse != null) {
+                                                setPrevFuture = previousResponse.completeGetPreviousResponseId()
+                                                        .thenCompose(prevId -> chatResponseObject.completeSetPreviousResponseId(prevId));
+                                            } else {
+                                                setPrevFuture = chatResponseObject.completeSetPreviousResponseId(null);
+                                            }
+                                            return setPrevFuture.thenCompose(v -> {
+                                                userResponseMap.put(senderId, chatResponseObject);
+                                                return chatResponseObject.completeGetOutput()
+                                                        .thenCompose(outputContent -> 
+                                                            MessageManager.completeSendResponse(message, outputContent)
+                                                                .thenApply(ignored -> null)
+                                                        );
+                                            });
+                                        })
+                                    );
+                                });
+                        }
+                    })
                 );
             });
         }).exceptionally(ex -> {
@@ -138,7 +148,5 @@ public class EventListeners extends ListenerAdapter implements Cog {
             return null;
         });
     }
-
-
 }
 

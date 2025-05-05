@@ -102,6 +102,7 @@ public class Helpers {
     public static final boolean OPENAI_CHAT_ADD_COMPLETION_TO_HISTORY = true;
     public static final Map<String, Object> OPENAI_CHAT_COLORIZE_RESPONSE_FORMAT = createColorizeSchema();
     public static final boolean OPENAI_CHAT_COMPLETION = true;
+    public static final Map<String, Object> OPENAI_RESPONSES_TEXT_PERPLEXITY = createPerplexitySchema();
     public static final Map<String, Object> OPENAI_CHAT_COMPLETION_RESPONSE_FORMAT = new HashMap<>();
     public static final Map<String, String> OPENAI_CHAT_HEADERS = Map.of(
         "Content-Type", "application/json",
@@ -183,6 +184,30 @@ public class Helpers {
         format.put("strict", true);
         format.put("schema", schema);
         format.put("name", "colorize");
+    
+        // Wrap format in the new responses API structure
+        return format;
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> createPerplexitySchema() {
+        // Define the color properties
+        Map<String, Object> properties = new HashMap<>();
+        properties.put("perplexity", Map.of("type", "number"));
+    
+        // Build the schema for the colorize response
+        Map<String, Object> schema = new HashMap<>();
+        schema.put("type", "object");
+        schema.put("properties", properties);
+        schema.put("required", List.of("perplexity"));
+        schema.put("additionalProperties", false);
+    
+        // Define the format containing the schema
+        Map<String, Object> format = new HashMap<>();
+        format.put("type", "json_schema");
+        format.put("strict", true);
+        format.put("schema", schema);
+        format.put("name", "perplexity");
     
         // Wrap format in the new responses API structure
         return format;

@@ -82,14 +82,15 @@ public class MessageManager {
                         try (InputStream in = new URL(url).openStream()) {
                             Files.copy(in, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
     
-                            if (contentType != null && contentType.startsWith("image/")) {
-                                String base64Image = encodeImage(Files.readAllBytes(tempFile.toPath()));
-                                results.add("data:" + contentType + ";base64," + base64Image);
-                            } else if (contentType != null && contentType.startsWith("text/")) {
+                           // if (contentType != null && contentType.startsWith("image/")) {
+                           //     String base64Image = encodeImage(Files.readAllBytes(tempFile.toPath()));
+                           //     results.add("data:" + contentType + ";base64," + base64Image);
+                                
+                            if (contentType != null && contentType.startsWith("text/")) {
                                 String textContent = new String(Files.readAllBytes(tempFile.toPath()), StandardCharsets.UTF_8);
                                 results.add(textContent);
                             } else {
-                                results.add("Skipped non-text/non-image attachment: " + fileName);
+                                results.add("Skipped non-text attachment: " + fileName);
                             }
                         } catch (IOException e) {
                             e.printStackTrace();
@@ -137,51 +138,62 @@ public class MessageManager {
 
     public static CompletableFuture<Void> completeSendResponse(Message message, String response) {
         return Vyrtuous.completeGetInstance().thenCompose(app -> {
-            // Check if response is wrapped by triple backticks with an explicit file type
-            if (response.startsWith("```")) {
-                Pattern codeBlockPattern = Pattern.compile("^```(\\w+)\\s+([\\s\\S]+)```$");
-                Matcher matcher = codeBlockPattern.matcher(response);
-                if (matcher.find()) {
-                    String fileType = matcher.group(1);   // e.g., "java" or "txt"
-                    String fileContent = matcher.group(2);
+            List<CompletableFuture<Message>> futures = new ArrayList<>();
     
-                    File file = new File(app.tempDirectory, "response." + fileType);
-                    try {
-                        Files.writeString(file.toPath(), fileContent, StandardCharsets.UTF_8);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                        return completeSendDiscordMessage(message, "Error writing file: " + e.getMessage())
-                                .thenApply(m -> null);
+            // Match all code blocks
+            Pattern codeBlockPattern = Pattern.compile("```(\\w+)\\s+([\\s\\S]+?)```", Pattern.MULTILINE);
+            Matcher matcher = codeBlockPattern.matcher(response);
+    
+            int lastEnd = 0;
+    
+            while (matcher.find()) {
+                // Send any non-code text before this code block
+                if (matcher.start() > lastEnd) {
+                    String before = response.substring(lastEnd, matcher.start()).trim();
+                    if (!before.isEmpty()) {
+                        futures.addAll(sendInChunks(message, before));
                     }
-    
-                    return completeSendDiscordMessage(message, "Response is attached as a file:")
-                            .thenCompose(sentMessage ->
-                                    completeSendDiscordMessage(message, "", file)
-                                            .thenApply(m -> null)
-                            );
                 }
-            }
     
-            // If the response is longer than Discord's 2000 character limit
-            if (response.length() > 2000) {
-                File file = new File(app.tempDirectory, "response.txt");
+                String fileType = matcher.group(1);   // e.g., "java", "txt"
+                String fileContent = matcher.group(2);
+    
+                File file = new File(app.tempDirectory, "response." + fileType);
                 try {
-                    Files.writeString(file.toPath(), response, StandardCharsets.UTF_8);
+                    Files.writeString(file.toPath(), fileContent, StandardCharsets.UTF_8);
                 } catch (IOException e) {
                     e.printStackTrace();
-                    return completeSendDiscordMessage(message, "Error writing long response file: " + e.getMessage())
+                    return completeSendDiscordMessage(message, "Error writing code file: " + e.getMessage())
                             .thenApply(m -> null);
                 }
     
-                return completeSendDiscordMessage(message, "Response was too long; see attached file:", file)
-                        .thenApply(m -> null);
+                futures.add(completeSendDiscordMessage(message, "Code block attached:", file));
+                lastEnd = matcher.end();
             }
     
-            // Otherwise, the response is short enough to be sent normally
-            return completeSendDiscordMessage(message, response)
-                    .thenApply(m -> null);
+            // Send remaining non-code content after the last code block
+            if (lastEnd < response.length()) {
+                String remaining = response.substring(lastEnd).trim();
+                if (!remaining.isEmpty()) {
+                    futures.addAll(sendInChunks(message, remaining));
+                }
+            }
+    
+            return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
         });
     }
+    
+    // Helper to send message chunks ≤ 2000 characters
+    private static List<CompletableFuture<Message>> sendInChunks(Message message, String text) {
+        List<CompletableFuture<Message>> chunks = new ArrayList<>();
+        int maxLength = 2000;
+        for (int i = 0; i < text.length(); i += maxLength) {
+            int end = Math.min(i + maxLength, text.length());
+            chunks.add(completeSendDiscordMessage(message, text.substring(i, end)));
+        }
+        return chunks;
+    }
+    
 
     public static CompletableFuture<Message> completeSendDM(User user, String content) {
         return user.openPrivateChannel()

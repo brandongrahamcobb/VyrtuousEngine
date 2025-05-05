@@ -90,6 +90,17 @@ public class ResponseObject extends MetadataContainer{
                 }
                 break;
             }
+
+            case "model": {
+                MetadataKey<Integer> modelCreatedKey = new MetadataKey<>("created", Integer.class);
+                Integer modelCreated = (Integer) responseMap.get("created");
+                put(modelCreatedKey, modelCreated);
+
+                MetadataKey<String> ownerCreatedKey = new MetadataKey<>("owned_by", String.class);
+                String ownerCreated = (String) responseMap.get("owned_by");
+                put(ownerCreatedKey, ownerCreated);
+            }
+
             case "moderation": {
                 MetadataKey<Integer> moderationCreatedKey = new MetadataKey<>("created", Integer.class);
                 Integer moderationCreated = (Integer) responseMap.get("created");
@@ -229,6 +240,7 @@ public class ResponseObject extends MetadataContainer{
                 }
                 break;
             }
+
             case "response": {
                 MetadataKey<String> responsesIdKey = new MetadataKey<>("id", String.class);
                 String responsesId = (String) responseMap.get("id");
@@ -326,14 +338,26 @@ public class ResponseObject extends MetadataContainer{
                 Map<String, Object> responsesMetadata = (Map<String, Object>) responseMap.get("metadata");
                 put(responsesMetadataKey, responsesMetadata);
 
+
                 MetadataKey<String> responsesOutputContentKey = new MetadataKey<>("output_content", String.class);
-                List<Map<String, Object>> responsesOutput = (List<Map<String, Object>>) responseMap.get("output");
-                if (responsesOutput != null && !responsesOutput.isEmpty()) {
-                    Map<String, Object> responsesMessage = responsesOutput.get(0);
-                    List<Map<String, Object>> responsesContentList = (List<Map<String, Object>>) responsesMessage.get("content");
-                    if (responsesContentList != null && !responsesContentList.isEmpty()) {
-                        String responsesOutputContent = (String) responsesContentList.get(0).get("text");
-                        put(responsesOutputContentKey, responsesOutputContent);
+                Object outputObj = responseMap.get("output");
+                if (outputObj instanceof List<?> outputList) {
+                    outer:
+                    for (Object outputItem : outputList) {
+                        if (!(outputItem instanceof Map<?, ?> messageMap)) continue;
+        
+                        Object contentObj = messageMap.get("content");
+                        if (!(contentObj instanceof List<?> contentList)) continue;
+        
+                        for (Object contentEntry : contentList) {
+                            if (!(contentEntry instanceof Map<?, ?> contentMap)) continue;
+        
+                            Object text = contentMap.get("text");
+                            if (text instanceof String textStr && !textStr.isBlank()) {
+                                put(responsesOutputContentKey, textStr);
+                                break outer;
+                            }
+                        }
                     }
                 }
                 break;
@@ -392,6 +416,7 @@ public class ResponseObject extends MetadataContainer{
     public CompletableFuture<String> completeGetOutput() {
         return CompletableFuture.supplyAsync(() -> {
             MetadataKey<String> outputKey = new MetadataKey<>("output_content", String.class);
+            System.out.println(this.get(outputKey));
             return this.get(outputKey); // this refers to your MetadataContainer or similar
         });
     }

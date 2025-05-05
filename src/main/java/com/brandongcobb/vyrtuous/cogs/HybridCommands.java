@@ -1,50 +1,47 @@
-///*  HybridCommands.java The purpose of this program is to listen for any
-// *  of the program's endpoints and handles them.
-// *  Copyright (C) 2024  github.com/brandongrahamcobb
-// *
-// *  This program is free software: you can redistribute it and/or modify
-// *  it under the terms of the GNU General Public License as published by
-//// *  the Free Software Foundation, either version 3 of the License, or
-//// *  (at your option) any later version.
-//// *  This program is distributed in the hope that it will be useful,
-//// *  but WITHOUT ANY WARRANTY; without even the implied warranty of
-//// *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-//// *  GNU General Public License for more details.
-//// *  You should have received a copy of the GNU General Public License
-//// *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
-//// */
-////package com.brandongcobb.vyrtuous.cogs;
-////
-////import com.brandongcobb.vyrtuous.Vyrtuous;
-////import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
-////import com.brandongcobb.vyrtuous.utils.handlers.DiscordUser;
-////import com.brandongcobb.vyrtuous.utils.handlers.MessageManager;
-////import com.brandongcobb.vyrtuous.utils.sec.DiscordOAuth;
-////import com.brandongcobb.vyrtuous.utils.sec.PatreonOAuth;
-////import com.brandongcobb.vyrtuous.utils.handlers.OAuthUserSession;
-////import java.io.UnsupportedEncodingException;
-////import java.net.URLEncoder;
-////import java.nio.charset.StandardCharsets;
-////import java.util.concurrent.CompletableFuture;
-////import java.util.concurrent.Executors;
-////import java.util.concurrent.locks.Lock;
-////import java.util.concurrent.ScheduledExecutorService;
-////import java.util.concurrent.ScheduledFuture;
-////import java.util.concurrent.TimeUnit;
-////import java.util.logging.Logger;
-////import java.util.HashMap;
-////import java.util.Map;
-////import javax.annotation.Nonnull;
-////import net.dv8tion.jda.api.entities.Message;
-////import net.dv8tion.jda.api.entities.User;
-////import net.dv8tion.jda.api.JDA;
-////import net.dv8tion.jda.api.hooks.ListenerAdapter;
-////import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
-////import java.util.concurrent.CompletionException;
-////
-////public class HybridCommands extends ListenerAdapter implements Cog {
-////
-//    private static Vyrtuous app;
+/*  HybridCommands.java The purpose of this program is to listen for any
+ *  of the program's endpoints and handles them.
+ *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
+package com.brandongcobb.vyrtuous.cogs;
+
+import com.brandongcobb.vyrtuous.Vyrtuous;
+import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
+import com.brandongcobb.vyrtuous.utils.handlers.MessageManager;
+import com.brandongcobb.vyrtuous.utils.handlers.Predicator;
+import java.io.UnsupportedEncodingException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
+import java.util.HashMap;
+import java.util.Map;
+import javax.annotation.Nonnull;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.User;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.hooks.ListenerAdapter;
+import net.dv8tion.jda.api.events.message.MessageReceivedEvent;
+import java.util.concurrent.CompletionException;
+
+public class HybridCommands extends ListenerAdapter implements Cog {
+
+    private static Vyrtuous app;
 //    private String authUrl;
 //    private static Lock lock;
 //    private long senderId;
@@ -55,19 +52,44 @@
 //        this.lock = app.lock;
 //    }
 //
-////    @Override
-//  //  public void register (JDA api) {
-//    //    api.addEventListener(this);
-////    }
+    @Override
+    public void register (JDA api) {
+        api.addEventListener(this);
+    }
 //
-////    @Override
+    @Override
+    public void onMessageReceived(MessageReceivedEvent event) {
+        if (event.getAuthor().isBot()) {
+            return;
+        }
+    
+        String content = event.getMessage().getContentRaw().trim();
+        User sender = event.getAuthor();
+    
+        Predicator.isDeveloper(sender).thenAcceptAsync(isDev -> {
+            if (isDev && content.equalsIgnoreCase(".config")) {
+                event.getChannel().sendMessage("Reloading configuration...").queue();
+    
+                ConfigManager.completeLoadConfig().thenRun(() -> {
+                    event.getChannel().sendMessage("Configuration reloaded successfully.").queue();
+                }).exceptionally(ex -> {
+                    event.getChannel().sendMessage("Failed to reload configuration: " + ex.getMessage()).queue();
+                    ex.printStackTrace();
+                    return null;
+                });
+            }
+        }).exceptionally(ex -> {
+            ex.printStackTrace();
+            return null;
+        });
+    }
+}
+    ////    @Override
 ////    public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
 ////        Message message = event.getMessage();
 ////        if (message.getAuthor().isBot()) {
 ////            return;
 ////        }
-////        User sender = message.getAuthor();
-////        long senderId = sender.getIdLong();
 ////        String content = message.getContentDisplay();
 ////        ConfigManager.completeGetConfigStringValue("discord_command_prefix").thenAccept(prefix -> {
 ////            if (!content.startsWith(prefix)) return;

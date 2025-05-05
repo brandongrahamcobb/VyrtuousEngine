@@ -160,9 +160,10 @@ public class AIManager {
         // Set required fields
         requestBody.put("model", model);
         requestBody.put("text", Map.of("format", textFormat));
-        requestBody.put("temperature", temperature);
-        requestBody.put("top_p", top_p);
-        requestBody.put("stream", stream);
+ //       if (Helpers.OPEN_CHAT_MODELS.get("deprecated").contains(model) 
+ //       requestBody.put("temperature", temperature);
+ //       requestBody.put("top_p", top_p);
+ //       requestBody.put("stream", stream);
     
         // Optionally include previous response ID
         if (previousResponseId != null && !previousResponseId.isEmpty()) {
@@ -202,46 +203,53 @@ public class AIManager {
     private static CompletableFuture<Map<String, Object>> completeInputToTextRequestBody(String text, String previousResponseId) {
         return ConfigManager.completeGetConfigStringValue("openai_chat_model")
             .thenCompose(model -> {
-                CompletableFuture<Boolean> streamFuture = ConfigManager.completeGetConfigBooleanValue("openai_chat_stream");
-                CompletableFuture<Object> tempFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_temperature");
-                CompletableFuture<Object> topPFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_top_p");
-                return CompletableFuture.allOf(streamFuture, tempFuture, topPFuture)
-                    .thenCompose(v -> {
-                        Map<String, Object> requestBody = new HashMap<>();
-                        if (previousResponseId != null) {
-                            requestBody.put("previous_response_id", previousResponseId);
-                        }
-                        float temperature = Float.parseFloat(String.valueOf(tempFuture.join()));
-                        float topP = Float.parseFloat(String.valueOf(topPFuture.join()));
-                        boolean stream = streamFuture.join();
-                        requestBody.put("model", model);
-                        requestBody.put("temperature", temperature);
-                        requestBody.put("top_p", topP);
-                        requestBody.put("stream", stream);
-                        List<Map<String, Object>> messagesList = new ArrayList<>();
-                        Map<String, Object> messageMap = new HashMap<>();
-                        messageMap.put("role", "user");
-                        messageMap.put("content", text);
-                        messagesList.add(messageMap);
-                        requestBody.put("input", messagesList);
-                        if (openAIDefaultChatCompletionStore) {
-                            LocalDateTime now = LocalDateTime.now();
-                            Map<String, String> metadataMap = new HashMap<>();
-                            metadataMap.put("user", model);
-                            metadataMap.put("timestamp", now.toString());
-                            requestBody.put("metadata", List.of(metadataMap));
-                        }
-                        return completeCalculateMaxOutputTokens(model, text)
-                            .thenApply(calculatedTokens -> {
-                                ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
-                                if (contextInfo != null && contextInfo.status()) {
-                                    requestBody.put("max_output_tokens", calculatedTokens);
-                                } else {
-                                    requestBody.put("max_tokens", calculatedTokens);
-                                }
-                                return requestBody;
-                            });
-                    });
+                // CompletableFuture<Boolean> streamFuture = ConfigManager.completeGetConfigBooleanValue("openai_chat_stream");
+                // CompletableFuture<Object> tempFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_temperature");
+                // CompletableFuture<Object> topPFuture = ConfigManager.completeGetConfigObjectValue("openai_chat_top_p");
+    
+                // return CompletableFuture.allOf(streamFuture, tempFuture, topPFuture)
+                //     .thenCompose(v -> {
+                return CompletableFuture.completedFuture(null).thenCompose(v -> { // temp replacement to preserve syntax
+                    Map<String, Object> requestBody = new HashMap<>();
+                    if (previousResponseId != null) {
+                        requestBody.put("previous_response_id", previousResponseId);
+                    }
+    
+                    // float temperature = Float.parseFloat(String.valueOf(tempFuture.join()));
+                    // float topP = Float.parseFloat(String.valueOf(topPFuture.join()));
+                    // boolean stream = streamFuture.join();
+    
+                    requestBody.put("model", model);
+                    // requestBody.put("temperature", temperature);
+                    // requestBody.put("top_p", topP);
+                    // requestBody.put("stream", stream);
+    
+                    List<Map<String, Object>> messagesList = new ArrayList<>();
+                    Map<String, Object> messageMap = new HashMap<>();
+                    messageMap.put("role", "user");
+                    messageMap.put("content", text);
+                    messagesList.add(messageMap);
+                    requestBody.put("input", messagesList);
+    
+                    if (openAIDefaultChatCompletionStore) {
+                        LocalDateTime now = LocalDateTime.now();
+                        Map<String, String> metadataMap = new HashMap<>();
+                        metadataMap.put("user", model);
+                        metadataMap.put("timestamp", now.toString());
+                        requestBody.put("metadata", List.of(metadataMap));
+                    }
+    
+                    return completeCalculateMaxOutputTokens(model, text)
+                        .thenApply(calculatedTokens -> {
+                            ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
+                            if (contextInfo != null && contextInfo.status()) {
+                                requestBody.put("max_output_tokens", calculatedTokens);
+                            } else {
+                                requestBody.put("max_tokens", calculatedTokens);
+                            }
+                            return requestBody;
+                        });
+                });
             });
     }
 
@@ -268,6 +276,7 @@ public class AIManager {
                     try (CloseableHttpResponse response = httpClient.execute(post)) {
                         int statusCode = response.getStatusLine().getStatusCode();
                         String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
+                        System.out.println(responseBody);
                         if (statusCode >= 200 && statusCode < 300) {
                             Map<String, Object> responseMap = objectMapper.readValue(
                                 responseBody,

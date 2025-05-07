@@ -1,15 +1,18 @@
 /*  DiscordOAuth.java The purpose of this program is to handle the OAuth
  *  url and the program's access to it.
- *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
+ *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
+ *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -39,18 +42,18 @@ import com.google.gson.JsonParser;
 
 public class DiscordOAuth {
 
-    private static Vyrtuous app;
-    private static ConfigManager cm;
-    private static String clientId;
-    private static String clientSecret;
-    private static String discordId;
-    private static String redirectUri;
+    private Vyrtuous app;
+    private ConfigManager cm;
+    private String clientId;
+    private String clientSecret;
+    private String discordId;
+    private String redirectUri;
 
     public DiscordOAuth(ConfigManager cm) {
-        this.cm = cm;
+        this.cm = cm.completeGetInstance();
     }
 
-    public static CompletableFuture<String> completeGetAuthorizationUrl() {
+    public CompletableFuture<String> completeGetAuthorizationUrl() {
         return cm.completeGetConfigValue("discord_client_id", String.class)
                     .thenCombine(cm.completeGetConfigValue("discord_redirect_uri", String.class),
                         (clientId, redirectUri) -> {
@@ -65,7 +68,7 @@ public class DiscordOAuth {
             );
     }
 
-    public static CompletableFuture<String> completeExchangeCodeForToken(String code) {
+    public CompletableFuture<String> completeExchangeCodeForToken(String code) {
         CompletableFuture<String> clientIdFuture = cm.completeGetConfigValue("discord_client_id", String.class);
         CompletableFuture<String> clientSecretFuture = cm.completeGetConfigValue("discord_client_secret", String.class);
         CompletableFuture<String> redirectUriFuture = cm.completeGetConfigValue("discord_redirect_uri", String.class);
@@ -128,7 +131,7 @@ public class DiscordOAuth {
             });
     }
 
-    private static Map<String, Object> parseJsonResponse(String jsonResponse) {
+    private Map<String, Object> parseJsonResponse(String jsonResponse) {
         Map<String, Object> tokenData = new HashMap<>();
         Gson gson = new Gson();
         tokenData = gson.fromJson(jsonResponse, Map.class);

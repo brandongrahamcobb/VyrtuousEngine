@@ -2,23 +2,26 @@
  *  object class which holds information about Discord users.
  *  Scope: To preserve and be capable of restoring user data.
  *  Current state: bugged 25 04 2025.
- *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
+ *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
+ *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.utils.handlers.Database;
+import com.brandongcobb.vyrtuous.utils.handlers.*;
 import com.brandongcobb.vyrtuous.utils.sec.PatreonOAuth;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -57,6 +60,7 @@ public class DiscordUser implements User {
 
     private String accessToken;
     private Vyrtuous app;
+    private ConfigManager cm;
     private Connection[] conn;
     private Connection connection;
     private LocalDateTime createDate = LocalDateTime.now();
@@ -79,8 +83,9 @@ public class DiscordUser implements User {
     private Timestamp timestamp = Timestamp.valueOf(createDate);
     private final String USER_INFO_URL = "https://discord.com/api/v10/users/@me";
 
-    public DiscordUser(Database db, long discordId) {
+    public DiscordUser(ConfigManager cm, Database db, long discordId) {
         this.accessToken = accessToken;
+        this.cm = cm.completeGetInstance();
         this.discordId = discordId;
         this.exp = exp;
         this.factionName = factionName;
@@ -100,7 +105,8 @@ public class DiscordUser implements User {
 
     @Override
     public CompletableFuture<Void> createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity) {
-        return UserManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity);
+        UserManager um = new UserManager(db);
+        return um.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity);
     }
 
     public long getDiscordId(String accessToken) {

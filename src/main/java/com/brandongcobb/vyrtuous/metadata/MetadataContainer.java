@@ -2,7 +2,7 @@
  *  be an object which wraps MetadataKey and MetadataHolder into a metadata
  *  map of types: MetadataKey with an unknown type ? and MetadataHolder with an unknown type ?.
  *
- *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by

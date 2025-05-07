@@ -1,3 +1,21 @@
+/*  Database.java The purpose of this class is to integrate
+ *  host a PostgresSQL database connenction for the main program..
+ *
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
@@ -16,16 +34,23 @@ import java.util.logging.Level;
 
 public class Database {
 
-    private static ConfigManager cm;
-    private static final ExecutorService dbExecutor = Executors.newFixedThreadPool(4);
-    private static HikariDataSource dbPool;
-    private static final Logger logger = Logger.getLogger("Vyrtuous");
+    private ConfigManager cm;
+    private Database instance;
+    private final ExecutorService dbExecutor = Executors.newFixedThreadPool(4);
+    private HikariDataSource dbPool;
+    private final Logger logger = Logger.getLogger("Vyrtuous");
 
     public Database(ConfigManager cm) {
-        this.cm = cm;
+        this.cm = cm.completeGetInstance();
+        completeConnectDatabase(() -> {});
+        instance = this;
     }
 
-    public CompletableFuture<Void> completeConnectDatabase(Runnable afterConnect) {
+    public CompletableFuture<Database> completeGetInstance() {
+        return CompletableFuture.completedFuture(instance);
+    }
+
+    private CompletableFuture<Void> completeConnectDatabase(Runnable afterConnect) {
         return CompletableFuture.allOf(
                 cm.completeGetConfigValue("postgres_host", String.class),
                 cm.completeGetConfigValue("postgres_database", String.class),

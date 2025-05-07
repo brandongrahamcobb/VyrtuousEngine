@@ -1,7 +1,7 @@
 /*  MetadataKey.java The primary purpose of this class is to
  *  be an object with a key whos name and type are known.
  *
- *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -20,47 +20,20 @@ package com.brandongcobb.vyrtuous.metadata;
 
 import java.util.Objects;
 
-
-/**
- * A unique key that identifies a metadata entry, parameterized by the type
- * of its associated value.
- *
- * <p>Each {@code MetadataKey<T>} has a human-readable name and a
- * {@code Type<T>} descriptor that specifies the Java type of the metadata value.
- *
- * @param <T> the Java type of the metadata value
- */
  public final class MetadataKey<T> {
- 
+
     private final String name;
     private final Class<?> type;
- 
-    /**
-     * Creates a new metadata key.
-     *
-     * @param name the unique name for this metadata key
-     * @param type a descriptor of the Java type for values stored under this key
-     */
+
     public MetadataKey(String name, Class<?> type) {
         this.name = name;
         this.type = type;
     }
 
-    /**
-     * Returns the unique name of this metadata key.
-     *
-     * @return the name of the key
-     */
     public String getName() {
         return name;
     }
 
-    /**
-     * Returns the {@code Type<T>} descriptor that specifies the Java type of
-     * values associated with this key.
-     *
-     * @return the type descriptor for this key
-     */
     public Class<?> getType() {
         return type;
     }
@@ -70,11 +43,11 @@ import java.util.Objects;
         if (this == o) return true;
         if (!(o instanceof MetadataKey)) return false;
         MetadataKey<?> that = (MetadataKey<?>) o;
-        return name.equals(that.name); // Optional: && type.equals(that.type)
+        return name.equals(that.name) && type.equals(that.type);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(name); // Optional: include type
+        return Objects.hash(type, name);
     }
 }

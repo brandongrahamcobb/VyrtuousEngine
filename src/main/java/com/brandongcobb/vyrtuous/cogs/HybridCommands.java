@@ -22,6 +22,7 @@ import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import com.brandongcobb.vyrtuous.utils.handlers.Predicator;
 import java.nio.charset.StandardCharsets;
+import java.util.concurrent.CompletableFuture;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -30,11 +31,10 @@ import java.util.concurrent.CompletionException;
 
 public class HybridCommands extends ListenerAdapter implements Cog {
 
-    private static Vyrtuous app;
-    private static ConfigManager cm;
+    private ConfigManager cm;
 
     public HybridCommands (ConfigManager cm) {
-        this.cm = cm;
+        this.cm = cm.completeGetInstance();
     }
 
     @Override
@@ -49,20 +49,23 @@ public class HybridCommands extends ListenerAdapter implements Cog {
         }
         String content = event.getMessage().getContentRaw().trim();
         User sender = event.getAuthor();
-        Predicator.isDeveloper(sender).thenAcceptAsync(isDev -> {
+        Predicator predicator = new Predicator(cm, event.getJDA());
+        predicator.isDeveloper(sender).thenAcceptAsync(isDev -> {
             if (isDev && content.equalsIgnoreCase(".config")) {
                 event.getChannel().sendMessage("Reloading configuration...").queue();
-                cm.completeLoadConfig().thenRun(() -> {
-                    event.getChannel().sendMessage("Configuration reloaded successfully.").queue();
-                }).exceptionally(ex -> {
-                    event.getChannel().sendMessage("Failed to reload configuration: " + ex.getMessage()).queue();
-                    ex.printStackTrace();
-                    return null;
-                });
+        
+                cm.completeSetAndLoadConfig()
+                    .thenRun(() -> {
+                        event.getChannel().sendMessage("Configuration reloaded successfully.").queue();
+                    })
+                    .exceptionally(ex -> {
+                        event.getChannel().sendMessage("Failed to reload configuration: ").queue();
+                        return null; // still works — type inferred from thenRun (Void)
+                    });
             }
         }).exceptionally(ex -> {
             ex.printStackTrace();
-            return null;
+            return null; // again, inferred to (Void)
         });
     }
 }

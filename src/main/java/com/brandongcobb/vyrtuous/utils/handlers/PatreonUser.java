@@ -1,22 +1,25 @@
 /*  PatreonUser.java The purpose of this object is to be the session data for a given OAuthUserSession
-    when accessed via the /patreon command on Discord.app(coming soon), Minecraft or Twitch.tv(coming soon).
- *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *  when accessed via the /patreon command on Discord.app(coming soon), Minecraft or Twitch.tv(coming soon).
+ *
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
+ *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
+ *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.utils.handlers.Database;
+import com.brandongcobb.vyrtuous.utils.handlers.*;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -43,8 +46,9 @@ import okhttp3.Response;
 public class PatreonUser implements User {
 
     private Vyrtuous app;
+    private ConfigManager cm;
     private Connection connection;
-    private static Database db;
+    private Database db;
     private long discordId;
     private int exp;
     private String factionName;
@@ -62,7 +66,8 @@ public class PatreonUser implements User {
     private Timestamp timestamp;
     private UserManager userManager;
 
-    public PatreonUser(Database db) {
+    public PatreonUser(ConfigManager cm, Database db) {
+        this.cm = cm.completeGetInstance();
         this.db = db;
         this.discordId = 0L;
         this.exp = 0;
@@ -82,7 +87,8 @@ public class PatreonUser implements User {
 
     @Override
     public CompletableFuture<Void> createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity) {
-        return UserManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity);
+        UserManager um = new UserManager(db);
+        return um.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity);
     }
 
     private final String API_URL = "https://www.patreon.com/api/oauth2/v2/identity" + "?include=memberships&fields[member]=currently_entitled_amount_cents";

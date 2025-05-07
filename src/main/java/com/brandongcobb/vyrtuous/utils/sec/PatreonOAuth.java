@@ -1,15 +1,18 @@
 /*  PatreonOAuth.java The purpose of this program is to handle the OAuth
  *  url and the program's access to it.
- *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
+ *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
+ *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -42,17 +45,17 @@ import okhttp3.Response;
 
 public class PatreonOAuth {
     private Vyrtuous app;
-    private static String clientId;
-    private static String clientSecret;
-    private static ConfigManager cm;
-    private static String redirectUri;
+    private String clientId;
+    private String clientSecret;
+    private ConfigManager cm;
+    private String redirectUri;
     private String minecraftId;
 
     public PatreonOAuth(ConfigManager cm) {
-        this.cm = cm;
+        this.cm = cm.completeGetInstance();
     }
 
-    public static CompletableFuture<String> completeGetAuthorizationUrl() {
+    public CompletableFuture<String> completeGetAuthorizationUrl() {
         return cm.completeGetConfigValue("patreon_client_id", String.class)
             .thenCombine(
                 cm.completeGetConfigValue("patreon_redirect_uri", String.class),
@@ -66,7 +69,7 @@ public class PatreonOAuth {
             );
     }
 
-    public static CompletableFuture<String> completeExchangeCodeForToken(String code) {
+    public CompletableFuture<String> completeExchangeCodeForToken(String code) {
         CompletableFuture<String> clientIdFuture = cm.completeGetConfigValue("patreon_client_id", String.class);
         CompletableFuture<String> clientSecretFuture = cm.completeGetConfigValue("patreon_client_secret", String.class);
         CompletableFuture<String> redirectUriFuture = cm.completeGetConfigValue("patreon_redirect_uri", String.class);
@@ -75,9 +78,7 @@ public class PatreonOAuth {
                 String clientId = clientIdFuture.join();
                 String clientSecret = clientSecretFuture.join();
                 String redirectUri = redirectUriFuture.join();
-    
                 OkHttpClient client = new OkHttpClient();
-    
                 RequestBody body = new FormBody.Builder()
                     .add("code", code)
                     .add("grant_type", "authorization_code")
@@ -85,12 +86,10 @@ public class PatreonOAuth {
                     .add("client_secret", clientSecret)
                     .add("redirect_uri", redirectUri)
                     .build();
-    
                 Request request = new Request.Builder()
                     .url("https://www.patreon.com/api/oauth2/token")
                     .post(body)
                     .build();
-    
                 return CompletableFuture.supplyAsync(() -> {
                     try (Response response = client.newCall(request).execute()) {
                         if (!response.isSuccessful()) {

@@ -1,6 +1,7 @@
-/* ArtificialIntelligence.java 
+/* ResponseObject.java The purpose of this class is to interpret and
+ * containerize the metadata of OpenAI's response object.
  *
- *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by

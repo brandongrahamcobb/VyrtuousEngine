@@ -1,16 +1,19 @@
 /*  Helpers.java The purpose of this program is to support the Vytuous class
  *  for any values which would make the legibility of the code worsen if it
  *  was inluded explicitly.
- *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
+ *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
+ *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -221,17 +224,18 @@ public class Helpers {
     public static final float OPENAI_CHAT_TEMPERATURE = 0.7f;
     public static final boolean OPENAI_CHAT_USE_HISTORY = true;
     public static final String OPENAI_CHAT_USER = "Brandon Graham Cobb";
-    public static final Map<String, String> OPENAI_ENDPOINT_URLS = Map.of(
-        "audio", "https://api.openai.com/v1/audio/speech",
-        "batch", "https://api.openai.com/v1/audio/batches",
-        "chat", "https://api.openai.com/v1/chat/completions",
-        "embeddings", "https://api.openai.com/v1/embeddings",
-        "files", "https://api.openai.com/v1/files",
-        "fine-tuning", "https://api.openai.com/v1/fine_tuning/jobs",
-        "images", "https://api.openai.com/v1/images/generations",
-        "models", "https://api.openai.com/v1/models",
-        "moderations", "https://api.openai.com/v1/moderations",
-        "uploads", "https://api.openai.com/v1/uploads"
+    public static final Map<String, String> OPENAI_ENDPOINT_URLS = Map.ofEntries(
+        Map.entry("audio", "https://api.openai.com/v1/audio/speech"),
+        Map.entry("batch", "https://api.openai.com/v1/audio/batches"),
+        Map.entry("chat", "https://api.openai.com/v1/chat/completions"),
+        Map.entry("embeddings", "https://api.openai.com/v1/embeddings"),
+        Map.entry("files", "https://api.openai.com/v1/files"),
+        Map.entry("fine-tuning", "https://api.openai.com/v1/fine_tuning/jobs"),
+        Map.entry("images", "https://api.openai.com/v1/images/generations"),
+        Map.entry("models", "https://api.openai.com/v1/models"),
+        Map.entry("moderations", "https://api.openai.com/v1/moderations"),
+        Map.entry("responses", "https://api.openai.com/v1/responses"),
+        Map.entry("uploads", "https://api.openai.com/v1/uploads")
     );
     public static final String OPENAI_MODERATION_MODEL = "omni-moderation-latest";
     public static final boolean OPENAI_MODERATION_IMAGE = true;

@@ -1,14 +1,17 @@
 /*  EventListeners.java The purpose of this program is to listen for any of the program's endpoints and handles them.
- *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
+ *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
+ *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -16,6 +19,7 @@ package com.brandongcobb.vyrtuous.cogs;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.utils.handlers.AIManager;
+import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import com.brandongcobb.vyrtuous.utils.handlers.MessageManager;
 import com.brandongcobb.vyrtuous.utils.handlers.ModerationManager;
 import com.brandongcobb.vyrtuous.utils.handlers.RequestObject;
@@ -39,7 +43,7 @@ public class EventListeners extends ListenerAdapter implements Cog {
 
     private final Map<Long, ResponseObject> userResponseMap = new ConcurrentHashMap<>();
     private JDA api;
-    private Lock lock;
+    private ConfigManager cm;
 
     @Override
     public void register (JDA api) {
@@ -50,6 +54,8 @@ public class EventListeners extends ListenerAdapter implements Cog {
     @Override
     public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
         Message message = event.getMessage();
+        AIManager aim = new AIManager(cm);
+        MessageManager mem = new MessageManager(cm);
         if (message.getAuthor().isBot()) return;
         boolean isMentioned = message.getMentions().getUsers().contains(api.getSelfUser());
         String content = message.getContentDisplay().replace("@Vyrtuous", "");
@@ -60,7 +66,7 @@ public class EventListeners extends ListenerAdapter implements Cog {
         final boolean[] multimodal = new boolean[]{false};
         CompletableFuture<String> fullContentFuture;
         if (attachments != null && !attachments.isEmpty()) {
-            fullContentFuture = MessageManager.completeProcessAttachments(attachments)
+            fullContentFuture = mem.completeProcessAttachments(attachments)
                 .thenApply(attachmentContentList -> {
                     String joinedAttachmentContent = String.join("\n", attachmentContentList);
                     return joinedAttachmentContent + "\n" + content;
@@ -71,14 +77,15 @@ public class EventListeners extends ListenerAdapter implements Cog {
         }
         fullContentFuture.thenCompose(fullContent -> {
             System.out.println("Processing fullContent: " + fullContent);
-            return AIManager.completeModeration(fullContent)
+            return aim.completeModeration(fullContent)
                 .thenCompose(moderationResponseObject ->
                     moderationResponseObject.completeGetFlagged()
                         .thenCompose(flagged -> {
                             if (flagged) {
+                                ModerationManager mom = new ModerationManager(cm);
                                 return moderationResponseObject.completeGetFormatFlaggedReasons()
                                     .thenCompose(reason ->
-                                        ModerationManager.completeHandleModeration(message, reason)
+                                        mom.completeHandleModeration(message, reason)
                                             .thenApply(ignored -> null)
                                     );
                             } else {
@@ -87,14 +94,14 @@ public class EventListeners extends ListenerAdapter implements Cog {
                                 if (!shouldChat) {
                                     return CompletableFuture.completedFuture(null);
                                 }
-                                return AIManager.completeResolveModel(content, multimodal[0])
+                                return aim.completeResolveModel(content, multimodal[0])
                                     .thenCompose(model -> {
                                         CompletableFuture<ResponseObject> chatFutureWrapper;
                                         if (previousResponse != null) {
                                             chatFutureWrapper = previousResponse.completeGetPreviousResponseId()
-                                                .thenCompose(prevId -> AIManager.completeChat(fullContent, prevId, model));
+                                                .thenCompose(prevId -> aim.completeChat(fullContent, prevId, model));
                                         } else {
-                                            chatFutureWrapper = AIManager.completeChat(fullContent, null, model);
+                                            chatFutureWrapper = aim.completeChat(fullContent, null, model);
                                         }
                                         return chatFutureWrapper.thenCompose(chatResponseObject -> {
                                             CompletableFuture<Void> setPrevFuture;
@@ -108,7 +115,7 @@ public class EventListeners extends ListenerAdapter implements Cog {
                                                 userResponseMap.put(senderId, chatResponseObject);
                                                 return chatResponseObject.completeGetOutput()
                                                     .thenCompose(outputContent ->
-                                                        MessageManager.completeSendResponse(message, outputContent)
+                                                        mem.completeSendResponse(message, outputContent)
                                                             .thenApply(ignored -> null)
                                                     );
                                             });

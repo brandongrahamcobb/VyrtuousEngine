@@ -1,43 +1,47 @@
 /*  AIManager.java The primary purpose of this class is to manage the=
  *  core AI functions of Vyrtuous.
- *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
+ *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
+ *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.utils.inc.Helpers;
-import com.brandongcobb.vyrtuous.utils.inc.ModelRegistry;
-import com.brandongcobb.vyrtuous.records.ModelInfo;
 import com.brandongcobb.vyrtuous.metadata.MetadataContainer;
 import com.brandongcobb.vyrtuous.metadata.MetadataKey;
-import com.brandongcobb.vyrtuous.utils.handlers.ResponseObject;
+import com.brandongcobb.vyrtuous.records.ModelInfo;
+import com.brandongcobb.vyrtuous.utils.handlers.*;
+import com.brandongcobb.vyrtuous.utils.inc.*;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.io.FileInputStream;
+import com.knuddels.jtokkit.Encodings;
+import com.knuddels.jtokkit.api.Encoding;
+import com.knuddels.jtokkit.api.EncodingRegistry;
 import java.io.IOException;
-import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.*;
-import java.util.Collections;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
+import java.util.AbstractMap;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.logging.Logger;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import org.apache.http.client.methods.CloseableHttpResponse;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.client.methods.HttpPost;
@@ -46,70 +50,29 @@ import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
 import org.apache.http.util.EntityUtils;
 import net.dv8tion.jda.api.entities.Message.Attachment;
-import java.util.AbstractMap;
-import java.util.Map;
 import org.yaml.snakeyaml.Yaml;
-import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
-import com.knuddels.jtokkit.Encodings;
-import com.knuddels.jtokkit.api.Encoding;
-import com.knuddels.jtokkit.api.EncodingRegistry;
-import java.util.stream.Collectors;
-import net.dv8tion.jda.api.entities.Message;
 
 public class AIManager {
 
-    private static String moderationApiUrl = "https://api.openai.com/v1/moderations"; // Verify this endpoint is correct
-    private static String responsesApiUrl = "https://api.openai.com/v1/responses"; // Verify this endpoint is correct
-    private static Vyrtuous app;
-    private static long calculatedMaxTokens;
-    private static ConfigManager cm;
-    private static long contextLimit;
-    private long promptTokens;
-    private static ModelInfo contextInfo;
-    private static ModelInfo outputInfo;
-    private static EncodingRegistry registry = Encodings.newDefaultEncodingRegistry();
-    private static Encoding encoding;
-    private static ResponseObject responseObject;
-
-    private static boolean openAIDefaultChatCompletion = false;
-    private static boolean openAIDefaultChatCompletionAddToHistory = false;
-    private static long openAIDefaultChatCompletionMaxTokens = Helpers.parseCommaNumber("32,768");
-    private static String openAIDefaultChatCompletionModel = "gpt-4.1-nano";
-    private static long openAIDefaultChatCompletionNumber = 1;
-    private static Map<String, Object> openAIDefaultChatCompletionResponseFormat = Helpers.OPENAI_CHAT_COMPLETION_RESPONSE_FORMAT;
-    private static String openAIDefaultChatCompletionStop = "";
-    private static boolean openAIDefaultChatCompletionStore = false;
-    private static boolean openAIDefaultChatCompletionStream = false;
-    private static String openAIDefaultChatCompletionSysInput = Helpers.OPENAI_CHAT_COMPLETION_SYS_INPUT;;
-    private static float openAIDefaultChatCompletionTemperature = 0.7f;
-    private static float openAIDefaultChatCompletionTopP = 1.0f;
-    private static boolean openAIDefaultChatCompletionUseHistory = false;
-    private static boolean openAIDefaultChatModeration = true;
-    private static boolean openAIDefaultChatModerationAddToHistory = false;
-    private static long openAIDefaultChatModerationMaxTokens = Helpers.parseCommaNumber("32,768");
-    private static String openAIDefaultChatModerationModel = "gpt-4.1-nano";
-    private static long openAIDefaultChatModerationNumber = 1;
-    private static Map<String, Object> openAIDefaultChatModerationResponseFormat = Helpers.OPENAI_CHAT_MODERATION_RESPONSE_FORMAT;
-    private static String openAIDefaultChatModerationStop = "";
-    private static boolean openAIDefaultChatModerationStore = false;
-    private static boolean openAIDefaultChatModerationStream = false;
-    private static String openAIDefaultChatModerationSysInput = "All incoming data is subject to moderation. Protect your backend by flagging a message if it is unsuitable for a public community.";
-    private static float openAIDefaultChatModerationTemperature = 0.7f;
-    private static float openAIDefaultChatModerationTopP = 1.0f;
+    private String moderationApiUrl = Helpers.OPENAI_ENDPOINT_URLS.get("moderations");
+    private String responsesApiUrl = Helpers.OPENAI_ENDPOINT_URLS.get("responses");
+    private ConfigManager cm;
+    private EncodingRegistry registry = Encodings.newDefaultEncodingRegistry();
+    private Logger logger = Logger.getLogger("Vyrtuous");
 
     public AIManager(ConfigManager cm) {
-        this.cm = cm;
+        this.cm = cm.completeGetInstance();
     }
 
-    public static CompletableFuture<Long> completeCalculateMaxOutputTokens(String model, String prompt) {
+    public CompletableFuture<Long> completeCalculateMaxOutputTokens(String model, String prompt) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 Encoding encoding = registry.getEncoding("cl100k_base").orElseThrow(() ->
                     new IllegalStateException("Fallback encoding 'cl100k_base' not available"));
                 long promptTokens = encoding.encode(prompt).size();
                 ModelInfo outputInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS.get(model);
-                long outputLimit = outputInfo != null ? outputInfo.upperLimit() : 4096; // default fallback
-                long tokens = Math.max(1, outputLimit - promptTokens - 20); // Ensure positive value
+                long outputLimit = outputInfo != null ? outputInfo.upperLimit() : 4096;
+                long tokens = Math.max(1, outputLimit - promptTokens - 20);
                 if (tokens < 16) {
                     tokens = 16;
                 }
@@ -121,26 +84,26 @@ public class AIManager {
         });
     }
 
-    public static CompletableFuture<ResponseObject> completeChat(String fullContent, String previousResponseId, String model) {
+    public CompletableFuture<ResponseObject> completeChat(String fullContent, String previousResponseId, String model) {
         return completeInputToTextRequestBody(fullContent, previousResponseId, model)
             .thenCompose(requestBody ->
                 completeRequestWithRequestBody(requestBody, responsesApiUrl)
             );
     }
 
-    public static CompletableFuture<Map<String, Object>> completeInputToModerationRequestBody(String fullContent) {
+    public CompletableFuture<Map<String, Object>> completeInputToModerationRequestBody(String fullContent) {
         return cm.completeGetConfigValue("openai_chat_model", String.class)
             .thenCompose(chatModel -> {
                 try {
                     return completeFormRequestBody(
                             fullContent,
-                            openAIDefaultChatModerationModel,
-                            openAIDefaultChatModerationResponseFormat,
-                            openAIDefaultChatModerationStore,
-                            openAIDefaultChatModerationStream,
-                            openAIDefaultChatModerationSysInput,
-                            openAIDefaultChatModerationTemperature,
-                            openAIDefaultChatModerationTopP,
+                            Helpers.OPENAI_CHAT_MODERATION_MODEL,
+                            Helpers.OPENAI_CHAT_MODERATION_RESPONSE_FORMAT,
+                            Helpers.OPENAI_CHAT_MODERATION_STORE,
+                            Helpers.OPENAI_CHAT_MODERATION_STREAM,
+                            Helpers.OPENAI_CHAT_MODERATION_SYS_INPUT,
+                            Helpers.OPENAI_CHAT_MODERATION_TEMPERATURE,
+                            Helpers.OPENAI_CHAT_MODERATION_TOP_P,
                             null
                     );
                 } catch (Exception ioe) {
@@ -152,13 +115,11 @@ public class AIManager {
             });
     }
 
-    public static CompletableFuture<String> completeResolveModel(String content, Boolean multiModal) {
+    public CompletableFuture<String> completeResolveModel(String content, Boolean multiModal) {
         return cm.completeGetConfigValue("openai_chat_model", String.class)
-            .thenCompose(model ->
-                completePerplexity(content)
-            )
-            .thenCompose((ResponseObject responseObject) ->
-                responseObject.completeGetPerplexity().thenApply(responsePerplexity -> {
+            .thenCompose((Object obj) -> {
+                ResponseObject responseObject = (ResponseObject) obj;
+                return responseObject.completeGetPerplexity().thenApply(responsePerplexity -> {
                     Integer perplexity = (Integer) responsePerplexity;
                     if (perplexity < 100) {
                         return "gpt-4.1-nano";
@@ -169,13 +130,14 @@ public class AIManager {
                     } else {
                         return "o3-mini";
                     }
-                })
-            );
+                });
+            });
     }
 
-    public static CompletableFuture<Map<String, Object>> completeInputToPerplexityRequestBody(String fullContent, Map<String, Object> format) {
+    public CompletableFuture<Map<String, Object>> completeInputToPerplexityRequestBody(String fullContent, Map<String, Object> format) {
         return cm.completeGetConfigValue("openai_chat_model", String.class)
-            .thenCompose(chatModel -> {
+            .thenCompose((Object obj) -> {
+                String chatModel = (String) obj;
                 try {
                     return completeFormRequestBody(
                             fullContent,
@@ -197,14 +159,14 @@ public class AIManager {
             });
     }
 
-    public static CompletableFuture<ResponseObject> completePerplexity(String fullContent) {
+    public CompletableFuture<ResponseObject> completePerplexity(String fullContent) {
         return completeInputToPerplexityRequestBody(fullContent, Helpers.OPENAI_RESPONSES_TEXT_PERPLEXITY)
             .thenCompose(requestBody ->
                 completeRequestWithRequestBody(requestBody, responsesApiUrl)
             );
     }
 
-    private static CompletableFuture<Map<String, Object>> completeFormRequestBody(
+    private CompletableFuture<Map<String, Object>> completeFormRequestBody(
             String fullContent,
             String model,
             Map<String, Object> textFormat,
@@ -243,13 +205,13 @@ public class AIManager {
         return CompletableFuture.completedFuture(requestBody);
     }
 
-    private static CompletableFuture<Map<String, Object>> completeFormModerationRequestBody(String fullContent) {
+    private CompletableFuture<Map<String, Object>> completeFormModerationRequestBody(String fullContent) {
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("input", fullContent);
         return CompletableFuture.completedFuture(requestBody);
     }
 
-    private static CompletableFuture<Map<String, Object>> completeInputToTextRequestBody(String text, String previousResponseId, String model) {
+    private CompletableFuture<Map<String, Object>> completeInputToTextRequestBody(String text, String previousResponseId, String model) {
         return CompletableFuture.supplyAsync(() -> null)
             .thenCompose(ignored -> {
                 Map<String, Object> requestBody = new HashMap<>();
@@ -263,7 +225,7 @@ public class AIManager {
                 messageMap.put("content", text);
                 messagesList.add(messageMap);
                 requestBody.put("input", messagesList);
-                if (openAIDefaultChatCompletionStore) {
+                if (Helpers.OPENAI_CHAT_STORE) {
                     LocalDateTime now = LocalDateTime.now();
                     Map<String, String> metadataMap = new HashMap<>();
                     metadataMap.put("user", model);
@@ -286,21 +248,21 @@ public class AIManager {
 
 
 
-    public static CompletableFuture<ResponseObject> completeHttpsModeration(String fullContent) {
+    public CompletableFuture<ResponseObject> completeHttpsModeration(String fullContent) {
         return completeInputToModerationRequestBody(fullContent)
             .thenCompose(requestBody ->
                 completeRequestWithRequestBody(requestBody, responsesApiUrl)
             );
     }
 
-    public static CompletableFuture<ResponseObject> completeModeration(String fullContent) {
+    public CompletableFuture<ResponseObject> completeModeration(String fullContent) {
         return completeFormModerationRequestBody(fullContent)
             .thenCompose(requestBody ->
                 completeRequestWithRequestBody(requestBody, moderationApiUrl)
             );
     }
 
-    private static CompletableFuture<ResponseObject> completeRequestWithRequestBody(Map<String, Object> requestBody, String endpoint) {
+    private CompletableFuture<ResponseObject> completeRequestWithRequestBody(Map<String, Object> requestBody, String endpoint) {
         return cm.completeGetConfigValue("openai_api_key", String.class)
             .thenCompose(apiKey -> CompletableFuture.supplyAsync(() -> {
                 try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
@@ -322,12 +284,12 @@ public class AIManager {
                             ResponseObject responseObject = new ResponseObject(responseMap);
                             return responseObject;
                         } else {
-                            app.logger.warning("OpenAI API returned status: " + statusCode);
+                            logger.warning("OpenAI API returned status: " + statusCode);
                             return null;
                         }
                     }
                 } catch (IOException e) {
-                    app.logger.warning("Request failed: " + e.getMessage());
+                    logger.warning("Request failed: " + e.getMessage());
                     return null;
                 }
             }));

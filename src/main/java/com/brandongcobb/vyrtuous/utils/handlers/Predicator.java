@@ -1,14 +1,17 @@
 /*  Predicator.java The purpose of this program is to run lambda functions before executing code on the main thread.
- *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
+ *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
+ *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -33,10 +36,12 @@ import net.dv8tion.jda.api.entities.Role;
 public class Predicator {
 
     private Vyrtuous app;
-    private static ConfigManager cm;
+    private JDA bot;
+    private ConfigManager cm;
 
-    public Predicator(ConfigManager cm) {
-        this.cm = cm;
+    public Predicator(ConfigManager cm, JDA bot) {
+        this.cm = cm.completeGetInstance();
+        this.bot = bot;
     }
 
     public CompletableFuture<Boolean> atHome(Guild guild) {
@@ -55,10 +60,10 @@ public class Predicator {
         );
     }
 
-    public static CompletableFuture<Boolean> isDeveloper(User user) {
+    public CompletableFuture<Boolean> isDeveloper(User user) {
         if (user == null) return CompletableFuture.completedFuture(false);
         return cm.completeGetConfigValue("discord_owner_id", Long.class)
-            .thenApply(ownerId -> user.getIdLong() == ownerId);
+            .thenApply(ownerId -> user.getIdLong() == (Long) ownerId);
     }
 
     public CompletableFuture<Boolean> isVeganUser(User user) {
@@ -89,7 +94,7 @@ public class Predicator {
     }
 
     public CompletableFuture<Guild> getGuildById(long guildId) {
-        return DiscordBot.completeGetBot().thenApply(bot -> {
+        return CompletableFuture.supplyAsync(() -> {
             for (Guild guild : bot.getGuilds()) {
                 if (Long.parseLong(guild.getId()) == guildId) {
                     return guild;

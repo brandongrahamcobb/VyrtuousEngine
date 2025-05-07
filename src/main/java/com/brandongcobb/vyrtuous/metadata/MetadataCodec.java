@@ -1,6 +1,5 @@
-/*  ModelInfo.java The primary purpose of this record is to be the query
- *  for parameter bounds of AI models.
- *  overridable method for user create on Discord, LinkedIn, OpenAI, Patreon and Twitch.
+/*  MetadataCodec.java The primary purpose of this interface is interconvert
+ *  between the system and the renderer.
  *
  *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
@@ -17,6 +16,11 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
-package com.brandongcobb.vyrtuous.records;
+package com.brandongcobb.vyrtuous.metadata;
 
-public record ModelInfo(Long upperLimit, boolean status) {}
+public class MetadataCodec <T>{
+
+    public void MetdataCodec () {
+        return;
+    }
+}

@@ -1,8 +1,24 @@
+/*  MinecraftUser.java Likely broken. 07 05 25
+ *
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ */
 package com.brandongcobb.vyrtuous.utils.handlers;
 
-
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.utils.handlers.Database;
+import com.brandongcobb.vyrtuous.utils.handlers.*;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -12,28 +28,31 @@ import java.util.function.Consumer;
 import java.util.concurrent.CompletableFuture;
 import java.util.HashMap;
 import java.util.Map;
+
 public class MinecraftUser implements User {
 
-    private static Vyrtuous app;
-    private static Database db;
+    private Vyrtuous app;
+    private ConfigManager cm;
+    private Database db;
     private String minecraftId;
-    public static Map<MinecraftUser, OAuthUserSession> sessions;
+    public Map<MinecraftUser, OAuthUserSession> sessions;
 
-    public MinecraftUser(Database db) {
+    public MinecraftUser(ConfigManager cm, Database db) {
+        this.cm = cm.completeGetInstance();
         this.db = db;
-        this.sessions = app.sessions;
     }
 
     @Override
     public CompletableFuture<Void> createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level, String minecraftId, String patreonAbout, int patreonAmountCents, String patreonEmail, long patreonId, String patreonName, String patreonStatus, String patreonTier, String patreonVanity) {
-        return UserManager.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity);
+        UserManager um = new UserManager(db);
+        return um.createUser(timestamp, discordId, exp, factionName, level, minecraftId, patreonAbout, patreonAmountCents, patreonEmail, patreonId, patreonName, patreonStatus, patreonTier, patreonVanity);
     }
 
     public MinecraftUser getCurrentUser() {
         return this;
     }
 
-    public static void userExists(String minecraftId, Consumer<Boolean> callback) {
+    public void userExists(String minecraftId, Consumer<Boolean> callback) {
         db.completeGetConnection(connection -> {
             try {
                 boolean exists = false; // Default to false

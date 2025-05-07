@@ -1,15 +1,18 @@
 /*  ModerationManager.java The purpose of this program is to handle all explicit
  *  strings from the program's endpoints.
- *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
+ *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
+ *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -40,23 +43,21 @@ import net.dv8tion.jda.api.entities.User;
 
 public class ModerationManager {
 
-    private static Vyrtuous app;
-    private static ConfigManager cm;
-    private static final Object fileLock = new Object();
-    private static Map<Long, Integer> userCounts;
-    private static Lock lock;
-    private static Logger logger;
-    private static File temporaryFile;
-
-    static {
-        temporaryFile = new File(app.tempDirectory, "config.yml");
-    }
+    private Vyrtuous app;
+    private ConfigManager cm;
+    private final Object fileLock = new Object();
+    private Map<Long, Integer> userCounts;
+    private Lock lock;
+    private Logger logger;
+    private File tempDirectory = new File(System.getProperty("java.io.tmpdir"));
+    private File tempFile = new File(System.getProperty("java.io.tmpdir"), "config.yml");
 
     public ModerationManager(ConfigManager cm) {
-        this.cm = cm;
+        this.cm = cm.completeGetInstance();
     }
 
-    public static CompletableFuture<Void> completeHandleModeration(Message message, String reasonStr) {
+    public CompletableFuture<Void> completeHandleModeration(Message message, String reasonStr) {
+        MessageManager mem = new MessageManager(cm);
         User author = message.getAuthor();
         Guild guild = message.getGuild();
         if (guild == null || author == null) {
@@ -76,8 +77,8 @@ public class ModerationManager {
             return CompletableFuture.supplyAsync(() -> {
                 Map<Long, Integer> userCounts = new HashMap<>();
                 synchronized (fileLock) {
-                    if (temporaryFile.exists()) {
-                        try (BufferedReader reader = new BufferedReader(new FileReader(temporaryFile))) {
+                    if (tempFile.exists()) {
+                        try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
                             String line;
                             while ((line = reader.readLine()) != null) {
                                 String[] parts = line.split(":");
@@ -90,7 +91,7 @@ public class ModerationManager {
                                 }
                             }
                         } catch (IOException e) {
-                            logger.severe("Failed to read temporaryFile: " + e.getMessage());
+                            logger.severe("Failed to read tempFile: " + e.getMessage());
                             return null;
                         }
                     }
@@ -98,13 +99,13 @@ public class ModerationManager {
                 int flaggedCount = userCounts.getOrDefault(userId, 0) + 1;
                 userCounts.put(userId, flaggedCount);
                 synchronized (fileLock) {
-                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(temporaryFile, false))) {
+                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile, false))) {
                         for (Map.Entry<Long, Integer> entry : userCounts.entrySet()) {
                             writer.write(entry.getKey() + ":" + entry.getValue());
                             writer.newLine();
                         }
                     } catch (IOException e) {
-                        logger.severe("Failed to write to temporaryFile: " + e.getMessage());
+                        logger.severe("Failed to write to tempFile: " + e.getMessage());
                         return null;
                     }
                 }
@@ -116,26 +117,26 @@ public class ModerationManager {
                     String warningMsg = warning + ". Your message was flagged for: " + reasonStr;
                     CompletableFuture<Void> action = CompletableFuture.completedFuture(null);
                     if (flaggedCount == 1) {
-                        action = MessageManager.completeSendDiscordMessage(message, warningMsg).thenApply(msg -> null);
+                        action = mem.completeSendDiscordMessage(message, warningMsg).thenApply(msg -> null);
                     } else if (flaggedCount >= 2 && flaggedCount <= 4) {
                         if (flaggedCount == 4) {
-                            action = MessageManager.completeSendDiscordMessage(message, warningMsg).thenApply(msg -> null);
+                            action = mem.completeSendDiscordMessage(message, warningMsg).thenApply(msg -> null);
                         }
                     } else if (flaggedCount >= 5) {
-                        action = MessageManager.completeSendDiscordMessage(message, warningMsg)
-                            .thenCompose(msg -> MessageManager.completeSendDiscordMessage(message,
+                        action = mem.completeSendDiscordMessage(message, warningMsg)
+                            .thenCompose(msg -> mem.completeSendDiscordMessage(message,
                                     "You have been timed out for 5 minutes due to repeated violations."))
                             .thenRun(() -> member.timeoutFor(Duration.ofSeconds(300)).queue())
                             .thenRunAsync(() -> {
                                 userCounts.put(userId, 0);
                                 synchronized (fileLock) {
-                                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(temporaryFile, false))) {
+                                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile, false))) {
                                         for (Map.Entry<Long, Integer> entry : userCounts.entrySet()) {
                                             writer.write(entry.getKey() + ":" + entry.getValue());
                                             writer.newLine();
                                         }
                                     } catch (IOException e) {
-                                        logger.severe("Failed to reset counts in temporaryFile: " + e.getMessage());
+                                        logger.severe("Failed to reset counts in tempFile: " + e.getMessage());
                                     }
                                 }
                             });

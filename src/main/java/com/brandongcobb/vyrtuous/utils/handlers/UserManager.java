@@ -2,16 +2,19 @@
  *  reducing duplicate entries in the database. The way this program functions is uniquely broken.
  *  It creates duplicates in the database and this program is intended to be run after every new user
  *  and is likely going to be changed because its methodology is a bandaid not a solution.
- *  Copyright (C) 2024  github.com/brandongrahamcobb
+ *
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
+ *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
  *  GNU General Public License for more details.
+ *
  *  You should have received a copy of the GNU General Public License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
@@ -35,9 +38,9 @@ import java.util.TimerTask;
 
 public class UserManager {
 
-    private static Vyrtuous app;
-    private static Connection incomingConnection;
-    private static Database db;
+    private Vyrtuous app;
+    private Connection incomingConnection;
+    private Database db;
 
     public UserManager(Database db) {
         this.db = db;
@@ -111,7 +114,7 @@ public class UserManager {
         });
     }
 
-    public static CompletableFuture<Void> createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level,
+    public CompletableFuture<Void> createUser(Timestamp timestamp, long discordId, int exp, String factionName, int level,
                                                      String minecraftId, String patreonAbout, int patreonAmountCents,
                                                      String patreonEmail, long patreonId, String patreonName,
                                                      String patreonStatus, String patreonTier, String patreonVanity) {

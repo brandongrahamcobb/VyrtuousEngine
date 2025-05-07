@@ -36,62 +36,56 @@ import org.yaml.snakeyaml.Yaml;
 
 public class ConfigManager<T> {
 
-    private static Vyrtuous app;
-    private static Map<String, Object> config;
-    private static Map<String, Object> defaultConfig;
-    private static Logger logger = Logger.getLogger("Vyrtuous");
+    private Vyrtuous app;
+    private ConfigManager instance;
+    private Map<String, Object> config = new HashMap<>();
+    private Logger logger;
     private Function<Object, T> converter;
+    private Map<String, Object> defaultConfig = Helpers.populateConfig(new HashMap<>());
 
-    static {
-        config = new HashMap<>();
-        defaultConfig = Helpers.populateConfig(new HashMap<>());
+    public ConfigManager(Vyrtuous application) {
+        instance = this;
+        this.app = application;
+        this.logger = Logger.getLogger("Vyrtuous");
     }
 
-    public ConfigManager() {
-        completeConfigure();
-    }
-
-    private static CompletableFuture<Void> completeConfigure() {
-        return completeSetConfig()
-            .thenCompose(config -> CompletableFuture.completedFuture(config.equals(defaultConfig)))
-            .thenCompose(isDefault -> {
-                if (isDefault) {
-                    return CompletableFuture.failedFuture(
-                        new IllegalStateException("Config is default/invalid"));
-                } else {
-                    return ConfigManager.completeValidateConfig();
-                }
-            })
-            .exceptionally(ex -> {
-                logger.severe("Error during initialization: " + ex.getMessage());
-                ex.printStackTrace();
-                return null;
-            });
-    }
-
-    public static CompletableFuture<Void> completeLoadConfig() {
+    public CompletableFuture<Void> completeSetAndLoadConfig() {
         return completeGetDataFolder()
             .thenCompose(folder -> {
                 File configFile = new File(folder, "config.yml");
                 CompletableFuture<Void> ensureExists = configFile.exists()
                     ? CompletableFuture.completedFuture(null)
-                    : completeSetConfig().thenApply(cfg -> null);
-                return ensureExists.thenCompose(unused2 -> CompletableFuture.supplyAsync(() -> {
+                    : CompletableFuture.supplyAsync(() -> {
+                        if (!folder.exists() && !folder.mkdirs()) {
+                            logger.severe("Failed to create data folder: " + folder.getAbsolutePath());
+                            return null;
+                        }
+                        DumperOptions options = new DumperOptions();
+                        options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+                        Yaml yaml = new Yaml(options);
+                        try (Writer writer = new FileWriter(configFile)) {
+                            yaml.dump(defaultConfig, writer);
+                        } catch (IOException e) {
+                            logger.severe("Failed to save config: " + e.getMessage());
+                        }
+                        return null;
+                    });
+                return ensureExists.thenCompose(unused -> CompletableFuture.supplyAsync(() -> {
                     Yaml yaml = new Yaml();
                     try (InputStream inputStream = new FileInputStream(configFile)) {
                         Map<String, Object> loadedConfig = yaml.load(inputStream);
                         if (loadedConfig == null) {
                             loadedConfig = new HashMap<>();
                         }
-                        config = Helpers.deepMerge(defaultConfig, loadedConfig);
+                        this.config = Helpers.deepMerge(this.defaultConfig, loadedConfig);
                     } catch (Exception e) {
                         logger.severe("Failed to load config: " + e.getMessage());
                         throw new RuntimeException("Failed to load config", e);
                     }
-                    return null;
+                    return null; // Return void
                 }));
             })
-            .thenRun(() -> logger.info("All configuration values are loaded and merged successfully."))
+            .thenRun(() -> logger.info("Configuration loaded and merged successfully."))
             .exceptionally(ex -> {
                 logger.severe("Failed to load configuration values: " + ex.getMessage());
                 return null;
@@ -102,25 +96,25 @@ public class ConfigManager<T> {
      * Getters
      *
      */
-    public static <T> CompletableFuture<T> completeGetConfigValue(String key, Class<T> type) {
+    public <T> CompletableFuture<T> completeGetConfigValue(String key, Class<T> type) {
         return completeGetConfigObjectValue(key).thenApply(value -> {
             if (value == null) return null;
             try {
-                return Helpers.convertValue(value, type);
+                return (T) Helpers.convertValue(value, type);
             } catch (Exception e) {
                 return null;
             }
         });
     }
 
-    private static CompletableFuture<Object> completeGetConfigObjectValue(String key) {
-        return CompletableFuture.supplyAsync(() -> config.get(key));
+    private CompletableFuture<Object> completeGetConfigObjectValue(String key) {
+        return CompletableFuture.supplyAsync(() -> this.config.get(key));
     }
 
-    public static CompletableFuture<File> completeGetDataFolder() {
+    public CompletableFuture<File> completeGetDataFolder() {
         return CompletableFuture.supplyAsync(() -> {
             try {
-                URI location = Vyrtuous.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+                URI location = this.app.getClass().getProtectionDomain().getCodeSource().getLocation().toURI();
                 File currentDir = new File(location).getParentFile();
                 return currentDir;
             } catch (Exception e) {
@@ -129,31 +123,55 @@ public class ConfigManager<T> {
         });
     }
 
+    public synchronized ConfigManager completeGetInstance() {
+        return this.instance;
+    }
+
     /*
      * Setters
      *
      */
-    private static CompletableFuture<Void> completeSetApp(Vyrtuous plugin) {
-        return CompletableFuture.runAsync(() -> app = plugin);
-    }
-
-    private static CompletableFuture<Map<String, Object>> completeSetConfig() {
+    private CompletableFuture<Map<String, Object>> completeSetConfig() {
         return completeGetDataFolder()
             .thenCompose(dataFolder -> CompletableFuture.supplyAsync(() -> {
                 if (!dataFolder.exists() && !dataFolder.mkdirs()) {
                     logger.severe("Failed to create data folder: " + dataFolder.getAbsolutePath());
-                    return null; // early exit
+                    return null;
                 }
                 File configFile = new File(dataFolder, "config.yml");
-                DumperOptions options = new DumperOptions();
-                options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
-                Yaml yaml = new Yaml(options);
-                try (Writer writer = new FileWriter(configFile)) {
-                    yaml.dump(config, writer);
-                } catch (IOException e) {
-                    logger.severe("Failed to save config: " + e.getMessage());
+                boolean configExistsAndValid = false;
+                if (configFile.exists()) {
+                    try (InputStream inputStream = new FileInputStream(configFile)) {
+                        Yaml yaml = new Yaml();
+                        Map<String, Object> existingConfig = yaml.load(inputStream);
+                        if (existingConfig != null && !existingConfig.equals(new HashMap<>())) {
+                            configExistsAndValid = true;
+                        }
+                    } catch (Exception e) {
+                        logger.warning("Could not read existing config: " + e.getMessage());
+                    }
                 }
-                return config;
+                if (!configExistsAndValid) {
+                    DumperOptions options = new DumperOptions();
+                    options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
+                    Yaml yaml = new Yaml(options);
+                    try (Writer writer = new FileWriter(configFile)) {
+                        yaml.dump(defaultConfig, writer);
+                    } catch (IOException e) {
+                        logger.severe("Failed to save config: " + e.getMessage());
+                    }
+                } else {
+                    try (InputStream inputStream = new FileInputStream(configFile)) {
+                        Yaml yaml = new Yaml();
+                        Map<String, Object> loadedConfig = yaml.load(inputStream);
+                        if (loadedConfig != null) {
+                            this.config = Helpers.deepMerge(this.defaultConfig, loadedConfig);
+                        }
+                    } catch (Exception e) {
+                        logger.warning("Could not read existing config: " + e.getMessage());
+                    }
+                }
+                return defaultConfig;
             }));
     }
 
@@ -161,7 +179,7 @@ public class ConfigManager<T> {
      * Validation
      *
      */
-    private static CompletableFuture<Void> completeValidateConfig() {
+    public CompletableFuture<Void> completeValidateConfig() {
         List<CompletableFuture<Boolean>> validations = new ArrayList<>();
         validations.add(completeValidateApiConfig("discord"));
         validations.add(completeValidateApiConfig("openai"));
@@ -182,32 +200,32 @@ public class ConfigManager<T> {
             });
     }
 
-    private static CompletableFuture<Boolean> completeValidateApiConfig(String api) {
+    private CompletableFuture<Boolean> completeValidateApiConfig(String api) {
         return CompletableFuture.supplyAsync(() -> {
             String apiKey = api + "_api_key";
             String clientIdKey = api + "_client_id";
             String clientSecretKey = api + "_client_secret";
             String redirectUriKey = api + "_redirect_uri";
             boolean hasValidData = false;
-            String apiKeyValue = (String) config.get(apiKey);
+            String apiKeyValue = (String) this.config.get(apiKey);
             if (Helpers.isNullOrEmpty(new Object[]{apiKeyValue})) {
                 logger.warning(api + " API key is missing or invalid.");
             } else {
                 hasValidData = true;
             }
-            String clientId = (String) config.get(clientIdKey);
+            String clientId = (String) this.config.get(clientIdKey);
             if (Helpers.isNullOrEmpty(new Object[]{clientId})) {
                 logger.warning(api + " client_id is missing or invalid.");
             } else {
                 hasValidData = true;
             }
-            String clientSecret = (String) config.get(clientSecretKey);
+            String clientSecret = (String) this.config.get(clientSecretKey);
             if (Helpers.isNullOrEmpty(new Object[]{clientSecret})) {
                 logger.warning(api + " client_secret is missing or invalid.");
             } else {
                 hasValidData = true;
             }
-            String redirectUri = (String) config.get(redirectUriKey);
+            String redirectUri = (String) this.config.get(redirectUriKey);
             if (Helpers.isNullOrEmpty(new Object[]{redirectUri})) {
                 logger.warning(api + " redirect_uri is missing or invalid.");
             } else {
@@ -217,48 +235,48 @@ public class ConfigManager<T> {
         });
     }
 
-    private static CompletableFuture<Boolean> completeValidateOpenAIConfig() {
+    private CompletableFuture<Boolean> completeValidateOpenAIConfig() {
         return CompletableFuture.supplyAsync(() -> {
-            String openAIChatCompletion = (String) String.valueOf(config.get("openai_chat_completion"));
-            String openAIChatModel = (String) String.valueOf(config.get("openai_chat_model"));
-            String openAIChatModeration = (String) String.valueOf(config.get("openai_chat_moderation"));
-            String openAIChatStop = (String) String.valueOf(config.get("openai_chat_stop"));
-            boolean openAIChatStream = (boolean) Boolean.parseBoolean(String.valueOf(config.get("openai_chat_stream")));
-            float openAIChatTemperature = (float) Float.parseFloat(String.valueOf(config.get("openai_chat_temperature")));
-            float openAIChatTopP = (float) Float.parseFloat(String.valueOf(config.get("openai_chat_top_p")));
+            String openAIChatCompletion = (String) String.valueOf(this.config.get("openai_chat_completion"));
+            String openAIChatModel = (String) String.valueOf(this.config.get("openai_chat_model"));
+            String openAIChatModeration = (String) String.valueOf(this.config.get("openai_chat_moderation"));
+            String openAIChatStop = (String) String.valueOf(this.config.get("openai_chat_stop"));
+            boolean openAIChatStream = (boolean) Boolean.parseBoolean(String.valueOf(this.config.get("openai_chat_stream")));
+            float openAIChatTemperature = (float) Float.parseFloat(String.valueOf(this.config.get("openai_chat_temperature")));
+            float openAIChatTopP = (float) Float.parseFloat(String.valueOf(this.config.get("openai_chat_top_p")));
             boolean isValid = true;
             Object[] values = {openAIChatCompletion, openAIChatModel, openAIChatModeration, openAIChatStop, openAIChatStream, openAIChatTemperature, openAIChatTopP};
             if (Helpers.isNullOrEmpty(values)) {
                 logger.warning("OpenAI settings are invalid.");
                 isValid = false;
             }
-            return isValid; // Returns true if the Postgres config is properly set
+            return isValid;
         });
     }
 
-    private static CompletableFuture<Boolean> completeValidatePostgresConfig() {
+    private CompletableFuture<Boolean> completeValidatePostgresConfig() {
         return CompletableFuture.supplyAsync(() -> {
-            String database = (String) config.get("postgres_database");
-            String user = (String) config.get("postgres_user");
-            String password = (String) config.get("postgres_password");
-            String host = (String) config.get("postgres_host");
-            String port = (String) config.get("postgres_port");
+            String database = (String) this.config.get("postgres_database");
+            String user = (String) this.config.get("postgres_user");
+            String password = (String) this.config.get("postgres_password");
+            String host = (String) this.config.get("postgres_host");
+            String port = (String) this.config.get("postgres_port");
             boolean isValid = true;
             String[] values = {database, user, password, host, port};
             if (Helpers.isNullOrEmpty(values)) {
                 logger.warning("Postgres settings are invalid.");
                 isValid = false;
             }
-            return isValid; // Returns true if the Postgres config is properly set
+            return isValid;
         });
     }
 
-    private static CompletableFuture<Boolean> completeValidateSparkConfig() {
+    private CompletableFuture<Boolean> completeValidateSparkConfig() {
         return CompletableFuture.supplyAsync(() -> {
             boolean isValid = true;
-            String discordEndpoint = (String) config.get("spark_discord_endpoint");
-            String patreonEndpoint = (String) config.get("spark_patreon_endpoint");
-            String port = String.valueOf(config.get("spark_port"));
+            String discordEndpoint = (String) this.config.get("spark_discord_endpoint");
+            String patreonEndpoint = (String) this.config.get("spark_patreon_endpoint");
+            String port = String.valueOf(this.config.get("spark_port"));
             String[] values = {discordEndpoint, patreonEndpoint, port};
             System.out.println(discordEndpoint + patreonEndpoint + port);
             if (Helpers.isNullOrEmpty(values)) {
@@ -269,9 +287,9 @@ public class ConfigManager<T> {
         });
     }
 
-    private static CompletableFuture<Boolean> completeValidateWebHeadersConfig() {
+    private CompletableFuture<Boolean> completeValidateWebHeadersConfig() {
         return CompletableFuture.supplyAsync(() -> {
-            Map<String, Object> webHeaders = (Map<String, Object>) config.get("web_headers");
+            Map<String, Object> webHeaders = (Map<String, Object>) this.config.get("web_headers");
             boolean isValid = true;
             for (Map.Entry<String, Object> entry : webHeaders.entrySet()) {
                 String api = entry.getKey();

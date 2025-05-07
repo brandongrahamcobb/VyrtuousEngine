@@ -95,30 +95,31 @@ public class EventListeners extends ListenerAdapter implements Cog {
                                 }
                                 return aim.completeResolveModel(fullContent, multimodal[0])
                                     .thenCompose(model -> {
-                                        CompletableFuture<ResponseObject> chatFutureWrapper;
+                                        CompletableFuture<String> previousResponseIdFuture;
                                         if (previousResponse != null) {
-                                            chatFutureWrapper = previousResponse.completeGetPreviousResponseId()
-                                                .thenCompose(prevId -> aim.completeChat(fullContent, prevId, model));
+                                            previousResponseIdFuture = previousResponse.completeGetResponseId();
                                         } else {
-                                            chatFutureWrapper = aim.completeChat(fullContent, null, model);
+                                            previousResponseIdFuture = CompletableFuture.completedFuture(null);
                                         }
-                                        return chatFutureWrapper.thenCompose(chatResponseObject -> {
-                                            CompletableFuture<Void> setPrevFuture;
-                                            if (previousResponse != null) {
-                                                setPrevFuture = previousResponse.completeGetPreviousResponseId()
-                                                    .thenCompose(prevId -> chatResponseObject.completeSetPreviousResponseId(prevId));
-                                            } else {
-                                                setPrevFuture = chatResponseObject.completeSetPreviousResponseId(null);
-                                            }
-                                            return setPrevFuture.thenCompose(v -> {
-                                                userResponseMap.put(senderId, chatResponseObject);
-                                                return chatResponseObject.completeGetOutput()
-                                                    .thenCompose(outputContent ->
-                                                        mem.completeSendResponse(message, outputContent)
-                                                            .thenApply(ignored -> null)
-                                                    );
+                                        return previousResponseIdFuture
+                                            .thenCompose(previousResponseId -> aim.completeChat(fullContent, previousResponseId, model))
+                                            .thenCompose(chatResponseObject -> {
+                                                CompletableFuture<Void> setPrevFuture;
+                                                if (previousResponse != null) {
+                                                    setPrevFuture = previousResponse.completeGetPreviousResponseId()
+                                                        .thenCompose(prevId -> chatResponseObject.completeSetPreviousResponseId(prevId));
+                                                } else {
+                                                    setPrevFuture = chatResponseObject.completeSetPreviousResponseId(null);
+                                                }
+                                                return setPrevFuture.thenCompose(v -> {
+                                                    userResponseMap.put(senderId, chatResponseObject);
+                                                    return chatResponseObject.completeGetOutput()
+                                                        .thenCompose(outputContent ->
+                                                            mem.completeSendResponse(message, outputContent)
+                                                                .thenApply(ignored -> null)
+                                                        );
+                                                });
                                             });
-                                        });
                                     });
                             }
                         })

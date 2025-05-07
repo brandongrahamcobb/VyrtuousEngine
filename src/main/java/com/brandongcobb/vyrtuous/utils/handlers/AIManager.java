@@ -116,7 +116,6 @@ public class AIManager {
     public CompletableFuture<String> completeResolveModel(String content, Boolean multiModal) {
         return completePerplexity(content)
             .thenCompose(responseObject -> {
-                System.out.println("Blue");
                 return responseObject.completeGetPerplexity().thenApply(responsePerplexity -> {
                     Integer perplexity = (Integer) responsePerplexity;
                     if (perplexity < 100) {
@@ -269,7 +268,6 @@ public class AIManager {
                     try (CloseableHttpResponse response = httpClient.execute(post)) {
                         int statusCode = response.getStatusLine().getStatusCode();
                         String responseBody = EntityUtils.toString(response.getEntity(), "UTF-8");
-                        System.out.println(responseBody);
                         if (statusCode >= 200 && statusCode < 300) {
                             Map<String, Object> responseMap = objectMapper.readValue(
                                 responseBody,

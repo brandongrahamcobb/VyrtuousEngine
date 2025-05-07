@@ -218,7 +218,6 @@ public class ResponseObject extends MetadataContainer{
             String responsesError = (String) responseMap.get("error");
             put(responsesErrorKey, responsesError);
             MetadataKey<String> responsesIncompleteDetailsReasonKey = new MetadataKey<>("reason", String.class);
-            // It looks like the incomplete details might be nested—make sure you get the right field.
             Map<String, String> responsesIncompleteDetails = (Map<String, String>) responseMap.get("incomplete_details");
             String reason = responsesIncompleteDetails != null ? responsesIncompleteDetails.get("reason") : null;
             put(responsesIncompleteDetailsReasonKey, reason);
@@ -250,7 +249,6 @@ public class ResponseObject extends MetadataContainer{
             Double responsesTemperature = (Double) responseMap.get("temperature");
             put(responsesTemperatureKey, responsesTemperature);
             MetadataKey<Map<String, Object>> responsesTextFormatKey = new MetadataKey<>("text_format", Map.class);
-            // Ensure to retrieve the right nested field; here it previously was called "text" in your version.
             Map<String, Object> responsesTextFormat = (Map<String, Object>) responseMap.get("text");
             put(responsesTextFormatKey, responsesTextFormat);
             MetadataKey<String> responsesToolChoiceKey = new MetadataKey<>("tool_choice", String.class);
@@ -345,10 +343,17 @@ public class ResponseObject extends MetadataContainer{
         });
     }
 
+    public CompletableFuture<String> completeGetResponseId() {
+        return CompletableFuture.supplyAsync(() -> {
+            MetadataKey<String> responseIdKey = new MetadataKey<>("id", String.class);
+            return this.get(responseIdKey);
+        });
+    }
+
     public CompletableFuture<String> completeGetOutput() {
         return CompletableFuture.supplyAsync(() -> {
             MetadataKey<String> outputKey = new MetadataKey<>("output_content", String.class);
-            return this.get(outputKey); // this refers to your MetadataContainer or similar
+            return this.get(outputKey);
         });
     }
 
@@ -357,11 +362,11 @@ public class ResponseObject extends MetadataContainer{
             try {
                 MetadataKey<String> outputKey = new MetadataKey<>("output_content", String.class);
                 ObjectMapper objectMapper = new ObjectMapper();
-                String json = this.get(outputKey); // Assuming `this.get(...)` returns JSON string
+                String json = this.get(outputKey);
                 Map<String, Integer> responseMap = objectMapper.readValue(json, new TypeReference<Map<String, Integer>>() {});
                 return responseMap.get("perplexity");
             } catch (Exception e) {
-                throw new CompletionException(e); // wrap checked exceptions
+                throw new CompletionException(e);
             }
         });
     }
@@ -369,7 +374,7 @@ public class ResponseObject extends MetadataContainer{
     public CompletableFuture<String> completeGetPreviousResponseId() {
         return CompletableFuture.supplyAsync(() -> {
             MetadataKey<String> previousResponseIdKey = new MetadataKey<>("previous_response_id", String.class);
-            return this.get(previousResponseIdKey); // this refers to your MetadataContainer or similar
+            return this.get(previousResponseIdKey);
         });
     }
 

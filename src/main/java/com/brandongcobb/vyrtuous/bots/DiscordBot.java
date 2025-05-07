@@ -43,49 +43,43 @@ public class DiscordBot {
     private static final Logger logger = Logger.getLogger("Vyrtuous");;
     private static final ReentrantLock lock = new ReentrantLock();
 
-
     public DiscordBot(ConfigManager cm) {
         this.cm = cm;
     }
 
-
     public static CompletableFuture<JDA> completeGetBot() {
-        return CompletableFuture.supplyAsync(() -> this);
+        return CompletableFuture.supplyAsync(() -> bot);
     }
 
     public static CompletableFuture<Void> completeInitializeJDA() {
-        return app.completeGetInstance().thenAcceptAsync(app -> {
-            lock.lock();
-            try {
-                cm.completeGetConfigNestedValue("api_keys", "Discord")
-                    .thenCompose(discordApiKeys ->
-                        discordApiKeys.completeGetConfigValue("api_key", String.class)
-                    )
-                    .thenCombine(
-                        cm.completeGetConfigValue("discord_owner_id", Long.class),
-                        (apiKey, ownerId) -> {
-                            bot = JDABuilder.createDefault(apiKey,
-                                    GatewayIntent.GUILD_MESSAGES,
-                                    GatewayIntent.MESSAGE_CONTENT,
-                                    GatewayIntent.GUILD_MEMBERS)
-                                .setActivity(Activity.playing("I take pharmacology personally."))
-                                .build();
-                            List<Cog> cogs = new ArrayList<>();
-                            cogs.add(new EventListeners());
-                            for (Cog cog : cogs) {
-                                cog.register(bot);
-                            }
-                            return null;
-                        }
-                    )
-                    .exceptionally(ex -> {
-                        logger.log(Level.SEVERE, "Error starting Discord bot", ex);
-                        return null;
-                    }).join();
-            } finally {
+        lock.lock();
+        try {
+            CompletableFuture<String> apiKeyFuture = cm.completeGetConfigValue("discord_api_key", String.class);
+            CompletableFuture<Long> ownerIdFuture = cm.completeGetConfigValue("discord_owner_id", Long.class);
+            return apiKeyFuture.thenCombine(ownerIdFuture, (apiKey, ownerId) -> {
+                bot = JDABuilder.createDefault(apiKey,
+                        GatewayIntent.GUILD_MESSAGES,
+                        GatewayIntent.MESSAGE_CONTENT,
+                        GatewayIntent.GUILD_MEMBERS)
+                    .setActivity(Activity.playing("I take pharmacology personally."))
+                    .build();
+                List<Cog> cogs = new ArrayList<>();
+                cogs.add(new EventListeners());
+                for (Cog cog : cogs) {
+                    cog.register(bot);
+                }
+                return ((Void) null);
+            })
+            .whenComplete((result, throwable) -> {
                 lock.unlock();
-            }
-        });
+                if (throwable != null) {
+                    logger.log(Level.SEVERE, "Error starting Discord bot", throwable);
+                }
+            });
+        } catch (Exception ex) {
+            lock.unlock();
+            logger.log(Level.SEVERE, "Error starting Discord bot (sync error)", ex);
+            return CompletableFuture.failedFuture(ex);
+        }
     }
-
 }

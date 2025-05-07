@@ -39,12 +39,7 @@ public class EventListeners extends ListenerAdapter implements Cog {
 
     private final Map<Long, ResponseObject> userResponseMap = new ConcurrentHashMap<>();
     private JDA api;
-    private final Vyrtuous app;
     private Lock lock;
-
-    public EventListeners () {
-        this.lock = app.lock;
-    }
 
     @Override
     public void register (JDA api) {
@@ -63,70 +58,65 @@ public class EventListeners extends ListenerAdapter implements Cog {
         List<Attachment> attachments = message.getAttachments();
         ResponseObject previousResponse = userResponseMap.get(senderId);
         final boolean[] multimodal = new boolean[]{false};
-        app.completeGetInstance().thenCompose(appInstance -> {
-            CompletableFuture<String> fullContentFuture;
-            if (attachments != null && !attachments.isEmpty()) {
-                fullContentFuture = MessageManager.completeProcessAttachments(attachments)
-                    .thenApply(attachmentContentList -> {
-                        String joinedAttachmentContent = String.join("\n", attachmentContentList);
-                        return joinedAttachmentContent + "\n" + content;
-                    });
-                multimodal[0] = true;
-            } else {
-                fullContentFuture = CompletableFuture.completedFuture(content);
-            }
-            return fullContentFuture.thenCompose(fullContent -> {
-                System.out.println("Processing fullContent: " + fullContent);
-                CompletableFuture<ResponseObject> moderationFuture = AIManager.completeModeration(fullContent);
-                return moderationFuture.thenCompose(moderationResponseObject ->
-                    moderationResponseObject.completeGetFlagged().thenCompose(flagged -> {
-                        if (flagged) {
-                            return moderationResponseObject.completeGetFormatFlaggedReasons()
+        CompletableFuture<String> fullContentFuture;
+        if (attachments != null && !attachments.isEmpty()) {
+            fullContentFuture = MessageManager.completeProcessAttachments(attachments)
+                .thenApply(attachmentContentList -> {
+                    String joinedAttachmentContent = String.join("\n", attachmentContentList);
+                    return joinedAttachmentContent + "\n" + content;
+                });
+            multimodal[0] = true;
+        } else {
+            fullContentFuture = CompletableFuture.completedFuture(content);
+        }
+        fullContentFuture.thenCompose(fullContent -> {
+            System.out.println("Processing fullContent: " + fullContent);
+            return AIManager.completeModeration(fullContent)
+                .thenCompose(moderationResponseObject ->
+                    moderationResponseObject.completeGetFlagged()
+                        .thenCompose(flagged -> {
+                            if (flagged) {
+                                return moderationResponseObject.completeGetFormatFlaggedReasons()
                                     .thenCompose(reason ->
                                         ModerationManager.completeHandleModeration(message, reason)
                                             .thenApply(ignored -> null)
                                     );
-                        } else {
-                            boolean shouldChat = (fullContent.length() > 1 &&
-                                  "chat".equalsIgnoreCase(fullContent.substring(1))) || isMentioned;
-                            if (!shouldChat) {
-                                return CompletableFuture.completedFuture(null);
-                            }
-                            return AIManager.completeResolveModel(content, multimodal[0])
-                                .thenCompose(model -> {
-                                    CompletableFuture<CompletableFuture<ResponseObject>> chatFutureWrapper;
-                                    if (previousResponse != null) {
-                                        chatFutureWrapper = previousResponse.completeGetPreviousResponseId()
-                                                .thenApply(prevId -> AIManager.completeChat(fullContent, prevId, model));
-                                    } else {
-                                        chatFutureWrapper = CompletableFuture.completedFuture(
-                                                AIManager.completeChat(fullContent, null, model)
-                                        );
-                                    }
-                                    return chatFutureWrapper.thenCompose(chatFuture ->
-                                        chatFuture.thenCompose(chatResponseObject -> {
+                            } else {
+                                boolean shouldChat = (fullContent.length() > 1 &&
+                                        "chat".equalsIgnoreCase(fullContent.substring(1))) || isMentioned;
+                                if (!shouldChat) {
+                                    return CompletableFuture.completedFuture(null);
+                                }
+                                return AIManager.completeResolveModel(content, multimodal[0])
+                                    .thenCompose(model -> {
+                                        CompletableFuture<ResponseObject> chatFutureWrapper;
+                                        if (previousResponse != null) {
+                                            chatFutureWrapper = previousResponse.completeGetPreviousResponseId()
+                                                .thenCompose(prevId -> AIManager.completeChat(fullContent, prevId, model));
+                                        } else {
+                                            chatFutureWrapper = AIManager.completeChat(fullContent, null, model);
+                                        }
+                                        return chatFutureWrapper.thenCompose(chatResponseObject -> {
                                             CompletableFuture<Void> setPrevFuture;
                                             if (previousResponse != null) {
                                                 setPrevFuture = previousResponse.completeGetPreviousResponseId()
-                                                        .thenCompose(prevId -> chatResponseObject.completeSetPreviousResponseId(prevId));
+                                                    .thenCompose(prevId -> chatResponseObject.completeSetPreviousResponseId(prevId));
                                             } else {
                                                 setPrevFuture = chatResponseObject.completeSetPreviousResponseId(null);
                                             }
                                             return setPrevFuture.thenCompose(v -> {
                                                 userResponseMap.put(senderId, chatResponseObject);
                                                 return chatResponseObject.completeGetOutput()
-                                                        .thenCompose(outputContent -> 
-                                                            MessageManager.completeSendResponse(message, outputContent)
-                                                                .thenApply(ignored -> null)
-                                                        );
+                                                    .thenCompose(outputContent ->
+                                                        MessageManager.completeSendResponse(message, outputContent)
+                                                            .thenApply(ignored -> null)
+                                                    );
                                             });
-                                        })
-                                    );
-                                });
-                        }
-                    })
+                                        });
+                                    });
+                            }
+                        })
                 );
-            });
         }).exceptionally(ex -> {
             ex.printStackTrace();
             return null;

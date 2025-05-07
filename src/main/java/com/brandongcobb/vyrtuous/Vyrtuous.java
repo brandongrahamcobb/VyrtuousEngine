@@ -80,14 +80,11 @@ public class Vyrtuous {
         ConfigManager cm = new ConfigManager();
         Database db = new Database(cm);
         db.completeConnectDatabase(() -> {});
-        OAuthServer server = new OAuthServer(cm);
-        server.completeConnectsSpark().join();
         DiscordBot bot = new DiscordBot(cm);
         bot.completeInitializeJDA().join();
         Runtime.getRuntime().addShutdownHook(new Thread(() -> {
             try {
-                db.completeCloseDatabase(() -> {});
-                server.completeCancelOAuth(() -> {});
+                db.completeCloseDatabase();
             } catch (Exception e) {
                 e.printStackTrace();
             }

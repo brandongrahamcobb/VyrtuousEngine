@@ -18,6 +18,7 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
+import com.brandongcobb.vyrtuous.utils.handlers.Database;
 import com.brandongcobb.vyrtuous.utils.sec.PatreonOAuth;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
@@ -59,6 +60,7 @@ public class DiscordUser implements User {
     private Connection[] conn;
     private Connection connection;
     private LocalDateTime createDate = LocalDateTime.now();
+    private static Database db;
     private long discordId;
     private int exp;
     private String factionName;
@@ -77,8 +79,7 @@ public class DiscordUser implements User {
     private Timestamp timestamp = Timestamp.valueOf(createDate);
     private final String USER_INFO_URL = "https://discord.com/api/v10/users/@me";
 
-    public DiscordUser(Vyrtuous application, long discordId) {
-        this.app = application;
+    public DiscordUser(Database db, long discordId) {
         this.accessToken = accessToken;
         this.discordId = discordId;
         this.exp = exp;
@@ -119,7 +120,7 @@ public class DiscordUser implements User {
     }
 
     public void userExists(long discordId, Consumer<Boolean> callback) {
-        app.completeGetConnection(connection -> {
+        db.completeGetConnection(connection -> {
             try {
                 boolean exists = false;
                 if (connection != null) {

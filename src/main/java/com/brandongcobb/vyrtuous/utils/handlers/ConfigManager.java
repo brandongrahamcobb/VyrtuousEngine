@@ -34,12 +34,12 @@ import java.util.Map;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
 
-public class ConfigManager {
+public class ConfigManager<T> {
 
     private static Vyrtuous app;
     private static Map<String, Object> config;
     private static Map<String, Object> defaultConfig;
-    private static Logger logger = Logger.getlogger("Vyrtuous");
+    private static Logger logger = Logger.getLogger("Vyrtuous");
     private Function<Object, T> converter;
 
     static {
@@ -47,13 +47,13 @@ public class ConfigManager {
         defaultConfig = Helpers.populateConfig(new HashMap<>());
     }
 
-    public static ConfigManager() {
-        completeConfigure(() -> {});
+    public ConfigManager() {
+        completeConfigure();
     }
 
     private static CompletableFuture<Void> completeConfigure() {
         return completeSetConfig()
-            .thenCompose(config -> config.equals(defaultConfig))
+            .thenCompose(config -> CompletableFuture.completedFuture(config.equals(defaultConfig)))
             .thenCompose(isDefault -> {
                 if (isDefault) {
                     return CompletableFuture.failedFuture(
@@ -71,31 +71,31 @@ public class ConfigManager {
 
     public static CompletableFuture<Void> completeLoadConfig() {
         return completeGetDataFolder()
-          .thenCompose(folder -> {
-              File configFile = new File(folder, "config.yml");
-              CompletableFuture<Void> ensureExists = configFile.exists()
-                  ? CompletableFuture.completedFuture(null)
-                  : completeSetConfig();
-              return ensureExists.thenCompose(unused2 -> CompletableFuture.supplyAsync(() -> {
-                  Yaml yaml = new Yaml();
-                  try (InputStream inputStream = new FileInputStream(configFile)) {
-                      Map<String, Object> loadedConfig = yaml.load(inputStream);
-                      if (loadedConfig == null) {
-                          loadedConfig = new HashMap<>();
-                      }
-                      config = Helpers.deepMerge(defaultConfig, loadedConfig);
-                  } catch (Exception e) {
-                      logger.severe("Failed to load config: " + e.getMessage());
-                      throw new RuntimeException("Failed to load config", e);
-                  }
-                  return null;
-              }));
-          }).thenRun(() -> {
-              logger.info("All configuration values are loaded and merged successfully.");
-          }).exceptionally(ex -> {
-              logger.severe("Failed to load configuration values: " + ex.getMessage());
-              return null;
-          });
+            .thenCompose(folder -> {
+                File configFile = new File(folder, "config.yml");
+                CompletableFuture<Void> ensureExists = configFile.exists()
+                    ? CompletableFuture.completedFuture(null)
+                    : completeSetConfig().thenApply(cfg -> null);
+                return ensureExists.thenCompose(unused2 -> CompletableFuture.supplyAsync(() -> {
+                    Yaml yaml = new Yaml();
+                    try (InputStream inputStream = new FileInputStream(configFile)) {
+                        Map<String, Object> loadedConfig = yaml.load(inputStream);
+                        if (loadedConfig == null) {
+                            loadedConfig = new HashMap<>();
+                        }
+                        config = Helpers.deepMerge(defaultConfig, loadedConfig);
+                    } catch (Exception e) {
+                        logger.severe("Failed to load config: " + e.getMessage());
+                        throw new RuntimeException("Failed to load config", e);
+                    }
+                    return null;
+                }));
+            })
+            .thenRun(() -> logger.info("All configuration values are loaded and merged successfully."))
+            .exceptionally(ex -> {
+                logger.severe("Failed to load configuration values: " + ex.getMessage());
+                return null;
+            });
     }
 
     /*
@@ -108,14 +108,13 @@ public class ConfigManager {
             try {
                 return Helpers.convertValue(value, type);
             } catch (Exception e) {
-                // handle conversion error
                 return null;
             }
         });
     }
 
     private static CompletableFuture<Object> completeGetConfigObjectValue(String key) {
-        return CompletableFuture.supplyAsync(() -> this.config.get(key));
+        return CompletableFuture.supplyAsync(() -> config.get(key));
     }
 
     public static CompletableFuture<File> completeGetDataFolder() {

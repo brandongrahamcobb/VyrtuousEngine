@@ -41,7 +41,6 @@ public class DiscordOAuth {
 
     private static Vyrtuous app;
     private static ConfigManager cm;
-    private static ConfigSection discordApiKeys; // = ConfigManager.new ConfigSection();
     private static String clientId;
     private static String clientSecret;
     private static String discordId;
@@ -53,7 +52,7 @@ public class DiscordOAuth {
 
     public static CompletableFuture<String> completeGetAuthorizationUrl() {
         return cm.completeGetConfigValue("discord_client_id", String.class)
-                    .thenCombine(completeGetConfigValue("discord_redirect_uri", String.class),
+                    .thenCombine(cm.completeGetConfigValue("discord_redirect_uri", String.class),
                         (clientId, redirectUri) -> {
                             return "https://discord.com/api/oauth2/authorize" +
                                 "?client_id=" + clientId +

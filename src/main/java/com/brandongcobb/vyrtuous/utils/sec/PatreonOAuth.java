@@ -45,7 +45,6 @@ public class PatreonOAuth {
     private static String clientId;
     private static String clientSecret;
     private static ConfigManager cm;
-    private static ConfigSection patreonApiKeys;
     private static String redirectUri;
     private String minecraftId;
 
@@ -56,7 +55,7 @@ public class PatreonOAuth {
     public static CompletableFuture<String> completeGetAuthorizationUrl() {
         return cm.completeGetConfigValue("patreon_client_id", String.class)
             .thenCombine(
-                patreonApiKeys.completeGetConfigValue("patreon_redirect_uri", String.class),
+                cm.completeGetConfigValue("patreon_redirect_uri", String.class),
                 (clientId, redirectUri) -> {
                     return "https://www.patreon.com/oauth2/authorize" +
                            "?response_type=code" +

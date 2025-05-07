@@ -45,7 +45,7 @@ public class UserManager {
 
     public void consolidateUsers() {
         CompletableFuture.runAsync(() -> {
-            this.db.completeGetConnection(connection -> {
+            db.completeGetConnection(connection -> {
                 if (connection != null) {
                     String findDuplicatesSql = "SELECT MIN(id) AS min_id, " +
                         "discord_id, minecraft_id, patreon_id, SUM(exp) AS total_exp " +
@@ -98,7 +98,6 @@ public class UserManager {
             } catch (SQLException e) {
                 e.printStackTrace();
             }
-    
             String deleteDuplicatesSql = "DELETE FROM users WHERE (discord_id = ? OR minecraft_id = ? OR patreon_id = ?) AND id != ?";
             try (PreparedStatement deleteStmt = incomingConnection.prepareStatement(deleteDuplicatesSql)) {
                 deleteStmt.setLong(1, discordId);
@@ -139,7 +138,7 @@ public class UserManager {
                 patreon_vanity = EXCLUDED.patreon_vanity;
         """;
         return CompletableFuture.runAsync(() -> {
-            this.db.completeGetConnection(connection -> {
+            db.completeGetConnection(connection -> {
                 if (connection != null) {
                     try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                         stmt.setTimestamp(1, timestamp);

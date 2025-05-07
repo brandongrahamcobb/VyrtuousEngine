@@ -2,6 +2,7 @@ package com.brandongcobb.vyrtuous.utils.handlers;
 
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
+import com.brandongcobb.vyrtuous.utils.handlers.Database;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -14,11 +15,12 @@ import java.util.Map;
 public class MinecraftUser implements User {
 
     private static Vyrtuous app;
+    private static Database db;
     private String minecraftId;
     public static Map<MinecraftUser, OAuthUserSession> sessions;
 
-    public MinecraftUser(Vyrtuous application) {
-        this.app = application;
+    public MinecraftUser(Database db) {
+        this.db = db;
         this.sessions = app.sessions;
     }
 
@@ -32,7 +34,7 @@ public class MinecraftUser implements User {
     }
 
     public static void userExists(String minecraftId, Consumer<Boolean> callback) {
-        app.completeGetConnection(connection -> {
+        db.completeGetConnection(connection -> {
             try {
                 boolean exists = false; // Default to false
                 if (connection != null) {

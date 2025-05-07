@@ -36,33 +36,32 @@ public class OAuthServer {
         this.cm = cm;
     }
 
-    public static CompletableFuture<OAuthServer> completeConnectSpark(ConfigManager cm) {
+    public static CompletableFuture<Void> completeConnectSpark() {
         return cm.completeGetConfigValue("spark_port", Integer.class)
             .thenCompose(port -> {
                 Spark.port(port);
-                return cm.completeGetConfigValue("spark_discord_endpoint", String.class)
-                    .thenCombine(
-                        cm.completeGetConfigValue("spark_patreon_endpoint", String.class),
-                        (discordEndpoint, patreonEndpoint) -> {
-                            Spark.get(discordEndpoint.toString(), (req, res) -> {
-                                String code = req.queryParams("code");
-                                String stateParam = req.queryParams("state");
-                                String userId = URLDecoder.decode(stateParam, "UTF-8");
-                                DiscordOAuth.completeExchangeCodeForToken(code).thenAccept(accessToken -> {
-                                });
-                                return "Discord OAuth callback received. You may now use /code with your token in Minecraft.";
-                            });
-                            Spark.get(patreonEndpoint.toString(), (req, res) -> {
-                                String code = req.queryParams("code");
-                                String stateParam = req.queryParams("state");
-                                String userId = URLDecoder.decode(stateParam, "UTF-8");
-                                PatreonOAuth.completeExchangeCodeForToken(code).thenAccept(accessToken -> {
-                                });
-                                return "Patreon OAuth callback received. You may now use /code with your token in Minecraft.";
-                            });
-                            Spark.init();
-                        }
-                    );
+                CompletableFuture<String> discordEndpointFuture = cm.completeGetConfigValue("spark_discord_endpoint", String.class);
+                CompletableFuture<String> patreonEndpointFuture = cm.completeGetConfigValue("spark_patreon_endpoint", String.class);
+                return discordEndpointFuture.thenCombine(patreonEndpointFuture, (discorEndpoint, patreonEndpoint) -> {
+                    Spark.get(discorEndpoint, (req, res) -> {
+                        String code = req.queryParams("code");
+                        String stateParam = req.queryParams("state");
+                        String userId = URLDecoder.decode(stateParam, "UTF-8");
+                        DiscordOAuth.completeExchangeCodeForToken(code).thenAccept(accessToken -> {
+                        });
+                        return "Discord OAuth callback received. You may now use /code with your token in Minecraft.";
+                    });
+                    Spark.get(patreonEndpoint, (req, res) -> {
+                        String code = req.queryParams("code");
+                        String stateParam = req.queryParams("state");
+                        String userId = URLDecoder.decode(stateParam, "UTF-8");
+                        PatreonOAuth.completeExchangeCodeForToken(code).thenAccept(accessToken -> {
+                        });
+                        return "Patreon OAuth callback received. You may now use /code with your token in Minecraft.";
+                    });
+                    Spark.init();
+                    return null;
+                });
             });
     }
 
@@ -70,10 +69,10 @@ public class OAuthServer {
         Spark.stop();
     }
 
-    public static CompletableFuture<Void> cancelOAuthSession(Timer callbackTimer) {
-        boolean listeningForCallback = false; // End the current OAuth flow
+    public static CompletableFuture<Void> completeCancelOAuth(Timer callbackTimer) {
+        boolean listeningForCallback = false;
         if (callbackTimer != null) {
-            callbackTimer.cancel(); // Cancel the timer
+            callbackTimer.cancel();
             callbackTimer = null;
         }
         return CompletableFuture.completedFuture(null);

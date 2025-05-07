@@ -359,13 +359,13 @@ public class ResponseObject extends MetadataContainer{
         });
     }
 
-    public CompletableFuture<Double> completeGetPerplexity() {
+    public CompletableFuture<Integer> completeGetPerplexity() {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 MetadataKey<String> outputKey = new MetadataKey<>("output_content", String.class);
                 ObjectMapper objectMapper = new ObjectMapper();
                 String json = this.get(outputKey); // Assuming `this.get(...)` returns JSON string
-                Map<String, Double> responseMap = objectMapper.readValue(json, new TypeReference<Map<String, Double>>() {});
+                Map<String, Integer> responseMap = objectMapper.readValue(json, new TypeReference<Map<String, Integer>>() {});
                 return responseMap.get("perplexity");
             } catch (Exception e) {
                 throw new CompletionException(e); // wrap checked exceptions

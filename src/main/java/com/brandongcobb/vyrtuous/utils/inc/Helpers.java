@@ -193,7 +193,7 @@ public class Helpers {
     private static Map<String, Object> createPerplexitySchema() {
         // Define the color properties
         Map<String, Object> properties = new HashMap<>();
-        properties.put("perplexity", Map.of("type", "number"));
+        properties.put("perplexity", Map.of("type", "integer"));
     
         // Build the schema for the colorize response
         Map<String, Object> schema = new HashMap<>();

@@ -154,12 +154,12 @@ public class AIManager {
             )
             .thenCompose((ResponseObject responseObject) ->
                 responseObject.completeGetPerplexity().thenApply(responsePerplexity -> {
-                    Double perplexity = (Double) responsePerplexity;
-                    if (perplexity < 1.0d) {
+                    Integer perplexity = (Integer) responsePerplexity;
+                    if (perplexity < 100) {
                         return "gpt-4.1-nano";
-                    } else if (perplexity > 1.0d && perplexity < 1.5d && Boolean.TRUE.equals(multiModal)) {
+                    } else if (perplexity > 100 && perplexity < 150 && Boolean.TRUE.equals(multiModal)) {
                         return "o4-mini";
-                    } else if (perplexity > 1.75d && perplexity < 2.0d && Boolean.TRUE.equals(multiModal)) {
+                    } else if (perplexity > 175 && perplexity < 200 && Boolean.TRUE.equals(multiModal)) {
                         return "gpt-4.1";
                     } else {
                         return "o3-mini";
@@ -178,7 +178,7 @@ public class AIManager {
                             format,
                             false,
                             false,
-                            "You determine how perplexing text is to you on a float scale from 0 (not perplexing) to 2 (most perplexing.",
+                            "You determine how perplexing text is to you on a integer scale from 0 (not perplexing) to 200 (most perplexing.",
                             0.7f,
                             1.0f,
                             null

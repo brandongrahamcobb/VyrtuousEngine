@@ -58,6 +58,8 @@ import net.dv8tion.jda.api.entities.Message;
 
 public class AIManager {
 
+    private static String moderationApiUrl = "https://api.openai.com/v1/moderations"; // Verify this endpoint is correct
+    private static String responsesApiUrl = "https://api.openai.com/v1/responses"; // Verify this endpoint is correct
     private static Vyrtuous app;
     private static long calculatedMaxTokens;
     private static long contextLimit;
@@ -117,7 +119,7 @@ public class AIManager {
     public static CompletableFuture<ResponseObject> completeChat(String fullContent, String previousResponseId, String model) {
         return completeInputToTextRequestBody(fullContent, previousResponseId, model)
             .thenCompose(requestBody ->
-                completeRequestWithRequestBody(requestBody)
+                completeRequestWithRequestBody(requestBody, responsesApiUrl)
             );
     }
 
@@ -193,7 +195,7 @@ public class AIManager {
     public static CompletableFuture<ResponseObject> completePerplexity(String fullContent) {
         return completeInputToPerplexityRequestBody(fullContent, Helpers.OPENAI_RESPONSES_TEXT_PERPLEXITY)
             .thenCompose(requestBody ->
-                completeRequestWithRequestBody(requestBody)
+                completeRequestWithRequestBody(requestBody, responsesApiUrl)
             );
     }
 
@@ -253,6 +255,12 @@ public class AIManager {
         return CompletableFuture.completedFuture(requestBody);
     }
 
+    private static CompletableFuture<Map<String, Object>> completeFormModerationRequestBody(String fullContent) {
+        Map<String, Object> requestBody = new HashMap<>();
+        requestBody.put("input", fullContent);
+        return CompletableFuture.completedFuture(requestBody);
+    }
+
     private static CompletableFuture<Map<String, Object>> completeInputToTextRequestBody(
             String text, String previousResponseId, String model) {
         // Start with an async task that returns null.
@@ -298,21 +306,27 @@ public class AIManager {
 
 
 
-    public static CompletableFuture<ResponseObject> completeModeration(String fullContent) {
+    public static CompletableFuture<ResponseObject> completeHttpsModeration(String fullContent) {
         return completeInputToModerationRequestBody(fullContent)
             .thenCompose(requestBody ->
-                completeRequestWithRequestBody(requestBody)
+                completeRequestWithRequestBody(requestBody, responsesApiUrl)
             );
     }
 
-    private static CompletableFuture<ResponseObject> completeRequestWithRequestBody(Map<String, Object> requestBody) {
+    public static CompletableFuture<ResponseObject> completeModeration(String fullContent) {
+        return completeFormModerationRequestBody(fullContent)
+            .thenCompose(requestBody ->
+                completeRequestWithRequestBody(requestBody, moderationApiUrl)
+            );
+    }
+
+    private static CompletableFuture<ResponseObject> completeRequestWithRequestBody(Map<String, Object> requestBody, String endpoint) {
         return ConfigManager
             .completeGetNestedConfigValue("api_keys", "OpenAI")
             .thenCompose(openAIKeys -> openAIKeys.completeGetConfigStringValue("api_key"))
             .thenCompose(apiKey -> CompletableFuture.supplyAsync(() -> {
                 try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
-                    String apiUrl = "https://api.openai.com/v1/responses"; // Verify this endpoint is correct
-                    HttpPost post = new HttpPost(apiUrl);
+                    HttpPost post = new HttpPost(endpoint);
                     post.setHeader("Authorization", "Bearer " + apiKey);
                     post.setHeader("Content-Type", "application/json");
                     ObjectMapper objectMapper = new ObjectMapper();

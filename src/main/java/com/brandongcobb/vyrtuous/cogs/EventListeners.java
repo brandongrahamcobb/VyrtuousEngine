@@ -57,57 +57,42 @@ public class EventListeners extends ListenerAdapter implements Cog {
     public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
         Message message = event.getMessage();
         if (message.getAuthor().isBot()) return;
-    
         boolean isMentioned = message.getMentions().getUsers().contains(api.getSelfUser());
         String content = message.getContentDisplay().replace("@Vyrtuous", "");
         User sender = event.getAuthor();
         long senderId = sender.getIdLong();
         List<Attachment> attachments = message.getAttachments();
-    
         ResponseObject previousResponse = userResponseMap.get(senderId);
-    
-        // Multimodal flag in an array so it is mutable inside lambda
         final boolean[] multimodal = new boolean[]{false};
-    
         app.completeGetInstance().thenCompose(appInstance -> {
             CompletableFuture<String> fullContentFuture;
-    
             if (attachments != null && !attachments.isEmpty()) {
                 fullContentFuture = MessageManager.completeProcessAttachments(attachments)
                     .thenApply(attachmentContentList -> {
                         String joinedAttachmentContent = String.join("\n", attachmentContentList);
-                        // Combine attachment content with the text content
                         return joinedAttachmentContent + "\n" + content;
                     });
                 multimodal[0] = true;
             } else {
                 fullContentFuture = CompletableFuture.completedFuture(content);
             }
-    
             return fullContentFuture.thenCompose(fullContent -> {
                 System.out.println("Processing fullContent: " + fullContent);
-    
-                //Start moderation. (We no longer start the model future concurrently.)
                 CompletableFuture<ResponseObject> moderationFuture = AIManager.completeModeration(fullContent);
-    
                 return moderationFuture.thenCompose(moderationResponseObject ->
                     moderationResponseObject.completeGetFlagged().thenCompose(flagged -> {
                         if (flagged) {
-                            // If moderated content is flagged, handle moderation reasons.
                             return moderationResponseObject.completeGetFormatFlaggedReasons()
                                     .thenCompose(reason ->
                                         ModerationManager.completeHandleModeration(message, reason)
                                             .thenApply(ignored -> null)
                                     );
                         } else {
-                            // If nothing is flagged, decide whether to run a chat.
                             boolean shouldChat = (fullContent.length() > 1 &&
                                   "chat".equalsIgnoreCase(fullContent.substring(1))) || isMentioned;
                             if (!shouldChat) {
-                                // Nothing else to do.
                                 return CompletableFuture.completedFuture(null);
                             }
-                            // Now resolve the model needed for chatting.
                             return AIManager.completeResolveModel(content, multimodal[0])
                                 .thenCompose(model -> {
                                     CompletableFuture<CompletableFuture<ResponseObject>> chatFutureWrapper;

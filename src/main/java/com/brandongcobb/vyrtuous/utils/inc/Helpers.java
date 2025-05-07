@@ -113,12 +113,13 @@ public class Helpers {
         configMap.put("discord_client_id", "");
         configMap.put("discord_client_secret", "");
         configMap.put("discord_command_prefix", "!");
-        configMap.put("discord_owner_id", "YOUR DISCORD ID");
+        configMap.put("discord_owner_id", "");
         configMap.put("discord_redirect_uri", "");
-        configMap.put("discord_role_pass", "ID FOR MODERATION BYPASS");
-        configMap.put("discord_testing_guild_id", "MAIN GUILD ID");
+        configMap.put("discord_role_pass", "");
+        configMap.put("discord_testing_guild_id", "");
         configMap.put("openai_api_key", "");
         configMap.put("openai_chat_completion", false);
+        configMap.put("openai_chat_model", "");
         configMap.put("openai_chat_moderation", true);
         configMap.put("openai_chat_stream", true);
         configMap.put("openai_chat_temperature", 0.7);

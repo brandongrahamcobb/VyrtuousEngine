@@ -18,12 +18,8 @@
 package com.brandongcobb.vyrtuous.cogs;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.utils.handlers.AIManager;
-import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
-import com.brandongcobb.vyrtuous.utils.handlers.MessageManager;
-import com.brandongcobb.vyrtuous.utils.handlers.ModerationManager;
-import com.brandongcobb.vyrtuous.utils.handlers.RequestObject;
-import com.brandongcobb.vyrtuous.utils.handlers.ResponseObject;
+import com.brandongcobb.vyrtuous.bots.DiscordBot;
+import com.brandongcobb.vyrtuous.utils.handlers.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
@@ -44,11 +40,14 @@ public class EventListeners extends ListenerAdapter implements Cog {
     private final Map<Long, ResponseObject> userResponseMap = new ConcurrentHashMap<>();
     private JDA api;
     private ConfigManager cm;
+    private DiscordBot bot;
 
     @Override
-    public void register (JDA api) {
-        api.addEventListener(this);
+    public void register (JDA api, DiscordBot bot, ConfigManager cm) {
+        this.bot = bot.completeGetBot();
         this.api = api;
+        api.addEventListener(this);
+        this.cm = cm.completeGetInstance();
     }
 
     @Override
@@ -56,8 +55,9 @@ public class EventListeners extends ListenerAdapter implements Cog {
         Message message = event.getMessage();
         AIManager aim = new AIManager(cm);
         MessageManager mem = new MessageManager(cm);
+        User selfUser = this.api.getSelfUser();
         if (message.getAuthor().isBot()) return;
-        boolean isMentioned = message.getMentions().getUsers().contains(api.getSelfUser());
+        boolean isMentioned = message.getMentions().getUsers().contains(this.api.getSelfUser());
         String content = message.getContentDisplay().replace("@Vyrtuous", "");
         User sender = event.getAuthor();
         long senderId = sender.getIdLong();
@@ -89,12 +89,11 @@ public class EventListeners extends ListenerAdapter implements Cog {
                                             .thenApply(ignored -> null)
                                     );
                             } else {
-                                boolean shouldChat = (fullContent.length() > 1 &&
-                                        "chat".equalsIgnoreCase(fullContent.substring(1))) || isMentioned;
+                                boolean shouldChat = isMentioned;
                                 if (!shouldChat) {
                                     return CompletableFuture.completedFuture(null);
                                 }
-                                return aim.completeResolveModel(content, multimodal[0])
+                                return aim.completeResolveModel(fullContent, multimodal[0])
                                     .thenCompose(model -> {
                                         CompletableFuture<ResponseObject> chatFutureWrapper;
                                         if (previousResponse != null) {

@@ -19,8 +19,8 @@
 package com.brandongcobb.vyrtuous.cogs;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
-import com.brandongcobb.vyrtuous.utils.handlers.Predicator;
+import com.brandongcobb.vyrtuous.bots.DiscordBot;
+import com.brandongcobb.vyrtuous.utils.handlers.*;
 import java.nio.charset.StandardCharsets;
 import java.util.concurrent.CompletableFuture;
 import net.dv8tion.jda.api.entities.User;
@@ -31,15 +31,16 @@ import java.util.concurrent.CompletionException;
 
 public class HybridCommands extends ListenerAdapter implements Cog {
 
+    private JDA api;
     private ConfigManager cm;
-
-    public HybridCommands (ConfigManager cm) {
-        this.cm = cm.completeGetInstance();
-    }
+    private DiscordBot bot;
 
     @Override
-    public void register (JDA api) {
+    public void register (JDA api, DiscordBot bot, ConfigManager cm) {
+        this.api = api;
+        this.bot = bot.completeGetBot();
         api.addEventListener(this);
+        this.cm = cm.completeGetInstance();
     }
 
     @Override
@@ -53,19 +54,18 @@ public class HybridCommands extends ListenerAdapter implements Cog {
         predicator.isDeveloper(sender).thenAcceptAsync(isDev -> {
             if (isDev && content.equalsIgnoreCase(".config")) {
                 event.getChannel().sendMessage("Reloading configuration...").queue();
-        
                 cm.completeSetAndLoadConfig()
                     .thenRun(() -> {
                         event.getChannel().sendMessage("Configuration reloaded successfully.").queue();
                     })
                     .exceptionally(ex -> {
                         event.getChannel().sendMessage("Failed to reload configuration: ").queue();
-                        return null; // still works — type inferred from thenRun (Void)
+                        return null;
                     });
             }
         }).exceptionally(ex -> {
             ex.printStackTrace();
-            return null; // again, inferred to (Void)
+            return null;
         });
     }
 }

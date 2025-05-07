@@ -92,33 +92,31 @@ public class AIManager {
     }
 
     public CompletableFuture<Map<String, Object>> completeInputToModerationRequestBody(String fullContent) {
-        return cm.completeGetConfigValue("openai_chat_model", String.class)
-            .thenCompose(chatModel -> {
-                try {
-                    return completeFormRequestBody(
-                            fullContent,
-                            Helpers.OPENAI_CHAT_MODERATION_MODEL,
-                            Helpers.OPENAI_CHAT_MODERATION_RESPONSE_FORMAT,
-                            Helpers.OPENAI_CHAT_MODERATION_STORE,
-                            Helpers.OPENAI_CHAT_MODERATION_STREAM,
-                            Helpers.OPENAI_CHAT_MODERATION_SYS_INPUT,
-                            Helpers.OPENAI_CHAT_MODERATION_TEMPERATURE,
-                            Helpers.OPENAI_CHAT_MODERATION_TOP_P,
-                            null
-                    );
-                } catch (Exception ioe) {
-                    // Handle any exceptions and complete the future exceptionally
-                    CompletableFuture<Map<String, Object>> failed = new CompletableFuture<>();
-                    failed.completeExceptionally(ioe);
-                    return failed;
-                }
-            });
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                return completeFormRequestBody(
+                    fullContent,
+                    CompletableFuture.completedFuture(Helpers.OPENAI_CHAT_MODERATION_MODEL),
+                    Helpers.OPENAI_CHAT_MODERATION_RESPONSE_FORMAT,
+                    Helpers.OPENAI_CHAT_MODERATION_STORE,
+                    Helpers.OPENAI_CHAT_MODERATION_STREAM,
+                    Helpers.OPENAI_CHAT_MODERATION_SYS_INPUT,
+                    Helpers.OPENAI_CHAT_MODERATION_TEMPERATURE,
+                    Helpers.OPENAI_CHAT_MODERATION_TOP_P,
+                    null
+                );
+            } catch (Exception ioe) {
+                CompletableFuture<Map<String, Object>> failed = new CompletableFuture<>();
+                failed.completeExceptionally(ioe);
+                return failed;
+            }
+        }).thenCompose(result -> result);
     }
 
     public CompletableFuture<String> completeResolveModel(String content, Boolean multiModal) {
-        return cm.completeGetConfigValue("openai_chat_model", String.class)
-            .thenCompose((Object obj) -> {
-                ResponseObject responseObject = (ResponseObject) obj;
+        return completePerplexity(content)
+            .thenCompose(responseObject -> {
+                System.out.println("Blue");
                 return responseObject.completeGetPerplexity().thenApply(responsePerplexity -> {
                     Integer perplexity = (Integer) responsePerplexity;
                     if (perplexity < 100) {
@@ -134,32 +132,27 @@ public class AIManager {
             });
     }
 
-    public CompletableFuture<Map<String, Object>> completeInputToPerplexityRequestBody(String fullContent, Map<String, Object> format) {
-        return cm.completeGetConfigValue("openai_chat_model", String.class)
-            .thenCompose((Object obj) -> {
-                String chatModel = (String) obj;
-                try {
-                    return completeFormRequestBody(
-                            fullContent,
-                            chatModel,
-                            format,
-                            false,
-                            false,
-                            "You determine how perplexing text is to you on a integer scale from 0 (not perplexing) to 200 (most perplexing.",
-                            0.7f,
-                            1.0f,
-                            null
-                    );
-                } catch (Exception ioe) {
-                    // Handle any exceptions and complete the future exceptionally
-                    CompletableFuture<Map<String, Object>> failed = new CompletableFuture<>();
-                    failed.completeExceptionally(ioe);
-                    return failed;
-                }
-            });
+    private CompletableFuture<Map<String, Object>> completeInputToPerplexityRequestBody(String fullContent, Map<String, Object> format) {
+            try {
+                return completeFormRequestBody(
+                        fullContent,
+                        cm.completeGetConfigValue("openai_chat_model", String.class),
+                        format,
+                        false,
+                        false,
+                        "You determine how perplexing text is to you on a integer scale from 0 (not perplexing) to 200 (most perplexing.",
+                        0.7f,
+                        1.0f,
+                        null
+                );
+            } catch (Exception ioe) {
+                CompletableFuture<Map<String, Object>> failed = new CompletableFuture<>();
+                failed.completeExceptionally(ioe);
+                return failed;
+            }
     }
 
-    public CompletableFuture<ResponseObject> completePerplexity(String fullContent) {
+    private CompletableFuture<ResponseObject> completePerplexity(String fullContent) {
         return completeInputToPerplexityRequestBody(fullContent, Helpers.OPENAI_RESPONSES_TEXT_PERPLEXITY)
             .thenCompose(requestBody ->
                 completeRequestWithRequestBody(requestBody, responsesApiUrl)
@@ -168,7 +161,7 @@ public class AIManager {
 
     private CompletableFuture<Map<String, Object>> completeFormRequestBody(
             String fullContent,
-            String model,
+            CompletableFuture<String> modelFuture,
             Map<String, Object> textFormat,
             boolean store,
             boolean stream,
@@ -176,33 +169,34 @@ public class AIManager {
             float temperature,
             float top_p,
             String previousResponseId) {
-        Map<String, Object> requestBody = new HashMap<>();
-        requestBody.put("model", model);
-        requestBody.put("text", Map.of("format", textFormat));
-        if (previousResponseId != null && !previousResponseId.isEmpty()) {
-            requestBody.put("previous_response_id", previousResponseId);
-        }
-        List<Map<String, Object>> messagesList = new ArrayList<>();
-        Map<String, Object> messageMap = new HashMap<>();
-        messageMap.put("role", "user");
-        messageMap.put("content", fullContent);
-        messagesList.add(messageMap);
-        requestBody.put("input", messagesList);
-        if (store) {
-            LocalDateTime now = LocalDateTime.now();
-            Map<String, String> metadataMap = new HashMap<>();
-            metadataMap.put("user", model);
-            metadataMap.put("timestamp", now.toString());
-            requestBody.put("metadata", List.of(metadataMap));
-        }
-        long tokens = completeCalculateMaxOutputTokens(model, fullContent).join();
-        ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
-        if (contextInfo != null && contextInfo.status()) {
-            requestBody.put("max_output_tokens", tokens);
-        } else {
-            requestBody.put("max_tokens", tokens);
-        }
-        return CompletableFuture.completedFuture(requestBody);
+        return modelFuture.thenApply(model -> {
+            Map<String, Object> requestBody = new HashMap<>();
+            requestBody.put("model", model);
+            requestBody.put("text", Map.of("format", textFormat));
+            if (previousResponseId != null && !previousResponseId.isEmpty()) {
+                requestBody.put("previous_response_id", previousResponseId);
+            }
+            List<Map<String, Object>> messagesList = new ArrayList<>();
+            Map<String, Object> messageMap = new HashMap<>();
+            messageMap.put("role", "user");
+            messageMap.put("content", fullContent);
+            messagesList.add(messageMap);
+            requestBody.put("input", messagesList);
+            if (store) {
+                LocalDateTime now = LocalDateTime.now();
+                Map<String, String> metadataMap = new HashMap<>();
+                metadataMap.put("timestamp", now.toString());
+                requestBody.put("metadata", List.of(metadataMap));
+            }
+            long tokens = completeCalculateMaxOutputTokens(model, fullContent).join();
+            ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
+            if (contextInfo != null && contextInfo.status()) {
+                requestBody.put("max_output_tokens", tokens);
+            } else {
+                requestBody.put("max_tokens", tokens);
+            }
+            return requestBody;
+        });
     }
 
     private CompletableFuture<Map<String, Object>> completeFormModerationRequestBody(String fullContent) {

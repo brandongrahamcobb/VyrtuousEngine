@@ -37,13 +37,14 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 
 public class DiscordBot {
 
-    private Vyrtuous app;
-    private JDA bot;
+    private JDA api;
     private ConfigManager cm;
+    private DiscordBot bot;
     private final Logger logger = Logger.getLogger("Vyrtuous");;
     private final ReentrantLock lock = new ReentrantLock();
 
     public DiscordBot(ConfigManager cm) {
+        this.bot = this;
         this.cm = cm.completeGetInstance();
         CompletableFuture<Void> future = cm.completeGetConfigValue("discord_api_key", String.class)
             .thenCombine(cm.completeGetConfigValue("discord_owner_id", Long.class), (apiKey, ownerId) -> {
@@ -51,7 +52,7 @@ public class DiscordBot {
                     if (apiKey == null || ownerId == null) {
                         throw new IllegalArgumentException("API Key or Owner ID is null");
                     }
-                    JDA bot = JDABuilder.createDefault((String) apiKey,
+                    this.api = JDABuilder.createDefault((String) apiKey,
                             GatewayIntent.GUILD_MESSAGES,
                             GatewayIntent.MESSAGE_CONTENT,
                             GatewayIntent.GUILD_MEMBERS)
@@ -60,7 +61,7 @@ public class DiscordBot {
                     List<Cog> cogs = new ArrayList<>();
                     cogs.add(new EventListeners());
                     for (Cog cog : cogs) {
-                        cog.register(bot);
+                        cog.register(this.api, this.bot, this.cm);
                     }
                 } catch (Exception e) {
                     logger.log(Level.SEVERE, "Error during DiscordBot setup", e);
@@ -78,8 +79,8 @@ public class DiscordBot {
         future.join();
     }
 
-    public CompletableFuture<JDA> completeGetBot() {
-        return CompletableFuture.supplyAsync(() -> bot);
+    public DiscordBot completeGetBot() {
+        return this.bot;
     }
 
 }

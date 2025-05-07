@@ -16,7 +16,7 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.github.jasminb.jsonapi.JSONAPIDocument;
+import com.brandongcobb.vyrtuous.utils.handlers.Database;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
@@ -44,6 +44,7 @@ public class PatreonUser implements User {
 
     private Vyrtuous app;
     private Connection connection;
+    private static Database db;
     private long discordId;
     private int exp;
     private String factionName;
@@ -61,8 +62,8 @@ public class PatreonUser implements User {
     private Timestamp timestamp;
     private UserManager userManager;
 
-    public PatreonUser(Vyrtuous application) {
-        this.app = application;
+    public PatreonUser(Database db) {
+        this.db = db;
         this.discordId = 0L;
         this.exp = 0;
         this.factionName = "";
@@ -151,7 +152,7 @@ public class PatreonUser implements User {
     }
 
     public void userExists(long patreonId, Consumer<Boolean> callback) {
-        app.completeGetConnection(connection -> {
+        this.db.completeGetConnection(connection -> {
             try {
                 boolean exists = false;
                 if (connection != null) {

@@ -32,18 +32,14 @@ public class ResponseObject extends MetadataContainer{
 
     public ResponseObject(Map<String, Object> responseMap) {
         MetadataKey<String> idKey = new MetadataKey<>("id", String.class);
-
         String requestId = (String) responseMap.get("id");
         put(idKey, requestId);
-
-        // Refactored to use a switch on a non-null value and include breaks
         if (requestId.startsWith("chatcmpl")) {
             MetadataKey<String> objectKey = new MetadataKey<>("object", String.class);
             String requestObject = (String) responseMap.get("object");
             if (requestObject == null) {
                 throw new NullPointerException("The response map is missing the mandatory 'object' field.");
             }
-
             put(objectKey, requestObject);
             MetadataKey<Integer> completionCreatedKey = new MetadataKey<>("created", Integer.class);
             Integer completionCreated = (Integer) responseMap.get("created");
@@ -81,13 +77,13 @@ public class ResponseObject extends MetadataContainer{
                 put(completionCompletionTokensKey, completionCompletionTokens);
             }
         }
+
         else if (requestId.startsWith("models")) {
             MetadataKey<String> objectKey = new MetadataKey<>("object", String.class);
             String requestObject = (String) responseMap.get("object");
             if (requestObject == null) {
                 throw new NullPointerException("The response map is missing the mandatory 'object' field.");
             }
-
             put(objectKey, requestObject);
             MetadataKey<Integer> modelCreatedKey = new MetadataKey<>("created", Integer.class);
             Integer modelCreated = (Integer) responseMap.get("created");
@@ -96,6 +92,7 @@ public class ResponseObject extends MetadataContainer{
             String ownerCreated = (String) responseMap.get("owned_by");
             put(ownerCreatedKey, ownerCreated);
         }
+
         else if (requestId.startsWith("modr")) {
             MetadataKey<Integer> moderationCreatedKey = new MetadataKey<>("created", Integer.class);
             Integer moderationCreated = (Integer) responseMap.get("created");
@@ -194,23 +191,15 @@ public class ResponseObject extends MetadataContainer{
                     Double moderationViolenceGraphicScore = categoryScores.get("violence/graphic");
                     put(violenceGraphicScoreKey, moderationViolenceGraphicScore);
                 }
-//                Map<String, Object> categoryAppliedInputTypes = (Map<String, Object>) result.get("category_applied_input_types");
-//                if (categoryAppliedInputTypes != null) {
-//                    // For each category, extract and store the applied input types as needed.
-//                    MetadataKey<List<String>> sexualInputKey = new MetadataKey<>("sexual", List.class);
-//                    List<String> moderationSexualAppliedType = (List<String>) categoryAppliedInputTypes.get("sexual");
-//                    put(sexualInputKey, moderationSexualAppliedType);
-//                    // ... Similar handling for the rest of the keys.
-//                }
             }
         }
+
         else if (requestId.startsWith("resp")) {
             MetadataKey<String> objectKey = new MetadataKey<>("object", String.class);
             String requestObject = (String) responseMap.get("object");
             if (requestObject == null) {
                 throw new NullPointerException("The response map is missing the mandatory 'object' field.");
             }
-
             put(objectKey, requestObject);
             MetadataKey<String> responsesIdKey = new MetadataKey<>("id", String.class);
             String responsesId = (String) responseMap.get("id");
@@ -308,6 +297,9 @@ public class ResponseObject extends MetadataContainer{
         }
     }
 
+    /*
+     *    Getters
+     */
     public CompletableFuture<Boolean> completeGetFlagged() {
         return CompletableFuture.supplyAsync(() -> {
             MetadataKey<Boolean> flaggedKey = new MetadataKey<>("flagged", Boolean.class);
@@ -380,6 +372,9 @@ public class ResponseObject extends MetadataContainer{
         });
     }
 
+    /*
+     *    Setters
+     */
     public CompletableFuture<Void> completeSetPreviousResponseId(String previousResponseId) {
         return CompletableFuture.runAsync(() -> {
             MetadataKey<String> previousResponseIdKey = new MetadataKey<>("previous_response_id", String.class);

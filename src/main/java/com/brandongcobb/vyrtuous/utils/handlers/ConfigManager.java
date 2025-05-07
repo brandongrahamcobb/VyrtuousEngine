@@ -1,16 +1,20 @@
-/*  ConfigManager.java The primary purpose of this handler is to
- *  manage the configuration.
- *  Copyright (C) 2024  github.com/brandongrahamcobb
+/*  ConfigManager.java The primary purpose of this class is to
+ *  handle the application's configuration. The config file is
+ *  config.yml in the app's datafolder.
+ *
+ *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
  *  This program is free software: you can redistribute it and/or modify
- *  it under the terms of the GNU General Public License as published by
+ *  it under the terms of the GNU General private License as published by
  *  the Free Software Foundation, either version 3 of the License, or
  *  (at your option) any later version.
+ *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- *  GNU General Public License for more details.
- *  You should have received a copy of the GNU General Public License
+ *  GNU General private License for more details.
+ *
+ *  You should have received a copy of the GNU General private License
  *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
  */
 package com.brandongcobb.vyrtuous.utils.handlers;
@@ -18,7 +22,10 @@ package com.brandongcobb.vyrtuous.utils.handlers;
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.utils.inc.Helpers;
 import java.io.*;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -31,164 +38,44 @@ public class ConfigManager {
 
     private static Vyrtuous app;
     private static Map<String, Object> config;
-    public static Map<String, Object> defaultConfig;
-    private ConfigSection configSection;
-    private Map<String, Object> inputConfigMap;
-    private static Logger logger;
+    private static Map<String, Object> defaultConfig;
+    private static Logger logger = Logger.getlogger("Vyrtuous");
+    private Function<Object, T> converter;
 
     static {
         config = new HashMap<>();
-        defaultConfig = populateConfig(new HashMap<>());
+        defaultConfig = Helpers.populateConfig(new HashMap<>());
     }
 
-    public static CompletableFuture<Void> completeSetApp(Vyrtuous plugin) {
-        return CompletableFuture.runAsync(() -> app = plugin);
+    public static ConfigManager() {
+        completeConfigure(() -> {});
     }
 
-    public static CompletableFuture<Vyrtuous> completeGetApp() {
-        return CompletableFuture.supplyAsync(() -> app);
-    }
-
-    public static CompletableFuture<Map<String, Object>> completeGetConfig() {
-        return CompletableFuture.supplyAsync(() -> config);
-    }
-
-    public CompletableFuture<Boolean> completeExists() {
-        return app.completeGetDataFolder().thenApply(folder -> {
-            File configFile = new File(folder, "config.yml");
-            return configFile.exists();
-        });
-    }
-
-    public static CompletableFuture<Void> completeCreateDefaultConfig() {
-        return app.completeGetDataFolder().thenCompose(folder -> {
-            File configFile = new File(folder, "config.yml");
-            return completeSaveConfig(configFile);
-        });
-    }
-
-    private static Map<String, Object> populateConfig(Map<String, Object> configMap) {
-        configMap.put("discord_command_prefix", "!");
-        configMap.put("api_keys", new HashMap<String, Object>() {{
-            put("Discord", new HashMap<String, String>() {{
-                put("api_key", "");
-                put("client_id", "");
-                put("client_secret", "");
-                put("redirect_uri", "");
-            }});
-            // Add other keys...
-            put("Google", new HashMap<String, String>() {{
-                put("api_key", "");
-                put("client_id", "");
-                put("client_secret", "");
-                put("redirect_uri", "");
-            }});
-            // etc.
-        }});
-        configMap.put("discord_owner_id", "YOUR DISCORD ID");
-        configMap.put("discord_role_pass", "ID FOR MODERATION BYPASS");
-        configMap.put("discord_testing_guild_id", "MAIN GUILD ID");
-        configMap.put("openai_chat_completion", false);
-        configMap.put("openai_chat_moderation", true);
-        configMap.put("openai_chat_stream", true);
-        configMap.put("openai_chat_temperature", 0.7);
-        configMap.put("openai_chat_top_p", 1.0);
-        configMap.put("postgres_database", "");
-        configMap.put("postgres_user", "postgres");
-        configMap.put("postgres_host", "localhost");
-        configMap.put("postgres_password", "");
-        configMap.put("postgres_port", "");
-        configMap.put("spark_discord_endpoint", "/oauth/discord_callback");
-        configMap.put("spark_patreon_endpoint", "/oauth/patreon_callback");
-        configMap.put("spark_port", Helpers.parseCommaNumber("8,000"));
-        configMap.put("web_headers", new HashMap<String, Object>() {{
-            put("API.Bible", new HashMap<String, String>() {{
-                put("User-Agent", "Vyrtuous https://github.com/brandongrahamcobb/Vyrtuous.git");
-                put("api-key", "");
-            }});
-        }});
-        return configMap;
-    }
-//        public static CompletableFuture<Map<String, Object>> completePopulateConfig(Map<String, Object> configMap) {
-//        return CompletableFuture.supplyAsync(() -> {
-//            configMap.put("discord_command_prefix", "!");
-//            configMap.put("api_keys", new HashMap<String, Object>() {{
-//                    put("Discord", new HashMap<String, String>() {{
-//                    put("api_key", "");
-//                    put("client_id", "");
-//                    put("client_secret", "");
-//                    put("redirect_uri", "");
-//            }});
-//                put("Google", new HashMap<String, String>() {{
-//                    put("api_key", "");
-//                    put("client_id", "");
-//                    put("client_secret", "");
-//                    put("redirect_uri", "");
-//            }});
-//                put("LinkedIn", new HashMap<String, String>() {{
-//                    put("api_key", "");
-//                    put("client_id", "");
-//                    put("client_secret", "");
-//                    put("redirect_uri", "");
-//            }});
-//                put("OpenAI", new HashMap<String, String>() {{
-//                    put("api_key", "");
-//                    put("client_id", "");
-//                    put("client_secret", "");
-//                    put("redirect_uri", "");
-//            }});
-//                put("Patreon", new HashMap<String, String>() {{
-//                    put("api_key", "");
-//                    put("client_id", "");
-//                    put("client_secret", "");
-//                    put("redirect_uri", "");
-//            }});
-//                put("Twitch", new HashMap<String, String>() {{
-//                    put("api_key", "");
-//                    put("client_id", "");
-//                    put("client_secret", "");
-//                    put("redirect_uri", "");
-//            }});
-//            }});
-//            configMap.put("discord_owner_id", "YOUR DISCORD ID");
-//            configMap.put("discord_role_pass", "ID FOR MODERATION BYPASS");
-//            configMap.put("discord_testing_guild_id", "MAIN GUILD ID");
-//            configMap.put("openai_chat_completion", false);
-//            configMap.put("openai_chat_moderation", true);
-//            configMap.put("openai_chat_stream", true);
-//            configMap.put("openai_chat_temperature", 0.7);
-//            configMap.put("openai_chat_top_p", 1.0);
-//            configMap.put("postgres_database", "");
-//            configMap.put("postgres_user", "postgres");
-//            configMap.put("postgres_host", "localhost");
-//            configMap.put("postgres_password", "");
-//            configMap.put("postgres_port", "");
-//            configMap.put("spark_discord_endpoint", "/oauth/discord_callback");
-//            configMap.put("spark_patreon_endpoint", "/oauth/patreon_callback");
-//            configMap.put("spark_port", Helpers.parseCommaNumber("8,000"));
-//            configMap.put("web_headers", new HashMap<String, Object>() {{
-//                put("API.Bible", new HashMap<String, String>() {{
-//                    put("User-Agent", "Vyrtuous https://github.com/brandongrahamcobb/Vyrtuous.git");
-//                    put("api-key", "");
-//                }});
-//            }});
-//            return configMap;
-//        });
-//    }
-
-    public static CompletableFuture<Boolean> completeIsConfigSameAsDefault() {
-        return CompletableFuture.supplyAsync(() -> {
-            return config.equals(defaultConfig);
-        });
+    private static CompletableFuture<Void> completeConfigure() {
+        return completeSetConfig()
+            .thenCompose(config -> config.equals(defaultConfig))
+            .thenCompose(isDefault -> {
+                if (isDefault) {
+                    return CompletableFuture.failedFuture(
+                        new IllegalStateException("Config is default/invalid"));
+                } else {
+                    return ConfigManager.completeValidateConfig();
+                }
+            })
+            .exceptionally(ex -> {
+                logger.severe("Error during initialization: " + ex.getMessage());
+                ex.printStackTrace();
+                return null;
+            });
     }
 
     public static CompletableFuture<Void> completeLoadConfig() {
-        return app.completeGetDataFolder()
+        return completeGetDataFolder()
           .thenCompose(folder -> {
               File configFile = new File(folder, "config.yml");
               CompletableFuture<Void> ensureExists = configFile.exists()
                   ? CompletableFuture.completedFuture(null)
-                  : completeCreateDefaultConfig();
+                  : completeSetConfig();
               return ensureExists.thenCompose(unused2 -> CompletableFuture.supplyAsync(() -> {
                   Yaml yaml = new Yaml();
                   try (InputStream inputStream = new FileInputStream(configFile)) {
@@ -196,149 +83,90 @@ public class ConfigManager {
                       if (loadedConfig == null) {
                           loadedConfig = new HashMap<>();
                       }
-                      config = deepMerge(defaultConfig, loadedConfig);
-//                      for (Map.Entry<String, Object> entry : config.entrySet()) {
-//                          System.out.println("Key: " + entry.getKey() + ", Value: " + entry.getValue());
-//                      }
+                      config = Helpers.deepMerge(defaultConfig, loadedConfig);
                   } catch (Exception e) {
-                      app.logger.severe("Failed to load config: " + e.getMessage());
+                      logger.severe("Failed to load config: " + e.getMessage());
                       throw new RuntimeException("Failed to load config", e);
                   }
                   return null;
               }));
           }).thenRun(() -> {
-              app.logger.info("All configuration values are loaded and merged successfully.");
+              logger.info("All configuration values are loaded and merged successfully.");
           }).exceptionally(ex -> {
-              app.logger.severe("Failed to load configuration values: " + ex.getMessage());
+              logger.severe("Failed to load configuration values: " + ex.getMessage());
               return null;
           });
     }
 
-    @SuppressWarnings("unchecked")
-    private static Map<String, Object> deepMerge(Map<String, Object> defaults, Map<String, Object> loaded) {
-        Map<String, Object> merged = new HashMap<>(defaults);
-        for (Map.Entry<String, Object> entry : loaded.entrySet()) {
-            String key = entry.getKey();
-            Object loadedVal = entry.getValue();
-            if (merged.containsKey(key)) {
-                Object defaultVal = merged.get(key);
-                if (defaultVal instanceof Map && loadedVal instanceof Map) {
-                    merged.put(key, deepMerge((Map<String, Object>) defaultVal, (Map<String, Object>) loadedVal));
-                } else {
-                    // Use the loaded value even if it's empty – user input wins.
-                    merged.put(key, loadedVal);
-                }
-            } else {
-                merged.put(key, loadedVal);
+    /*
+     * Getters
+     *
+     */
+    public static <T> CompletableFuture<T> completeGetConfigValue(String key, Class<T> type) {
+        return completeGetConfigObjectValue(key).thenApply(value -> {
+            if (value == null) return null;
+            try {
+                return Helpers.convertValue(value, type);
+            } catch (Exception e) {
+                // handle conversion error
+                return null;
             }
-        }
-        return merged;
-    }
-    
-    public static CompletableFuture<Object> completeGetConfigObjectValue(String key) { return 
-        CompletableFuture.supplyAsync(() -> {
-
-            return config.get(key);
         });
     }
 
-    public static CompletableFuture<String> completeGetConfigStringValue(String key) {
-        return completeGetConfigObjectValue(key)
-            .thenApply(value -> {
-                if (value instanceof String) {
-                    return (String) value;
-                }
-                return null;
-            });
+    private static CompletableFuture<Object> completeGetConfigObjectValue(String key) {
+        return CompletableFuture.supplyAsync(() -> this.config.get(key));
     }
 
-    public static CompletableFuture<Integer> completeGetConfigIntegerValue(String key) {
-        return completeGetConfigObjectValue(key)
-            .thenApply(value -> {
-                if (value instanceof Number) {
-                    return ((Number) value).intValue();
-                } else if (value instanceof String) {
-                    return Integer.parseInt((String) value);
-                }
-                return null;
-            });
+    public static CompletableFuture<File> completeGetDataFolder() {
+        return CompletableFuture.supplyAsync(() -> {
+            try {
+                URI location = Vyrtuous.class.getProtectionDomain().getCodeSource().getLocation().toURI();
+                File currentDir = new File(location).getParentFile();
+                return currentDir;
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to determine program folder path", e);
+            }
+        });
     }
 
-
-    public static CompletableFuture<Long> completeGetConfigLongValue(String key) {
-        return completeGetConfigObjectValue(key)
-            .thenApply(value -> {
-                if (value instanceof Number) {
-                    return ((Number) value).longValue();
-                } else if (value instanceof String) {
-                    return Long.parseLong((String) value);
-                }
-                return null; // or throw an exception if you expect a Float
-            });
+    /*
+     * Setters
+     *
+     */
+    private static CompletableFuture<Void> completeSetApp(Vyrtuous plugin) {
+        return CompletableFuture.runAsync(() -> app = plugin);
     }
 
-    public static CompletableFuture<Float> completeGetConfigFloatValue(String key) {
-        return completeGetConfigObjectValue(key)
-            .thenApply(value -> {
-                if (value instanceof Number) {
-                    return ((Number) value).floatValue();
-                } else if (value instanceof String) {
-                    return Float.parseFloat((String) value);
-                }
-                return null; // or throw an exception if you expect a Float
-            });
-    }
-
-    public static CompletableFuture<Boolean> completeGetConfigBooleanValue(String key) {
-        return completeGetConfigObjectValue(key)
-            .thenApply(value -> {
-                if (value instanceof Boolean) {
-                    return (Boolean) value;
-                } else if (value instanceof String) {
-                    return Boolean.parseBoolean((String) value);
-                }
-                return null;
-            });
-    }
-
-    public static CompletableFuture<Void> completeSaveConfig(File configFile) {
-        return app.completeGetDataFolder()
+    private static CompletableFuture<Map<String, Object>> completeSetConfig() {
+        return completeGetDataFolder()
             .thenCompose(dataFolder -> CompletableFuture.supplyAsync(() -> {
                 if (!dataFolder.exists() && !dataFolder.mkdirs()) {
-                    app.logger.severe("Failed to create data folder: " + dataFolder.getAbsolutePath());
+                    logger.severe("Failed to create data folder: " + dataFolder.getAbsolutePath());
                     return null; // early exit
                 }
+                File configFile = new File(dataFolder, "config.yml");
                 DumperOptions options = new DumperOptions();
                 options.setDefaultFlowStyle(DumperOptions.FlowStyle.BLOCK);
                 Yaml yaml = new Yaml(options);
                 try (Writer writer = new FileWriter(configFile)) {
                     yaml.dump(config, writer);
                 } catch (IOException e) {
-                    app.logger.severe("Failed to save config: " + e.getMessage());
+                    logger.severe("Failed to save config: " + e.getMessage());
                 }
-                return null;
+                return config;
             }));
     }
 
-    public static CompletableFuture<ConfigSection> completeGetNestedConfigValue(String outerKey, String innerKey) {
-        return CompletableFuture.supplyAsync(() -> {
-            Map<String, Object> outerMap = (Map<String, Object>) config.get(outerKey);
-            if (outerMap != null) {
-                Object innerValue = outerMap.get(innerKey);
-                if (innerValue instanceof Map) {
-                    return new ConfigSection((Map<String, Object>) innerValue);
-                }
-            }
-            return null; // Return null or handle accordingly if the outer key doesn't exist
-        });
-    }
-
-    public static CompletableFuture<Void> completeValidateConfig() {
+    /*
+     * Validation
+     *
+     */
+    private static CompletableFuture<Void> completeValidateConfig() {
         List<CompletableFuture<Boolean>> validations = new ArrayList<>();
-        String[] apis = {"Discord", "Google", "LinkedIn", "OpenAI", "Patreon", "Twitch"};
-        for (String api : apis) {
-            validations.add(completeValidateApiConfig(api));
-        }
+        validations.add(completeValidateApiConfig("discord"));
+        validations.add(completeValidateApiConfig("openai"));
+        validations.add(completeValidateApiConfig("patreon"));
         validations.add(completeValidatePostgresConfig());
         validations.add(completeValidateSparkConfig());
         validations.add(completeValidateWebHeadersConfig());
@@ -349,7 +177,7 @@ public class ConfigManager {
                     .map(CompletableFuture::join)
                     .anyMatch(valid -> Boolean.TRUE.equals(valid));
                 if (!anyValid) {
-                    app.logger.severe("No valid API configurations found. Please check your configuration.");
+                    logger.severe("No valid API configurations found. Please check your configuration.");
                 }
                 return null;
             });
@@ -357,52 +185,36 @@ public class ConfigManager {
 
     private static CompletableFuture<Boolean> completeValidateApiConfig(String api) {
         return CompletableFuture.supplyAsync(() -> {
-            HashMap<String, String> settings = (HashMap<String, String>) ((Map<String, Object>) config.get("api_keys")).get(api);
+            String apiKey = api + "_api_key";
+            String clientIdKey = api + "_client_id";
+            String clientSecretKey = api + "_client_secret";
+            String redirectUriKey = api + "_redirect_uri";
             boolean hasValidData = false;
-            for (Map.Entry<String, String> entry : settings.entrySet()) {
-                String key = entry.getKey();
-                String value = entry.getValue();
-                Object[] values = {settings, key, value};
-                if (Helpers.isNullOrEmpty(values)) {
-                    app.logger.warning(api + " setting '" + key + "' is missing or invalid.");
-                } else {
-                    hasValidData = true;
-                }
+            String apiKeyValue = (String) config.get(apiKey);
+            if (Helpers.isNullOrEmpty(new Object[]{apiKeyValue})) {
+                logger.warning(api + " API key is missing or invalid.");
+            } else {
+                hasValidData = true;
+            }
+            String clientId = (String) config.get(clientIdKey);
+            if (Helpers.isNullOrEmpty(new Object[]{clientId})) {
+                logger.warning(api + " client_id is missing or invalid.");
+            } else {
+                hasValidData = true;
+            }
+            String clientSecret = (String) config.get(clientSecretKey);
+            if (Helpers.isNullOrEmpty(new Object[]{clientSecret})) {
+                logger.warning(api + " client_secret is missing or invalid.");
+            } else {
+                hasValidData = true;
+            }
+            String redirectUri = (String) config.get(redirectUriKey);
+            if (Helpers.isNullOrEmpty(new Object[]{redirectUri})) {
+                logger.warning(api + " redirect_uri is missing or invalid.");
+            } else {
+                hasValidData = true;
             }
             return hasValidData;
-        });
-    }
-
-    private static CompletableFuture<Boolean> completeValidateSparkConfig() {
-        return CompletableFuture.supplyAsync(() -> {
-            boolean isValid = true;
-            String discordEndpoint = (String) config.get("spark_discord_endpoint");
-            String patreonEndpoint = (String) config.get("spark_patreon_endpoint");
-            String port = String.valueOf(config.get("spark_port"));
-            String[] values = {discordEndpoint, patreonEndpoint, port};
-            System.out.println(discordEndpoint + patreonEndpoint + port);
-            if (Helpers.isNullOrEmpty(values)) {
-                app.logger.warning("Spark settings are invalid.");
-                isValid = false;
-            }
-            return isValid;
-        });
-    }
-
-    private static CompletableFuture<Boolean> completeValidatePostgresConfig() {
-        return CompletableFuture.supplyAsync(() -> {
-            String database = (String) config.get("postgres_database");
-            String user = (String) config.get("postgres_user");
-            String password = (String) config.get("postgres_password");
-            String host = (String) config.get("postgres_host");
-            String port = (String) config.get("postgres_port");
-            boolean isValid = true;
-            String[] values = {database, user, password, host, port};
-            if (Helpers.isNullOrEmpty(values)) {
-                app.logger.warning("Postgres settings are invalid.");
-                isValid = false;
-            }
-            return isValid; // Returns true if the Postgres config is properly set
         });
     }
 
@@ -418,10 +230,43 @@ public class ConfigManager {
             boolean isValid = true;
             Object[] values = {openAIChatCompletion, openAIChatModel, openAIChatModeration, openAIChatStop, openAIChatStream, openAIChatTemperature, openAIChatTopP};
             if (Helpers.isNullOrEmpty(values)) {
-                app.logger.warning("OpenAI settings are invalid.");
+                logger.warning("OpenAI settings are invalid.");
                 isValid = false;
             }
             return isValid; // Returns true if the Postgres config is properly set
+        });
+    }
+
+    private static CompletableFuture<Boolean> completeValidatePostgresConfig() {
+        return CompletableFuture.supplyAsync(() -> {
+            String database = (String) config.get("postgres_database");
+            String user = (String) config.get("postgres_user");
+            String password = (String) config.get("postgres_password");
+            String host = (String) config.get("postgres_host");
+            String port = (String) config.get("postgres_port");
+            boolean isValid = true;
+            String[] values = {database, user, password, host, port};
+            if (Helpers.isNullOrEmpty(values)) {
+                logger.warning("Postgres settings are invalid.");
+                isValid = false;
+            }
+            return isValid; // Returns true if the Postgres config is properly set
+        });
+    }
+
+    private static CompletableFuture<Boolean> completeValidateSparkConfig() {
+        return CompletableFuture.supplyAsync(() -> {
+            boolean isValid = true;
+            String discordEndpoint = (String) config.get("spark_discord_endpoint");
+            String patreonEndpoint = (String) config.get("spark_patreon_endpoint");
+            String port = String.valueOf(config.get("spark_port"));
+            String[] values = {discordEndpoint, patreonEndpoint, port};
+            System.out.println(discordEndpoint + patreonEndpoint + port);
+            if (Helpers.isNullOrEmpty(values)) {
+                logger.warning("Spark settings are invalid.");
+                isValid = false;
+            }
+            return isValid;
         });
     }
 
@@ -437,31 +282,12 @@ public class ConfigManager {
                     String value = header.getValue();
                     Object[] values = {webHeaders, key, value};
                     if (Helpers.isNullOrEmpty(values)) {
-                        app.logger.warning("Web headers configuration is invalid.");
+                        logger.warning("Web headers configuration is invalid.");
                         isValid = false;
                     }
                 }
             }
             return isValid;
         });
-    }
-
-    public static class ConfigSection {
-
-        private Map<String, Object> values;
-
-        public ConfigSection(Map<String, Object> values) {
-            this.values = values;
-        }
-
-        public CompletableFuture<String> completeGetConfigStringValue(String key) {
-            return CompletableFuture.supplyAsync(() -> {
-                Object value = values.get(key);
-                if (value instanceof String) {
-                    return (String) value;
-                }
-                return null; // or throw an exception if you expect a String
-            });
-        }
     }
 }

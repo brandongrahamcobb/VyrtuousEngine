@@ -16,6 +16,7 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
+import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -40,6 +41,7 @@ import net.dv8tion.jda.api.entities.User;
 public class ModerationManager {
 
     private static Vyrtuous app;
+    private static ConfigManager cm;
     private static final Object fileLock = new Object();
     private static Map<Long, Integer> userCounts;
     private static Lock lock;
@@ -50,9 +52,8 @@ public class ModerationManager {
         temporaryFile = new File(app.tempDirectory, "config.yml");
     }
 
-    public ModerationManager(Vyrtuous application) {
-        this.app = application;
-        this.logger = app.logger;
+    public ModerationManager(ConfigManager cm) {
+        this.cm = cm;
     }
 
     public static CompletableFuture<Void> completeHandleModeration(Message message, String reasonStr) {
@@ -65,7 +66,7 @@ public class ModerationManager {
         if (member == null) {
             return CompletableFuture.completedFuture(null);
         }
-        return ConfigManager.completeGetConfigStringValue("discord_role_pass").thenCompose(passRoleId -> {
+        return cm.completeGetConfigValue("discord_role_pass", Long.class).thenCompose(passRoleId -> {
             boolean hasPassRole = member.getRoles().stream()
                 .anyMatch(role -> role.getId().equals(passRoleId));
             if (hasPassRole) {
@@ -111,7 +112,7 @@ public class ModerationManager {
             }).thenCompose(flaggedCount -> {
                 if (flaggedCount == null) return CompletableFuture.completedFuture(null);
                 message.delete().queue();
-                return ConfigManager.completeGetConfigStringValue("discord_moderation_warning").thenCompose(warning -> {
+                return cm.completeGetConfigValue("discord_moderation_warning", String.class).thenCompose(warning -> {
                     String warningMsg = warning + ". Your message was flagged for: " + reasonStr;
                     CompletableFuture<Void> action = CompletableFuture.completedFuture(null);
                     if (flaggedCount == 1) {

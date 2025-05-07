@@ -62,6 +62,7 @@ public class AIManager {
     private static String responsesApiUrl = "https://api.openai.com/v1/responses"; // Verify this endpoint is correct
     private static Vyrtuous app;
     private static long calculatedMaxTokens;
+    private static ConfigManager cm;
     private static long contextLimit;
     private long promptTokens;
     private static ModelInfo contextInfo;
@@ -95,7 +96,11 @@ public class AIManager {
     private static String openAIDefaultChatModerationSysInput = "All incoming data is subject to moderation. Protect your backend by flagging a message if it is unsuitable for a public community.";
     private static float openAIDefaultChatModerationTemperature = 0.7f;
     private static float openAIDefaultChatModerationTopP = 1.0f;
-    
+
+    public AIManager(ConfigManager cm) {
+        this.cm = cm;
+    }
+
     public static CompletableFuture<Long> completeCalculateMaxOutputTokens(String model, String prompt) {
         return CompletableFuture.supplyAsync(() -> {
             try {
@@ -124,7 +129,7 @@ public class AIManager {
     }
 
     public static CompletableFuture<Map<String, Object>> completeInputToModerationRequestBody(String fullContent) {
-        return ConfigManager.completeGetConfigStringValue("openai_chat_model")
+        return cm.completeGetConfigValue("openai_chat_model", String.class)
             .thenCompose(chatModel -> {
                 try {
                     return completeFormRequestBody(
@@ -148,7 +153,7 @@ public class AIManager {
     }
 
     public static CompletableFuture<String> completeResolveModel(String content, Boolean multiModal) {
-        return ConfigManager.completeGetConfigStringValue("openai_chat_model")
+        return cm.completeGetConfigValue("openai_chat_model", String.class)
             .thenCompose(model ->
                 completePerplexity(content)
             )
@@ -169,7 +174,7 @@ public class AIManager {
     }
 
     public static CompletableFuture<Map<String, Object>> completeInputToPerplexityRequestBody(String fullContent, Map<String, Object> format) {
-        return ConfigManager.completeGetConfigStringValue("openai_chat_model")
+        return cm.completeGetConfigValue("openai_chat_model", String.class)
             .thenCompose(chatModel -> {
                 try {
                     return completeFormRequestBody(
@@ -209,31 +214,18 @@ public class AIManager {
             float temperature,
             float top_p,
             String previousResponseId) {
-    
         Map<String, Object> requestBody = new HashMap<>();
-    
-        // Set required fields
         requestBody.put("model", model);
         requestBody.put("text", Map.of("format", textFormat));
- //       if (Helpers.OPEN_CHAT_MODELS.get("deprecated").contains(model) 
- //       requestBody.put("temperature", temperature);
- //       requestBody.put("top_p", top_p);
- //       requestBody.put("stream", stream);
-    
-        // Optionally include previous response ID
         if (previousResponseId != null && !previousResponseId.isEmpty()) {
             requestBody.put("previous_response_id", previousResponseId);
         }
-    
-        // Build messages list
         List<Map<String, Object>> messagesList = new ArrayList<>();
         Map<String, Object> messageMap = new HashMap<>();
         messageMap.put("role", "user");
         messageMap.put("content", fullContent);
         messagesList.add(messageMap);
         requestBody.put("input", messagesList);
-    
-        // Optionally add metadata
         if (store) {
             LocalDateTime now = LocalDateTime.now();
             Map<String, String> metadataMap = new HashMap<>();
@@ -241,17 +233,13 @@ public class AIManager {
             metadataMap.put("timestamp", now.toString());
             requestBody.put("metadata", List.of(metadataMap));
         }
-    
-        // Calculate token limits
         long tokens = completeCalculateMaxOutputTokens(model, fullContent).join();
         ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
-    
         if (contextInfo != null && contextInfo.status()) {
             requestBody.put("max_output_tokens", tokens);
         } else {
             requestBody.put("max_tokens", tokens);
         }
-    
         return CompletableFuture.completedFuture(requestBody);
     }
 
@@ -261,25 +249,20 @@ public class AIManager {
         return CompletableFuture.completedFuture(requestBody);
     }
 
-    private static CompletableFuture<Map<String, Object>> completeInputToTextRequestBody(
-            String text, String previousResponseId, String model) {
-        // Start with an async task that returns null.
+    private static CompletableFuture<Map<String, Object>> completeInputToTextRequestBody(String text, String previousResponseId, String model) {
         return CompletableFuture.supplyAsync(() -> null)
-            // then flatten with thenCompose to build your request body
             .thenCompose(ignored -> {
                 Map<String, Object> requestBody = new HashMap<>();
                 if (previousResponseId != null) {
                     requestBody.put("previous_response_id", previousResponseId);
                 }
                 requestBody.put("model", model);
-    
                 List<Map<String, Object>> messagesList = new ArrayList<>();
                 Map<String, Object> messageMap = new HashMap<>();
                 messageMap.put("role", "user");
                 messageMap.put("content", text);
                 messagesList.add(messageMap);
                 requestBody.put("input", messagesList);
-    
                 if (openAIDefaultChatCompletionStore) {
                     LocalDateTime now = LocalDateTime.now();
                     Map<String, String> metadataMap = new HashMap<>();
@@ -287,13 +270,10 @@ public class AIManager {
                     metadataMap.put("timestamp", now.toString());
                     requestBody.put("metadata", List.of(metadataMap));
                 }
-    
-                // Complete the chain by calculating tokens, then adding it to the request body.
                 return completeCalculateMaxOutputTokens(model, text)
                     .thenApply(calculatedTokens -> {
                         ModelInfo contextInfo = 
                             ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
-                        // Use one key or another depending on the model info.
                         if (contextInfo != null && contextInfo.status()) {
                             requestBody.put("max_output_tokens", calculatedTokens);
                         } else {
@@ -321,9 +301,7 @@ public class AIManager {
     }
 
     private static CompletableFuture<ResponseObject> completeRequestWithRequestBody(Map<String, Object> requestBody, String endpoint) {
-        return ConfigManager
-            .completeGetNestedConfigValue("api_keys", "OpenAI")
-            .thenCompose(openAIKeys -> openAIKeys.completeGetConfigStringValue("api_key"))
+        return cm.completeGetConfigValue("openai_api_key", String.class)
             .thenCompose(apiKey -> CompletableFuture.supplyAsync(() -> {
                 try (CloseableHttpClient httpClient = HttpClients.createDefault()) {
                     HttpPost post = new HttpPost(endpoint);

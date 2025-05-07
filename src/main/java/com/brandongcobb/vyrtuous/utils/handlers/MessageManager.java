@@ -144,21 +144,22 @@ public class MessageManager {
             Pattern codeBlockPattern = Pattern.compile("```(\\w+)\\s+([\\s\\S]+?)```", Pattern.MULTILINE);
             Matcher matcher = codeBlockPattern.matcher(response);
     
+            int codeIndex = 0;
             int lastEnd = 0;
-    
+            
             while (matcher.find()) {
-                // Send any non-code text before this code block
                 if (matcher.start() > lastEnd) {
                     String before = response.substring(lastEnd, matcher.start()).trim();
                     if (!before.isEmpty()) {
                         futures.addAll(sendInChunks(message, before));
                     }
                 }
-    
-                String fileType = matcher.group(1);   // e.g., "java", "txt"
+            
+                String fileType = matcher.group(1);
                 String fileContent = matcher.group(2);
-    
-                File file = new File(app.tempDirectory, "response." + fileType);
+            
+                // Use a unique filename per block
+                File file = new File(app.tempDirectory, "response_" + (codeIndex++) + "." + fileType);
                 try {
                     Files.writeString(file.toPath(), fileContent, StandardCharsets.UTF_8);
                 } catch (IOException e) {
@@ -166,7 +167,7 @@ public class MessageManager {
                     return completeSendDiscordMessage(message, "Error writing code file: " + e.getMessage())
                             .thenApply(m -> null);
                 }
-    
+            
                 futures.add(completeSendDiscordMessage(message, "Code block attached:", file));
                 lastEnd = matcher.end();
             }

@@ -42,8 +42,7 @@ public class EventListeners extends ListenerAdapter implements Cog {
     private final Vyrtuous app;
     private Lock lock;
 
-    public EventListeners (Vyrtuous application) {
-        this.app = application;
+    public EventListeners () {
         this.lock = app.lock;
     }
 

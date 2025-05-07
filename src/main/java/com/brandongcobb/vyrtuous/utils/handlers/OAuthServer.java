@@ -30,44 +30,37 @@ import java.net.URLEncoder;
 public class OAuthServer {
 
     private static Vyrtuous app;
+    private static ConfigManager cm;
 
-    public OAuthServer(Vyrtuous application) {
-        this.app = application;
+    public OAuthServer(ConfigManager cm) {
+        this.cm = cm;
     }
 
-    public static CompletableFuture<OAuthServer> start(Vyrtuous application) {
-        OAuthServer server = new OAuthServer(application);
-        return ConfigManager.completeGetConfigStringValue("spark_port")
-            .thenApply(Integer::parseInt)
+    public static CompletableFuture<OAuthServer> completeConnectSpark(ConfigManager cm) {
+        return cm.completeGetConfigValue("spark_port", Integer.class)
             .thenCompose(port -> {
                 Spark.port(port);
-                return ConfigManager.completeGetConfigObjectValue("spark_discord_endpoint")
+                return cm.completeGetConfigValue("spark_discord_endpoint", String.class)
                     .thenCombine(
-                        ConfigManager.completeGetConfigObjectValue("spark_patreon_endpoint"),
+                        cm.completeGetConfigValue("spark_patreon_endpoint", String.class),
                         (discordEndpoint, patreonEndpoint) -> {
                             Spark.get(discordEndpoint.toString(), (req, res) -> {
                                 String code = req.queryParams("code");
                                 String stateParam = req.queryParams("state");
                                 String userId = URLDecoder.decode(stateParam, "UTF-8");
-
                                 DiscordOAuth.completeExchangeCodeForToken(code).thenAccept(accessToken -> {
                                 });
-
                                 return "Discord OAuth callback received. You may now use /code with your token in Minecraft.";
                             });
-
                             Spark.get(patreonEndpoint.toString(), (req, res) -> {
                                 String code = req.queryParams("code");
                                 String stateParam = req.queryParams("state");
                                 String userId = URLDecoder.decode(stateParam, "UTF-8");
-
                                 PatreonOAuth.completeExchangeCodeForToken(code).thenAccept(accessToken -> {
                                 });
-
                                 return "Patreon OAuth callback received. You may now use /code with your token in Minecraft.";
                             });
                             Spark.init();
-                            return server;
                         }
                     );
             });

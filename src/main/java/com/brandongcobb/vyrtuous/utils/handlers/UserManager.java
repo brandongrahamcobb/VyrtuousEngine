@@ -37,15 +37,15 @@ public class UserManager {
 
     private static Vyrtuous app;
     private static Connection incomingConnection;
+    private static Database db;
 
-    public UserManager(Vyrtuous application) {
-        this.app = application;
-        this.incomingConnection = app.connection;
+    public UserManager(Database db) {
+        this.db = db;
     }
 
     public void consolidateUsers() {
         CompletableFuture.runAsync(() -> {
-            app.completeGetConnection(connection -> {
+            this.db.completeGetConnection(connection -> {
                 if (connection != null) {
                     String findDuplicatesSql = "SELECT MIN(id) AS min_id, " +
                         "discord_id, minecraft_id, patreon_id, SUM(exp) AS total_exp " +
@@ -139,7 +139,7 @@ public class UserManager {
                 patreon_vanity = EXCLUDED.patreon_vanity;
         """;
         return CompletableFuture.runAsync(() -> {
-            app.completeGetConnection(connection -> {
+            this.db.completeGetConnection(connection -> {
                 if (connection != null) {
                     try (PreparedStatement stmt = connection.prepareStatement(sql)) {
                         stmt.setTimestamp(1, timestamp);

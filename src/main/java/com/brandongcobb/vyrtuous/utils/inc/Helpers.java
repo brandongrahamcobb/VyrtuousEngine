@@ -28,6 +28,66 @@ public class Helpers {
 
     private static String finalSchema;
 
+    @SuppressWarnings("unchecked")
+    public static <T> T convertValue(Object value, Class<T> type) {
+        if (type.isInstance(value)) {
+            return (T) value;
+        }
+
+        if (type == Boolean.class) {
+            if (value instanceof String) return (T) Boolean.valueOf((String) value);
+        } else if (type == Integer.class) {
+            if (value instanceof Number) return (T) Integer.valueOf(((Number) value).intValue());
+            if (value instanceof String) return (T) Integer.valueOf(Integer.parseInt((String) value));
+        } else if (type == Long.class) {
+            if (value instanceof Number) return (T) Long.valueOf(((Number) value).longValue());
+            if (value instanceof String) return (T) Long.valueOf(Long.parseLong((String) value));
+        } else if (type == Float.class) {
+            if (value instanceof Number) return (T) Float.valueOf(((Number) value).floatValue());
+            if (value instanceof String) return (T) Float.valueOf(Float.parseFloat((String) value));
+        } else if (type == Double.class) {
+            if (value instanceof Number) return (T) Double.valueOf(((Number) value).doubleValue());
+            if (value instanceof String) return (T) Double.valueOf(Double.parseDouble((String) value));
+        } else if (type == String.class) {
+            return (T) value.toString();
+        }
+
+        throw new IllegalArgumentException("Unsupported type conversion for: " + type.getName());
+    }
+
+    @SuppressWarnings("unchecked")
+    public static Map<String, Object> deepMerge(Map<String, Object> defaults, Map<String, Object> loaded) {
+        Map<String, Object> merged = new HashMap<>(defaults);
+        for (Map.Entry<String, Object> entry : loaded.entrySet()) {
+            String key = entry.getKey();
+            Object loadedVal = entry.getValue();
+            if (merged.containsKey(key)) {
+                Object defaultVal = merged.get(key);
+                if (defaultVal instanceof Map && loadedVal instanceof Map) {
+                    merged.put(key, deepMerge((Map<String, Object>) defaultVal, (Map<String, Object>) loadedVal));
+                } else {
+                    merged.put(key, loadedVal);
+                }
+            } else {
+                merged.put(key, loadedVal);
+            }
+        }
+        return merged;
+    }
+
+    public static boolean isNullOrEmpty(Object[] objects) {
+        for (int i = 0; i < objects.length; i++) {
+            if (objects[i] instanceof String) {
+                if (objects[i] == null || ((String) objects[i]).trim().isEmpty()) {
+                    return true;
+                }
+            } else if (objects[i] == null) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public static Long parseCommaNumber(String number) {
         StringBuilder sb = new StringBuilder();
         for (int i = 0; i < number.length(); i++) {
@@ -45,18 +105,39 @@ public class Helpers {
         }
     }
 
-    public static boolean isNullOrEmpty(Object[] objects) {
-        for (int i = 0; i < objects.length; i++) {
-            if (objects[i] instanceof String) {
-                if (objects[i] == null || ((String) objects[i]).trim().isEmpty()) {
-                    return true;
-                }
-            } else if (objects[i] == null) {
-                return true;
-            }
-        }
-        return false;
+    public static Map<String, Object> populateConfig(Map<String, Object> configMap) {
+        configMap.put("discord_api_key", "");
+        configMap.put("discord_client_id", "");
+        configMap.put("discord_client_secret", "");
+        configMap.put("discord_command_prefix", "!");
+        configMap.put("discord_owner_id", "YOUR DISCORD ID");
+        configMap.put("discord_redirect_uri", "");
+        configMap.put("discord_role_pass", "ID FOR MODERATION BYPASS");
+        configMap.put("discord_testing_guild_id", "MAIN GUILD ID");
+        configMap.put("openai_api_key", "");
+        configMap.put("openai_chat_completion", false);
+        configMap.put("openai_chat_moderation", true);
+        configMap.put("openai_chat_stream", true);
+        configMap.put("openai_chat_temperature", 0.7);
+        configMap.put("openai_chat_top_p", 1.0);
+        configMap.put("openai_client_id", "");
+        configMap.put("openai_client_secret", "");
+        configMap.put("openai_redirect_uri", "");
+        configMap.put("patreon_api_key", "");
+        configMap.put("patreon_client_id", "");
+        configMap.put("patreon_client_secret", "");
+        configMap.put("patreon_redirect_uri", "");
+        configMap.put("postgres_database", "");
+        configMap.put("postgres_user", "postgres");
+        configMap.put("postgres_host", "localhost");
+        configMap.put("postgres_password", "");
+        configMap.put("postgres_port", "");
+        configMap.put("spark_discord_endpoint", "/oauth/discord_callback");
+        configMap.put("spark_patreon_endpoint", "/oauth/patreon_callback");
+        configMap.put("spark_port", Helpers.parseCommaNumber("8,000"));
+        return configMap;
     }
+
 
     // Base directories
     public static final String DIR_BASE = Paths.get("/home/spawd/Vystopia/src/main/java/com/brandongcobb/").toAbsolutePath().toString(); // Placeholder

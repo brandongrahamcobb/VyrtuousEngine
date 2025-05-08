@@ -31,6 +31,15 @@ public class Helpers {
 
     private static String finalSchema;
 
+    public static boolean containsString(String[] array, String target) {
+        for (String item : array) {
+            if (item.equals(target)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     @SuppressWarnings("unchecked")
     public static <T> T convertValue(Object value, Class<T> type) {
         if (type.isInstance(value)) {

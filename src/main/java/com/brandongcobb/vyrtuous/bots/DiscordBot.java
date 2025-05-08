@@ -46,7 +46,6 @@ public class DiscordBot {
         this.bot = this;
         this.cm = cm.completeGetInstance();
         String envDiscordApiKey = System.getenv("DISCORD_API_KEY");
-        System.out.println(envDiscordApiKey);
         CompletableFuture<String> apiKeyFuture = cm.completeGetConfigValue("discord_api_key", String.class);
         if (envDiscordApiKey != null) {
             apiKeyFuture = CompletableFuture.completedFuture(envDiscordApiKey);

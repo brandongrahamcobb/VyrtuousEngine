@@ -19,7 +19,9 @@ package com.brandongcobb.vyrtuous.cogs;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.bots.DiscordBot;
+import com.brandongcobb.vyrtuous.cogs.*;
 import com.brandongcobb.vyrtuous.utils.handlers.*;
+import com.brandongcobb.vyrtuous.utils.inc.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.locks.Lock;
 import java.util.logging.Logger;
@@ -53,80 +55,93 @@ public class EventListeners extends ListenerAdapter implements Cog {
     @Override
     public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
         Message message = event.getMessage();
-        AIManager aim = new AIManager(cm);
-        MessageManager mem = new MessageManager(cm);
-        User selfUser = this.api.getSelfUser();
         if (message.getAuthor().isBot()) return;
-//        boolean isMentioned = message.getMentions().getUsers().contains(this.api.getSelfUser());
-        String content = message.getContentDisplay().replace("@Vyrtuous", "");
-        User sender = event.getAuthor();
-        long senderId = sender.getIdLong();
-        List<Attachment> attachments = message.getAttachments();
-        ResponseObject previousResponse = userResponseMap.get(senderId);
-        final boolean[] multimodal = new boolean[]{false};
-        CompletableFuture<String> fullContentFuture;
-        if (attachments != null && !attachments.isEmpty()) {
-            fullContentFuture = mem.completeProcessAttachments(attachments)
-                .thenApply(attachmentContentList -> {
-                    String joinedAttachmentContent = String.join("\n", attachmentContentList);
-                    return joinedAttachmentContent + "\n" + content;
-                });
-            multimodal[0] = true;
-        } else {
-            fullContentFuture = CompletableFuture.completedFuture(content);
-        }
-        fullContentFuture.thenCompose(fullContent -> {
-            System.out.println("Processing fullContent: " + fullContent);
-            return aim.completeModeration(fullContent)
-                .thenCompose(moderationResponseObject ->
-                    moderationResponseObject.completeGetFlagged()
-                        .thenCompose(flagged -> {
-                            if (flagged) {
-                                ModerationManagerv2 mom = new ModerationManagerv2(cm);
-                                return moderationResponseObject.completeGetFormatFlaggedReasons()
-                                    .thenCompose(reason ->
-                                        mom.completeHandleModeration(message, reason)
-                                            .thenApply(ignored -> null)
-                                    );
-                            } else {
-  //                              boolean shouldChat = isMentioned;
-    //                            if (!shouldChat) {
-      //                              return CompletableFuture.completedFuture(null);
-        //                        }
-                                return aim.completeResolveModel(fullContent, multimodal[0])
-                                    .thenCompose(model -> {
-                                        CompletableFuture<String> previousResponseIdFuture;
-                                        if (previousResponse != null) {
-                                            previousResponseIdFuture = previousResponse.completeGetResponseId();
-                                        } else {
-                                            previousResponseIdFuture = CompletableFuture.completedFuture(null);
-                                        }
-                                        return previousResponseIdFuture
-                                            .thenCompose(previousResponseId -> aim.completeChat(fullContent, previousResponseId, model))
-                                            .thenCompose(chatResponseObject -> {
-                                                CompletableFuture<Void> setPrevFuture;
-                                                if (previousResponse != null) {
-                                                    setPrevFuture = previousResponse.completeGetPreviousResponseId()
-                                                        .thenCompose(prevId -> chatResponseObject.completeSetPreviousResponseId(prevId));
-                                                } else {
-                                                    setPrevFuture = chatResponseObject.completeSetPreviousResponseId(null);
-                                                }
-                                                return setPrevFuture.thenCompose(v -> {
-                                                    userResponseMap.put(senderId, chatResponseObject);
-                                                    return chatResponseObject.completeGetOutput()
-                                                        .thenCompose(outputContent ->
-                                                            mem.completeSendResponse(message, outputContent)
-                                                                .thenApply(ignored -> null)
-                                                        );
-                                                });
+    
+        cm.completeGetConfigValue("discord_command_prefix", String.class)
+          .thenAcceptAsync(prefixObj -> {
+            String prefix = (String) prefixObj;
+            String messageContent = message.getContentDisplay();
+    
+            if (messageContent.startsWith(prefix)) return;  // Skip command handling
+    
+            AIManager aim = new AIManager(cm);
+            MessageManager mem = new MessageManager(cm);
+            User sender = event.getAuthor();
+            long senderId = sender.getIdLong();
+            List<Attachment> attachments = message.getAttachments();
+            ResponseObject previousResponse = userResponseMap.get(senderId);
+            final boolean[] multimodal = new boolean[]{false};
+    
+            String content = messageContent.replace("@Vyrtuous", "");
+    
+            CompletableFuture<String> fullContentFuture;
+    
+            if (attachments != null && !attachments.isEmpty()) {
+                fullContentFuture = mem.completeProcessAttachments(attachments)
+                    .thenApply(attachmentContentList -> {
+                        String joined = String.join("\n", attachmentContentList);
+                        multimodal[0] = true;
+                        return joined + "\n" + content;
+                    });
+            } else {
+                fullContentFuture = CompletableFuture.completedFuture(content);
+            }
+    
+            fullContentFuture
+                .thenCompose(fullContent -> {
+                    System.out.println("Processing fullContent: " + fullContent);
+    
+                    return aim.completeModeration(fullContent)
+                        .thenCompose(moderationResponseObject ->
+                            moderationResponseObject.completeGetFlagged()
+                                .thenCompose(flagged -> {
+                                    if (flagged) {
+                                        ModerationManagerv2 mom = new ModerationManagerv2(cm);
+                                        return moderationResponseObject.completeGetFormatFlaggedReasons()
+                                            .thenCompose(reason ->
+                                                mom.completeHandleModeration(message, reason)
+                                                    .thenApply(ignored -> null)
+                                            );
+                                    } else {
+                                        return cm.completeGetUserModelSettings()
+                                            .thenCompose(userModelSettings -> {
+                                                Map<Long, String> userModelObject = (Map<Long, String>) userModelSettings;
+                                                String setting = userModelObject.getOrDefault(senderId, Helpers.OPENAI_CHAT_MODEL);
+    
+                                                return aim.completeResolveModel(fullContent, multimodal[0], setting)
+                                                    .thenCompose(model -> {
+                                                        CompletableFuture<String> previousResponseIdFuture =
+                                                            (previousResponse != null)
+                                                                ? previousResponse.completeGetResponseId()
+                                                                : CompletableFuture.completedFuture(null);
+    
+                                                        return previousResponseIdFuture
+                                                            .thenCompose(previousResponseId ->
+                                                                aim.completeChat(fullContent, previousResponseId, model)
+                                                                    .thenCompose(chatResponseObject -> {
+                                                                        CompletableFuture<Void> setPrevFuture =
+                                                                            (previousResponse != null)
+                                                                                ? previousResponse.completeGetPreviousResponseId()
+                                                                                      .thenCompose(prevId ->
+                                                                                          chatResponseObject.completeSetPreviousResponseId(prevId))
+                                                                                : chatResponseObject.completeSetPreviousResponseId(null);
+    
+                                                                        return setPrevFuture.thenCompose(v -> {
+                                                                            userResponseMap.put(senderId, chatResponseObject);
+                                                                            return chatResponseObject.completeGetOutput()
+                                                                                .thenCompose(outputContent ->
+                                                                                    mem.completeSendResponse(message, outputContent)
+                                                                                        .thenApply(ignored -> null));
+                                                                        });
+                                                                    }));
+                                                    });
                                             });
-                                    });
-                            }
-                        })
-                );
-        }).exceptionally(ex -> {
-            ex.printStackTrace();
-            return null;
+                                    }
+                                }));
+                })
+                .exceptionally(ex -> {
+                    return null;
+                });
         });
     }
 }

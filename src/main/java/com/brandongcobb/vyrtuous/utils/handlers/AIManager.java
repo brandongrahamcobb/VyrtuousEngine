@@ -113,8 +113,8 @@ public class AIManager {
         }).thenCompose(result -> result);
     }
 
-    public CompletableFuture<String> completeResolveModel(String content, Boolean multiModal) {
-        return completePerplexity(content)
+    public CompletableFuture<String> completeResolveModel(String content, Boolean multiModal, String model) {
+        return completePerplexity(content, model)
             .thenCompose(responseObject -> {
                 return responseObject.completeGetPerplexity().thenApply(responsePerplexity -> {
                     Integer perplexity = (Integer) responsePerplexity;
@@ -131,11 +131,11 @@ public class AIManager {
             });
     }
 
-    private CompletableFuture<Map<String, Object>> completeInputToPerplexityRequestBody(String fullContent, Map<String, Object> format) {
+    private CompletableFuture<Map<String, Object>> completeInputToPerplexityRequestBody(String fullContent, Map<String, Object> format, String model) {
             try {
                 return completeFormRequestBody(
                         fullContent,
-                        "gpt-4.1-nano",
+                        model,
                         format,
                         false,
                         false,
@@ -151,8 +151,8 @@ public class AIManager {
             }
     }
 
-    private CompletableFuture<ResponseObject> completePerplexity(String fullContent) {
-        return completeInputToPerplexityRequestBody(fullContent, Helpers.OPENAI_RESPONSES_TEXT_PERPLEXITY)
+    private CompletableFuture<ResponseObject> completePerplexity(String fullContent, String model) {
+        return completeInputToPerplexityRequestBody(fullContent, Helpers.OPENAI_RESPONSES_TEXT_PERPLEXITY, model)
             .thenCompose(requestBody ->
                 completeRequestWithRequestBody(requestBody, responsesApiUrl)
             );

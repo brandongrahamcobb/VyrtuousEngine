@@ -21,8 +21,10 @@ package com.brandongcobb.vyrtuous.cogs;
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.bots.DiscordBot;
 import com.brandongcobb.vyrtuous.utils.handlers.*;
+import com.brandongcobb.vyrtuous.utils.inc.*;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -53,7 +55,8 @@ public class HybridCommands extends ListenerAdapter implements Cog {
     @Override
     public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
         if (event.getAuthor().isBot()) return;
-        cm.completeGetConfigValue("discord_command_prefix", String.class).thenAcceptAsync(prefix -> {
+        cm.completeGetConfigValue("discord_command_prefix", String.class)
+          .thenAcceptAsync(prefix -> {
             String prefixObj = (String) prefix;
             String messageContent = event.getMessage().getContentRaw().trim();
             if (!messageContent.startsWith(prefixObj)) return;
@@ -61,20 +64,31 @@ public class HybridCommands extends ListenerAdapter implements Cog {
             if (args.length == 0) return;
             String command = args[0].toLowerCase();
             User sender = event.getAuthor();
-            Predicator predicator = new Predicator(cm, event.getJDA());
-            if (command.equals("config")) {
-                event.getChannel().sendMessage("Reloading configuration...").queue();
-                cm.completeSetAndLoadConfig()
-                    .thenRun(() -> event.getChannel().sendMessage("Configuration reloaded successfully.").queue())
-                    .exceptionally(ex -> {
-                        event.getChannel().sendMessage("Failed to reload configuration: " ).queue();
+            if (command.equals("openai")) {
+                if (args.length > 2 && "model".equalsIgnoreCase(args[1])) {
+                    cm.completeGetUserModelSettings().thenCompose(userModelSettings -> {
+                        Map<Long, String> userModelObject = (Map<Long, String>) userModelSettings;
+                        TextChannel channel = (TextChannel) event.getChannel();
+                        String arg = args[2].toLowerCase();
+                        if (Helpers.containsString(ModelRegistry.OPENAI_RESPONSE_MODELS, arg)) {
+                            userModelObject.put(sender.getIdLong(), arg);
+                            cm.completeSetUserModelSettings(userModelObject);
+                            channel.sendMessage("OpenAI model:" + arg + " for " + sender.getName()).queue();
+                        } else {
+                            String[] options = ModelRegistry.OPENAI_RESPONSE_MODELS;
+                            StringBuilder sb = new StringBuilder("[");
+                            for (int i = 0; i < options.length; i++) {
+                                sb.append(options[i]);
+                                if (i < options.length - 1) sb.append(", ");
+                            }
+                            sb.append("]");
+                            channel.sendMessage("Your options are " + sb.toString()).queue();
+                        }
                         return null;
                     });
-            }
-            if (command.equals("wipe")) {
-                boolean wipeAll = false;
-                boolean wipeBot = false;
-                boolean wipeCommands = false;
+                }
+            } else if (command.equals("wipe")) {
+                boolean wipeAll = false, wipeBot = false, wipeCommands = false;
                 String targetUserId = null;
                 for (int i = 1; i < args.length; i++) {
                     String arg = args[i].toLowerCase();
@@ -86,9 +100,7 @@ public class HybridCommands extends ListenerAdapter implements Cog {
                             if (i + 1 < args.length) {
                                 String userMention = args[i + 1];
                                 User user = parseUserFromMention(userMention, event.getGuild());
-                                if (user != null) {
-                                    targetUserId = user.getId();
-                                }
+                                if (user != null) targetUserId = user.getId();
                                 i++;
                             }
                         }
@@ -98,14 +110,11 @@ public class HybridCommands extends ListenerAdapter implements Cog {
                 String guildId = event.getGuild().getId();
                 String channelId = channel.getId();
                 wipeMessages(guildId, channelId, wipeAll, wipeBot, wipeCommands, targetUserId)
-                    .thenRun(() -> channel.sendMessage("Message wipe completed.").queue())
-                    .exceptionally((Throwable ex) -> {
-                        return null;
-                    });
+                  .thenRun(() -> channel.sendMessage("Message wipe completed.").queue())
+                  .exceptionally(ex -> { return null; });
             }
-        }).exceptionally(ex -> {
-            return null;
-        });
+          })
+          .exceptionally(ex -> { return null; });
     }
 
     private User parseUserFromMention(String mention, Guild guild) {

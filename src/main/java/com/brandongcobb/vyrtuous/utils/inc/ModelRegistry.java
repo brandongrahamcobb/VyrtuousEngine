@@ -23,6 +23,8 @@ import java.util.Map;
 
 public class ModelRegistry {
 
+    public static final String[] OPENAI_RESPONSE_MODELS = {"gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini", "o1", "o3-mini", "o4-mini"};
+
     public static final Map<String, ModelInfo> OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS = Map.ofEntries(
         Map.entry("ft:gpt-4o-mini-2024-07-18:spawd:vyrtuous:AjZpTNN2", new ModelInfo(Helpers.parseCommaNumber("16,384"), false)),
         Map.entry("gpt-3.5-turbo", new ModelInfo(Helpers.parseCommaNumber("4,096"), false)),

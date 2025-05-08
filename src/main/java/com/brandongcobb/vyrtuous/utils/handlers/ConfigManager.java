@@ -30,6 +30,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.concurrent.ConcurrentMap;
 import java.util.Map;
 import org.yaml.snakeyaml.DumperOptions;
 import org.yaml.snakeyaml.Yaml;
@@ -42,6 +43,7 @@ public class ConfigManager<T> {
     private Logger logger;
     private Function<Object, T> converter;
     private Map<String, Object> defaultConfig = Helpers.populateConfig(new HashMap<>());
+    private Map<Long, String> userModelSettings = new HashMap<>();
 
     public ConfigManager(Vyrtuous application) {
         instance = this;
@@ -128,10 +130,18 @@ public class ConfigManager<T> {
         return this.instance;
     }
 
+    public CompletableFuture<Map<Long, String>> completeGetUserModelSettings() {
+        return CompletableFuture.completedFuture(this.userModelSettings);
+    }
+
     /*
      * Setters
      *
      */
+    public void completeSetUserModelSettings(Map<Long, String> userModelSettings) {
+        this.userModelSettings = userModelSettings;
+    }
+
     private CompletableFuture<Map<String, Object>> completeSetConfig() {
         return completeGetDataFolder()
             .thenCompose(dataFolder -> CompletableFuture.supplyAsync(() -> {

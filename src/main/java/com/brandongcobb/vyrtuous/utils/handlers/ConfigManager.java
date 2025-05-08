@@ -77,12 +77,14 @@ public class ConfigManager<T> {
                         if (loadedConfig == null) {
                             loadedConfig = new HashMap<>();
                         }
+                        if (defaultConfig.equals(loadedConfig)) {
+                            logger.severe("Configuration has not been set");
+                        }
                         this.config = Helpers.deepMerge(this.defaultConfig, loadedConfig);
                     } catch (Exception e) {
-                        logger.severe("Failed to load config: " + e.getMessage());
-                        throw new RuntimeException("Failed to load config", e);
+                        logger.severe("Failed to load config: " + e.getMessage()); throw new RuntimeException("Failed to load config", e);
                     }
-                    return null; // Return void
+                    return null;
                 }));
             })
             .thenRun(() -> logger.info("Configuration loaded and merged successfully."))
@@ -182,10 +184,10 @@ public class ConfigManager<T> {
         List<CompletableFuture<Boolean>> validations = new ArrayList<>();
         validations.add(completeValidateApiConfig("discord"));
         validations.add(completeValidateApiConfig("openai"));
-        validations.add(completeValidateApiConfig("patreon"));
+//        validations.add(completeValidateApiConfig("patreon"));
         validations.add(completeValidatePostgresConfig());
-        validations.add(completeValidateSparkConfig());
-        validations.add(completeValidateWebHeadersConfig());
+  //      validations.add(completeValidateSparkConfig());
+   //     validations.add(completeValidateWebHeadersConfig());
         validations.add(completeValidateOpenAIConfig());
         return CompletableFuture.allOf(validations.toArray(new CompletableFuture[0]))
             .thenApply(v -> {
@@ -236,16 +238,24 @@ public class ConfigManager<T> {
 
     private CompletableFuture<Boolean> completeValidateOpenAIConfig() {
         return CompletableFuture.supplyAsync(() -> {
-            String openAIChatCompletion = (String) String.valueOf(this.config.get("openai_chat_completion"));
+            boolean openAIChatCompletion = (boolean) Boolean.parseBoolean(String.valueOf(this.config.get("openai_chat_completion")));
             String openAIChatModel = (String) String.valueOf(this.config.get("openai_chat_model"));
-            String openAIChatModeration = (String) String.valueOf(this.config.get("openai_chat_moderation"));
+            boolean openAIChatModeration = (boolean) Boolean.parseBoolean(String.valueOf(this.config.get("openai_chat_moderation")));
             String openAIChatStop = (String) String.valueOf(this.config.get("openai_chat_stop"));
             boolean openAIChatStream = (boolean) Boolean.parseBoolean(String.valueOf(this.config.get("openai_chat_stream")));
             float openAIChatTemperature = (float) Float.parseFloat(String.valueOf(this.config.get("openai_chat_temperature")));
             float openAIChatTopP = (float) Float.parseFloat(String.valueOf(this.config.get("openai_chat_top_p")));
             boolean isValid = true;
-            Object[] values = {openAIChatCompletion, openAIChatModel, openAIChatModeration, openAIChatStop, openAIChatStream, openAIChatTemperature, openAIChatTopP};
-            if (Helpers.isNullOrEmpty(values)) {
+            if (!openAIChatCompletion) {
+                logger.warning("OpenAI responses are off.");
+            }
+            if (!openAIChatModeration) {
+                logger.warning("OpenAI moderations are off, completions inherits and is also off..");
+            }
+            if (openAIChatStream) {
+                logger.warning("OpenAI chat streaming is not yet supported.");
+            }
+            Object[] values = {openAIChatModel, openAIChatStop, openAIChatTemperature, openAIChatTopP}; if (Helpers.isNullOrEmpty(values)) {
                 logger.warning("OpenAI settings are invalid.");
                 isValid = false;
             }
@@ -270,40 +280,40 @@ public class ConfigManager<T> {
         });
     }
 
-    private CompletableFuture<Boolean> completeValidateSparkConfig() {
-        return CompletableFuture.supplyAsync(() -> {
-            boolean isValid = true;
-            String discordEndpoint = (String) this.config.get("spark_discord_endpoint");
-            String patreonEndpoint = (String) this.config.get("spark_patreon_endpoint");
-            String port = String.valueOf(this.config.get("spark_port"));
-            String[] values = {discordEndpoint, patreonEndpoint, port};
-            System.out.println(discordEndpoint + patreonEndpoint + port);
-            if (Helpers.isNullOrEmpty(values)) {
-                logger.warning("Spark settings are invalid.");
-                isValid = false;
-            }
-            return isValid;
-        });
-    }
-
-    private CompletableFuture<Boolean> completeValidateWebHeadersConfig() {
-        return CompletableFuture.supplyAsync(() -> {
-            Map<String, Object> webHeaders = (Map<String, Object>) this.config.get("web_headers");
-            boolean isValid = true;
-            for (Map.Entry<String, Object> entry : webHeaders.entrySet()) {
-                String api = entry.getKey();
-                Map<String, String> headers = (Map<String, String>) entry.getValue();
-                for (Map.Entry<String, String> header : headers.entrySet()) {
-                    String key = header.getKey();
-                    String value = header.getValue();
-                    Object[] values = {webHeaders, key, value};
-                    if (Helpers.isNullOrEmpty(values)) {
-                        logger.warning("Web headers configuration is invalid.");
-                        isValid = false;
-                    }
-                }
-            }
-            return isValid;
-        });
-    }
+//    private CompletableFuture<Boolean> completeValidateSparkConfig() {
+//        return CompletableFuture.supplyAsync(() -> {
+//            boolean isValid = true;
+//            String discordEndpoint = (String) this.config.get("spark_discord_endpoint");
+//            String patreonEndpoint = (String) this.config.get("spark_patreon_endpoint");
+//            String port = String.valueOf(this.config.get("spark_port"));
+//            String[] values = {discordEndpoint, patreonEndpoint, port};
+//            System.out.println(discordEndpoint + patreonEndpoint + port);
+//            if (Helpers.isNullOrEmpty(values)) {
+//                logger.warning("Spark settings are invalid.");
+//                isValid = false;
+//            }
+//            return isValid;
+//        });
+//    }
+//
+//    private CompletableFuture<Boolean> completeValidateWebHeadersConfig() {
+//        return CompletableFuture.supplyAsync(() -> {
+//            Map<String, Object> webHeaders = (Map<String, Object>) this.config.get("web_headers");
+//            boolean isValid = true;
+//            for (Map.Entry<String, Object> entry : webHeaders.entrySet()) {
+//                String api = entry.getKey();
+//                Map<String, String> headers = (Map<String, String>) entry.getValue();
+//                for (Map.Entry<String, String> header : headers.entrySet()) {
+//                    String key = header.getKey();
+//                    String value = header.getValue();
+//                    Object[] values = {webHeaders, key, value};
+//                    if (Helpers.isNullOrEmpty(values)) {
+//                        logger.warning("Web headers configuration is invalid.");
+//                        isValid = false;
+//                    }
+//                }
+//            }
+//            return isValid;
+//        });
+//    }
 }

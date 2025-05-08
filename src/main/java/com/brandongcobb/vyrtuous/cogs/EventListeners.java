@@ -57,7 +57,7 @@ public class EventListeners extends ListenerAdapter implements Cog {
         MessageManager mem = new MessageManager(cm);
         User selfUser = this.api.getSelfUser();
         if (message.getAuthor().isBot()) return;
-        boolean isMentioned = message.getMentions().getUsers().contains(this.api.getSelfUser());
+//        boolean isMentioned = message.getMentions().getUsers().contains(this.api.getSelfUser());
         String content = message.getContentDisplay().replace("@Vyrtuous", "");
         User sender = event.getAuthor();
         long senderId = sender.getIdLong();
@@ -89,10 +89,10 @@ public class EventListeners extends ListenerAdapter implements Cog {
                                             .thenApply(ignored -> null)
                                     );
                             } else {
-                                boolean shouldChat = isMentioned;
-                                if (!shouldChat) {
-                                    return CompletableFuture.completedFuture(null);
-                                }
+  //                              boolean shouldChat = isMentioned;
+    //                            if (!shouldChat) {
+      //                              return CompletableFuture.completedFuture(null);
+        //                        }
                                 return aim.completeResolveModel(fullContent, multimodal[0])
                                     .thenCompose(model -> {
                                         CompletableFuture<String> previousResponseIdFuture;

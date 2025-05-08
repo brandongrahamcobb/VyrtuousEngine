@@ -58,15 +58,7 @@ public class Vyrtuous {
         Vyrtuous app = new Vyrtuous();
         ConfigManager cm = new ConfigManager(app);
         cm.completeSetAndLoadConfig().thenRun(() -> {
-            Database db = new Database(cm);
             DiscordBot bot = new DiscordBot(cm);
-            Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-                try {
-                    db.completeCloseDatabase();
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            }));
-        }).join(); // Block main thread here
+        }).join();
     }
 }

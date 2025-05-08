@@ -102,49 +102,29 @@ public class Helpers {
         String cleanedNumber = sb.toString();
         try {
             int intVal = Integer.parseInt(cleanedNumber);
-            return (long) intVal; // safely fits in int
+            return (long) intVal;
         } catch (NumberFormatException e) {
             return Long.parseLong(cleanedNumber);
         }
     }
 
     public static Map<String, Object> populateConfig(Map<String, Object> configMap) {
-        configMap.put("discord_api_key", "");
-        configMap.put("discord_client_id", "");
-        configMap.put("discord_client_secret", "");
-        configMap.put("discord_command_prefix", "!");
+        configMap.put("discord_api_key", System.getenv("DISCORD_API_KEY"));
+        configMap.put("discord_command_prefix", ".");
         configMap.put("discord_owner_id", "");
-        configMap.put("discord_redirect_uri", "");
-        configMap.put("discord_role_pass", "");
-        configMap.put("discord_testing_guild_id", "");
-        configMap.put("openai_api_key", "");
-        configMap.put("openai_chat_completion", false);
-        configMap.put("openai_chat_model", "");
-        configMap.put("openai_chat_moderation", true);
-        configMap.put("openai_chat_stream", true);
-        configMap.put("openai_chat_temperature", 0.7);
-        configMap.put("openai_chat_top_p", 1.0);
-        configMap.put("openai_client_id", "");
-        configMap.put("openai_client_secret", "");
-        configMap.put("openai_redirect_uri", "");
-        configMap.put("patreon_api_key", "");
-        configMap.put("patreon_client_id", "");
-        configMap.put("patreon_client_secret", "");
-        configMap.put("patreon_redirect_uri", "");
-        configMap.put("postgres_database", "");
-        configMap.put("postgres_user", "postgres");
-        configMap.put("postgres_host", "localhost");
-        configMap.put("postgres_password", "");
-        configMap.put("postgres_port", "");
-        configMap.put("spark_discord_endpoint", "/oauth/discord_callback");
-        configMap.put("spark_patreon_endpoint", "/oauth/patreon_callback");
-        configMap.put("spark_port", Helpers.parseCommaNumber("8,000"));
+        configMap.put("openai_api_key", System.getenv("OPENAI_API_KEY"));
+        configMap.put("openai_chat_completion", OPENAI_CHAT_COMPLETION);
+        configMap.put("openai_chat_moderation", OPENAI_CHAT_MODERATION);
+        configMap.put("openai_chat_stop", OPENAI_CHAT_STOP);
+        configMap.put("openai_chat_stream", OPENAI_CHAT_STREAM);
+        configMap.put("openai_chat_temperature", OPENAI_CHAT_TEMPERATURE);
+        configMap.put("openai_chat_top_p", OPENAI_CHAT_TEMPERATURE);
         return configMap;
     }
 
 
     // Base directories
-    public static final String DIR_BASE = Paths.get("/home/spawd/Vystopia/src/main/java/com/brandongcobb/").toAbsolutePath().toString(); // Placeholder
+    public static final String DIR_BASE = Paths.get("/home/spawd/Vystopia/src/main/java/com/brandongcobb/").toAbsolutePath().toString();
     public static final String DIR_HOME = System.getProperty("user.home");
     public static final String DIR_TEMP = Paths.get(DIR_BASE, "vyrtuous", "temp").toString();
 
@@ -251,62 +231,45 @@ public class Helpers {
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> createColorizeSchema() {
-        // Define the color properties
         Map<String, Object> properties = new HashMap<>();
-        properties.put("r", Map.of("type", "integer", "minimum", 0, "maximum", 255));
-        properties.put("g", Map.of("type", "integer", "minimum", 0, "maximum", 255));
-        properties.put("b", Map.of("type", "integer", "minimum", 0, "maximum", 255));
-    
-        // Build the schema for the colorize response
+        properties.put("r", Map.of("type", "integer"));
+        properties.put("g", Map.of("type", "integer"));
+        properties.put("b", Map.of("type", "integer"));
         Map<String, Object> schema = new HashMap<>();
         schema.put("type", "object");
         schema.put("properties", properties);
         schema.put("required", List.of("r", "g", "b"));
         schema.put("additionalProperties", false);
-    
-        // Define the format containing the schema
         Map<String, Object> format = new HashMap<>();
         format.put("type", "json_schema");
         format.put("strict", true);
         format.put("schema", schema);
         format.put("name", "colorize");
-    
-        // Wrap format in the new responses API structure
         return format;
     }
 
     @SuppressWarnings("unchecked")
     private static Map<String, Object> createPerplexitySchema() {
-        // Define the color properties
         Map<String, Object> properties = new HashMap<>();
         properties.put("perplexity", Map.of("type", "integer"));
-    
-        // Build the schema for the colorize response
         Map<String, Object> schema = new HashMap<>();
         schema.put("type", "object");
         schema.put("properties", properties);
         schema.put("required", List.of("perplexity"));
         schema.put("additionalProperties", false);
-    
-        // Define the format containing the schema
         Map<String, Object> format = new HashMap<>();
         format.put("type", "json_schema");
         format.put("strict", true);
         format.put("schema", schema);
         format.put("name", "perplexity");
-    
-        // Wrap format in the new responses API structure
         return format;
     }
-    
+
     @SuppressWarnings("unchecked")
     private static Map<String, Object> createModerationSchema() {
-        // Main properties for id and model
         Map<String, Object> properties = new HashMap<>();
         properties.put("id", Map.of("type", "string"));
         properties.put("model", Map.of("type", "string"));
-    
-        // Create properties for each moderation category
         Map<String, Object> categoriesProps = new HashMap<>();
         String[] categoryKeys = {
             "sexual", "hate", "harassment", "self-harm", "sexual/minors",
@@ -316,8 +279,6 @@ public class Helpers {
         for (String key : categoryKeys) {
             categoriesProps.put(key, Map.of("type", "boolean"));
         }
-    
-        // Build the schema part for "categories"
         Map<String, Object> categories = new HashMap<>();
         categories.put("type", "object");
         categories.put("properties", categoriesProps);
@@ -332,40 +293,29 @@ public class Helpers {
         categoryScores.put("properties", scoresProps);
         categoryScores.put("required", Arrays.asList(categoryKeys));
         categoryScores.put("additionalProperties", false); // Disallow extra props here
-    
-        // Assemble the "result" object schema
         Map<String, Object> resultProps = new HashMap<>();
         resultProps.put("flagged", Map.of("type", "boolean"));
         resultProps.put("categories", categories);
         resultProps.put("category_scores", categoryScores);
-    
-        // Use a mutable map so we can add additionalProperties
         Map<String, Object> resultObject = new HashMap<>();
         resultObject.put("type", "object");
         resultObject.put("properties", resultProps);
         resultObject.put("required", List.of("flagged", "categories", "category_scores"));
         resultObject.put("additionalProperties", false);  // <-- This line is essential!
-    
-        // Define the results array schema
         Map<String, Object> results = new HashMap<>();
         results.put("type", "array");
         results.put("items", resultObject);
         properties.put("results", results);
-    
-        // Build the main schema for the moderation response
         Map<String, Object> mainSchema = new HashMap<>();
         mainSchema.put("type", "object");
         mainSchema.put("properties", properties);
         mainSchema.put("required", Arrays.asList("id", "model", "results"));
         mainSchema.put("additionalProperties", false);
-    
-        // Wrap it up in a "format" object
         Map<String, Object> format = new HashMap<>();
         format.put("type", "json_schema");
         format.put("strict", true);
         format.put("name", "moderations");
         format.put("schema", mainSchema);
-    
         return format;
     }
 

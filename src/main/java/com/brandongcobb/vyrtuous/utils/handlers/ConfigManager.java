@@ -182,12 +182,7 @@ public class ConfigManager<T> {
      */
     public CompletableFuture<Void> completeValidateConfig() {
         List<CompletableFuture<Boolean>> validations = new ArrayList<>();
-        validations.add(completeValidateApiConfig("discord"));
-        validations.add(completeValidateApiConfig("openai"));
-//        validations.add(completeValidateApiConfig("patreon"));
-        validations.add(completeValidatePostgresConfig());
-  //      validations.add(completeValidateSparkConfig());
-   //     validations.add(completeValidateWebHeadersConfig());
+        validations.add(completeValidateDiscordConfig());
         validations.add(completeValidateOpenAIConfig());
         return CompletableFuture.allOf(validations.toArray(new CompletableFuture[0]))
             .thenApply(v -> {
@@ -201,51 +196,34 @@ public class ConfigManager<T> {
             });
     }
 
-    private CompletableFuture<Boolean> completeValidateApiConfig(String api) {
+
+    private CompletableFuture<Boolean> completeValidateDiscordConfig() {
         return CompletableFuture.supplyAsync(() -> {
-            String apiKey = api + "_api_key";
-            String clientIdKey = api + "_client_id";
-            String clientSecretKey = api + "_client_secret";
-            String redirectUriKey = api + "_redirect_uri";
-            boolean hasValidData = false;
-            String apiKeyValue = (String) this.config.get(apiKey);
-            if (Helpers.isNullOrEmpty(new Object[]{apiKeyValue})) {
-                logger.warning(api + " API key is missing or invalid.");
-            } else {
-                hasValidData = true;
+            String discordApiKey = (String) String.valueOf(this.config.get("discord_api_key"));
+            boolean isValid = true;
+            if (discordApiKey == null) {
+                logger.warning("Set DISCORD_API_KEY=<your-key>.");
+                isValid = false;
             }
-            String clientId = (String) this.config.get(clientIdKey);
-            if (Helpers.isNullOrEmpty(new Object[]{clientId})) {
-                logger.warning(api + " client_id is missing or invalid.");
-            } else {
-                hasValidData = true;
-            }
-            String clientSecret = (String) this.config.get(clientSecretKey);
-            if (Helpers.isNullOrEmpty(new Object[]{clientSecret})) {
-                logger.warning(api + " client_secret is missing or invalid.");
-            } else {
-                hasValidData = true;
-            }
-            String redirectUri = (String) this.config.get(redirectUriKey);
-            if (Helpers.isNullOrEmpty(new Object[]{redirectUri})) {
-                logger.warning(api + " redirect_uri is missing or invalid.");
-            } else {
-                hasValidData = true;
-            }
-            return hasValidData;
+            return isValid;
         });
     }
 
     private CompletableFuture<Boolean> completeValidateOpenAIConfig() {
         return CompletableFuture.supplyAsync(() -> {
-            boolean openAIChatCompletion = (boolean) Boolean.parseBoolean(String.valueOf(this.config.get("openai_chat_completion")));
+            String openAIApiKey = (String) String.valueOf(this.config.get("openai_api_key")); // or config.get directly for static
+            boolean openAIChatCompletion = Boolean.parseBoolean(String.valueOf(this.config.get("openai_chat_completion")));
             String openAIChatModel = (String) String.valueOf(this.config.get("openai_chat_model"));
-            boolean openAIChatModeration = (boolean) Boolean.parseBoolean(String.valueOf(this.config.get("openai_chat_moderation")));
+            boolean openAIChatModeration = Boolean.parseBoolean(String.valueOf(this.config.get("openai_chat_moderation")));
             String openAIChatStop = (String) String.valueOf(this.config.get("openai_chat_stop"));
-            boolean openAIChatStream = (boolean) Boolean.parseBoolean(String.valueOf(this.config.get("openai_chat_stream")));
-            float openAIChatTemperature = (float) Float.parseFloat(String.valueOf(this.config.get("openai_chat_temperature")));
-            float openAIChatTopP = (float) Float.parseFloat(String.valueOf(this.config.get("openai_chat_top_p")));
+            boolean openAIChatStream = Boolean.parseBoolean(String.valueOf(this.config.get("openai_chat_stream")));
+            float openAIChatTemperature = Float.parseFloat(String.valueOf(this.config.get("openai_chat_temperature")));
+            float openAIChatTopP = Float.parseFloat(String.valueOf(this.config.get("openai_chat_top_p")));
             boolean isValid = true;
+            if (openAIApiKey == null || openAIApiKey.trim().isEmpty()) {
+                logger.warning("Set OPENAI_API_KEY=<your-key>.");
+                isValid = false;
+            }
             if (!openAIChatCompletion) {
                 logger.warning("OpenAI responses are off.");
             }
@@ -255,65 +233,8 @@ public class ConfigManager<T> {
             if (openAIChatStream) {
                 logger.warning("OpenAI chat streaming is not yet supported.");
             }
-            Object[] values = {openAIChatModel, openAIChatStop, openAIChatTemperature, openAIChatTopP}; if (Helpers.isNullOrEmpty(values)) {
-                logger.warning("OpenAI settings are invalid.");
-                isValid = false;
-            }
+            // Optional: check other values
             return isValid;
         });
     }
-
-    private CompletableFuture<Boolean> completeValidatePostgresConfig() {
-        return CompletableFuture.supplyAsync(() -> {
-            String database = (String) this.config.get("postgres_database");
-            String user = (String) this.config.get("postgres_user");
-            String password = (String) this.config.get("postgres_password");
-            String host = (String) this.config.get("postgres_host");
-            String port = (String) this.config.get("postgres_port");
-            boolean isValid = true;
-            String[] values = {database, user, password, host, port};
-            if (Helpers.isNullOrEmpty(values)) {
-                logger.warning("Postgres settings are invalid.");
-                isValid = false;
-            }
-            return isValid;
-        });
-    }
-
-//    private CompletableFuture<Boolean> completeValidateSparkConfig() {
-//        return CompletableFuture.supplyAsync(() -> {
-//            boolean isValid = true;
-//            String discordEndpoint = (String) this.config.get("spark_discord_endpoint");
-//            String patreonEndpoint = (String) this.config.get("spark_patreon_endpoint");
-//            String port = String.valueOf(this.config.get("spark_port"));
-//            String[] values = {discordEndpoint, patreonEndpoint, port};
-//            System.out.println(discordEndpoint + patreonEndpoint + port);
-//            if (Helpers.isNullOrEmpty(values)) {
-//                logger.warning("Spark settings are invalid.");
-//                isValid = false;
-//            }
-//            return isValid;
-//        });
-//    }
-//
-//    private CompletableFuture<Boolean> completeValidateWebHeadersConfig() {
-//        return CompletableFuture.supplyAsync(() -> {
-//            Map<String, Object> webHeaders = (Map<String, Object>) this.config.get("web_headers");
-//            boolean isValid = true;
-//            for (Map.Entry<String, Object> entry : webHeaders.entrySet()) {
-//                String api = entry.getKey();
-//                Map<String, String> headers = (Map<String, String>) entry.getValue();
-//                for (Map.Entry<String, String> header : headers.entrySet()) {
-//                    String key = header.getKey();
-//                    String value = header.getValue();
-//                    Object[] values = {webHeaders, key, value};
-//                    if (Helpers.isNullOrEmpty(values)) {
-//                        logger.warning("Web headers configuration is invalid.");
-//                        isValid = false;
-//                    }
-//                }
-//            }
-//            return isValid;
-//        });
-//    }
 }

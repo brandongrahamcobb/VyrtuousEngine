@@ -96,7 +96,7 @@ public class AIManager {
             try {
                 return completeFormRequestBody(
                     fullContent,
-                    CompletableFuture.completedFuture(Helpers.OPENAI_CHAT_MODERATION_MODEL),
+                    Helpers.OPENAI_CHAT_MODERATION_MODEL,
                     Helpers.OPENAI_CHAT_MODERATION_RESPONSE_FORMAT,
                     Helpers.OPENAI_CHAT_MODERATION_STORE,
                     Helpers.OPENAI_CHAT_MODERATION_STREAM,
@@ -135,7 +135,7 @@ public class AIManager {
             try {
                 return completeFormRequestBody(
                         fullContent,
-                        cm.completeGetConfigValue("openai_chat_model", String.class),
+                        "gpt-4.1-nano",
                         format,
                         false,
                         false,
@@ -160,7 +160,7 @@ public class AIManager {
 
     private CompletableFuture<Map<String, Object>> completeFormRequestBody(
             String fullContent,
-            CompletableFuture<String> modelFuture,
+            String model,
             Map<String, Object> textFormat,
             boolean store,
             boolean stream,
@@ -168,7 +168,8 @@ public class AIManager {
             float temperature,
             float top_p,
             String previousResponseId) {
-        return modelFuture.thenApply(model -> {
+        CompletableFuture<Long> tokensFuture = completeCalculateMaxOutputTokens(model, fullContent);
+        return tokensFuture.thenApplyAsync(tokens -> {
             Map<String, Object> requestBody = new HashMap<>();
             requestBody.put("model", model);
             requestBody.put("text", Map.of("format", textFormat));
@@ -187,7 +188,6 @@ public class AIManager {
                 metadataMap.put("timestamp", now.toString());
                 requestBody.put("metadata", List.of(metadataMap));
             }
-            long tokens = completeCalculateMaxOutputTokens(model, fullContent).join();
             ModelInfo contextInfo = ModelRegistry.OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS.get(model);
             if (contextInfo != null && contextInfo.status()) {
                 requestBody.put("max_output_tokens", tokens);

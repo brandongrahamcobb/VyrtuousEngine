@@ -45,38 +45,37 @@ public class DiscordBot {
     public DiscordBot(ConfigManager cm) {
         this.bot = this;
         this.cm = cm.completeGetInstance();
-        CompletableFuture<Void> future = cm.completeGetConfigValue("discord_api_key", String.class)
-            .thenCombine(cm.completeGetConfigValue("discord_owner_id", Long.class), (apiKey, ownerId) -> {
-                try {
-                    if (apiKey == null || ownerId == null) {
-                        throw new IllegalArgumentException("API Key or Owner ID is null");
-                    }
-                    this.api = JDABuilder.createDefault((String) apiKey,
+        String envDiscordApiKey = System.getenv("DISCORD_API_KEY");
+        System.out.println(envDiscordApiKey);
+        CompletableFuture<String> apiKeyFuture = cm.completeGetConfigValue("discord_api_key", String.class);
+        if (envDiscordApiKey != null) {
+            apiKeyFuture = CompletableFuture.completedFuture(envDiscordApiKey);
+        }
+        apiKeyFuture.thenAccept(apiKey -> {
+            try {
+                if (apiKey == null || apiKey.trim().isEmpty()) {
+                    throw new IllegalArgumentException("Discord API Key is null or empty");
+                }
+                this.api = JDABuilder.createDefault(apiKey,
                             GatewayIntent.GUILD_MESSAGES,
                             GatewayIntent.MESSAGE_CONTENT,
                             GatewayIntent.GUILD_MEMBERS)
                         .setActivity(Activity.playing("I take pharmacology personally."))
                         .build();
-                    List<Cog> cogs = new ArrayList<>();
-                    cogs.add(new EventListeners());
-                    cogs.add(new HybridCommands());
-                    for (Cog cog : cogs) {
-                        cog.register(this.api, this.bot, this.cm);
-                    }
-                } catch (Exception e) {
-                    logger.log(Level.SEVERE, "Error during DiscordBot setup", e);
-                    throw new CompletionException(e);
+                List<Cog> cogs = new ArrayList<>();
+                cogs.add(new EventListeners());
+                cogs.add(new HybridCommands());
+                for (Cog cog : cogs) {
+                    cog.register(this.api, this.bot, this.cm);
                 }
-                return null;
-            })
-            .whenComplete((result, throwable) -> {
-                if (throwable != null) {
-                    logger.log(Level.SEVERE, "Error starting Discord bot", throwable);
-                } else {
-                    logger.info("Discord bot successfully initialized.");
-                }
-            });
-        future.join();
+                logger.info("Discord bot successfully initialized.");
+            } catch (Exception e) {
+                logger.log(Level.SEVERE, "Error during DiscordBot setup", e);
+            }
+        }).exceptionally(ex -> {
+            logger.log(Level.SEVERE, "Error starting Discord bot", ex);
+            return null;
+        }).join();
     }
 
     public DiscordBot completeGetBot() {

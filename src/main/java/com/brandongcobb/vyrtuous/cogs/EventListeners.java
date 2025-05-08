@@ -82,7 +82,7 @@ public class EventListeners extends ListenerAdapter implements Cog {
                     moderationResponseObject.completeGetFlagged()
                         .thenCompose(flagged -> {
                             if (flagged) {
-                                ModerationManager mom = new ModerationManager(cm);
+                                ModerationManagerv2 mom = new ModerationManagerv2(cm);
                                 return moderationResponseObject.completeGetFormatFlaggedReasons()
                                     .thenCompose(reason ->
                                         mom.completeHandleModeration(message, reason)

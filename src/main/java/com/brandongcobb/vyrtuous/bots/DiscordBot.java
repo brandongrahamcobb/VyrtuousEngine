@@ -18,8 +18,7 @@
  */
 package com.brandongcobb.vyrtuous.bots;
 
-import com.brandongcobb.vyrtuous.cogs.Cog;
-import com.brandongcobb.vyrtuous.cogs.EventListeners;
+import com.brandongcobb.vyrtuous.cogs.*;
 import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import java.util.ArrayList;
@@ -60,6 +59,7 @@ public class DiscordBot {
                         .build();
                     List<Cog> cogs = new ArrayList<>();
                     cogs.add(new EventListeners());
+                    cogs.add(new HybridCommands());
                     for (Cog cog : cogs) {
                         cog.register(this.api, this.bot, this.cm);
                     }

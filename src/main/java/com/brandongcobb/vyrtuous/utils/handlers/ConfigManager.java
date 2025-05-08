@@ -91,7 +91,6 @@ public class ConfigManager<T> {
                 return null;
             });
     }
-
     /*
      * Getters
      *

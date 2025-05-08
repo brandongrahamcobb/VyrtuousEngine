@@ -22,7 +22,14 @@ import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.bots.DiscordBot;
 import com.brandongcobb.vyrtuous.utils.handlers.*;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import net.dv8tion.jda.api.entities.Guild;
+import net.dv8tion.jda.api.entities.Message;
+import net.dv8tion.jda.api.entities.MessageHistory;
+import net.dv8tion.jda.api.entities.channel.concrete.TextChannel;
 import net.dv8tion.jda.api.entities.User;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
@@ -44,28 +51,149 @@ public class HybridCommands extends ListenerAdapter implements Cog {
     }
 
     @Override
-    public void onMessageReceived(MessageReceivedEvent event) {
-        if (event.getAuthor().isBot()) {
-            return;
-        }
-        String content = event.getMessage().getContentRaw().trim();
-        User sender = event.getAuthor();
-        Predicator predicator = new Predicator(cm, event.getJDA());
-        predicator.isDeveloper(sender).thenAcceptAsync(isDev -> {
-            if (isDev && content.equalsIgnoreCase(".config")) {
+    public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
+        if (event.getAuthor().isBot()) return;
+        cm.completeGetConfigValue("discord_command_prefix", String.class).thenAcceptAsync(prefix -> {
+            String prefixObj = (String) prefix;
+            String messageContent = event.getMessage().getContentRaw().trim();
+            if (!messageContent.startsWith(prefixObj)) return;
+            String[] args = messageContent.substring(prefixObj.length()).split("\\s+");
+            if (args.length == 0) return;
+            String command = args[0].toLowerCase();
+            User sender = event.getAuthor();
+            Predicator predicator = new Predicator(cm, event.getJDA());
+            if (command.equals("config")) {
                 event.getChannel().sendMessage("Reloading configuration...").queue();
                 cm.completeSetAndLoadConfig()
-                    .thenRun(() -> {
-                        event.getChannel().sendMessage("Configuration reloaded successfully.").queue();
-                    })
+                    .thenRun(() -> event.getChannel().sendMessage("Configuration reloaded successfully.").queue())
                     .exceptionally(ex -> {
-                        event.getChannel().sendMessage("Failed to reload configuration: ").queue();
+                        event.getChannel().sendMessage("Failed to reload configuration: " ).queue();
+                        return null;
+                    });
+            }
+            if (command.equals("wipe")) {
+                boolean wipeAll = false;
+                boolean wipeBot = false;
+                boolean wipeCommands = false;
+                String targetUserId = null;
+                for (int i = 1; i < args.length; i++) {
+                    String arg = args[i].toLowerCase();
+                    switch (arg) {
+                        case "all" -> wipeAll = true;
+                        case "bot" -> wipeBot = true;
+                        case "commands" -> wipeCommands = true;
+                        case "user" -> {
+                            if (i + 1 < args.length) {
+                                String userMention = args[i + 1];
+                                User user = parseUserFromMention(userMention, event.getGuild());
+                                if (user != null) {
+                                    targetUserId = user.getId();
+                                }
+                                i++;
+                            }
+                        }
+                    }
+                }
+                TextChannel channel = (TextChannel) event.getChannel();
+                String guildId = event.getGuild().getId();
+                String channelId = channel.getId();
+                wipeMessages(guildId, channelId, wipeAll, wipeBot, wipeCommands, targetUserId)
+                    .thenRun(() -> channel.sendMessage("Message wipe completed.").queue())
+                    .exceptionally((Throwable ex) -> {
                         return null;
                     });
             }
         }).exceptionally(ex -> {
-            ex.printStackTrace();
             return null;
+        });
+    }
+
+    private User parseUserFromMention(String mention, Guild guild) {
+        if (mention.startsWith("<@") && mention.endsWith(">")) {
+            String id = mention.replaceAll("[<@!>]", "");
+            return this.api.getUserById(id);
+        }
+        return null;
+    }
+
+    public CompletableFuture<Void> wipeMessages(
+            String guildId,
+            String channelId,
+            boolean wipeAll,
+            boolean wipeBot,
+            boolean wipeCommands,
+            String userId
+    ) {
+        return cm.completeGetConfigValue("discord_command_prefix", String.class).thenCompose(prefix -> {
+            String prefixObj = (String) prefix;
+            Guild guild = this.api.getGuildById(guildId);
+            if (guild == null) {
+                return CompletableFuture.failedFuture(new Exception("Guild not found"));
+            }
+            TextChannel channel = guild.getTextChannelById(channelId);
+            if (channel == null) {
+                return CompletableFuture.failedFuture(new Exception("Channel not found"));
+            }
+            MessageHistory history = channel.getHistory();
+            return fetchAllMessages(history).thenCompose(messages -> {
+                List<Message> toDelete = messages.stream()
+                        .filter(msg -> {
+                            if (userId != null && !msg.getAuthor().getId().equals(userId))
+                                return false;
+                            if (wipeBot && !msg.getAuthor().isBot())
+                                return false;
+                            if (wipeCommands) {
+                                String content = msg.getContentDisplay();
+                                if (content.startsWith(prefixObj)) return true;
+                                return false;
+                            }
+                            if (wipeAll) return true;
+                            return false;
+                        })
+                        .collect(Collectors.toList());
+                return deleteMessagesInChunks(toDelete, channel);
+            });
+        });
+    }
+
+    private CompletableFuture<List<Message>> fetchAllMessages(MessageHistory history) {
+        CompletableFuture<List<Message>> future = new CompletableFuture<>();
+        history.retrievePast(100).queue(messages -> {
+            List<Message> allMessages = messages;
+            fetchRemainingMessages(history, allMessages, future);
+        }, failure -> future.completeExceptionally(failure));
+        return future;
+    }
+
+    private void fetchRemainingMessages(MessageHistory history, List<Message> accumulated, CompletableFuture<List<Message>> future) {
+        if (history.getRetrievedHistory().size() == 0) {
+            future.complete(accumulated);
+        } else {
+            history.retrievePast(100).queue(messages -> {
+                if (messages.isEmpty()) {
+                    future.complete(accumulated);
+                } else {
+                    accumulated.addAll(messages);
+                    fetchRemainingMessages(history, accumulated, future);
+                }
+            }, failure -> future.completeExceptionally(failure));
+        }
+    }
+
+    private CompletableFuture<Void> deleteMessagesInChunks(List<Message> messages, TextChannel channel) {
+        if (messages.isEmpty()) {
+            return CompletableFuture.completedFuture(null);
+        }
+        List<Message> chunk = messages.stream().limit(100).collect(Collectors.toList());
+        List<String> messageIds = chunk.stream().map(Message::getId).collect(Collectors.toList());
+        CompletableFuture<Void> deletionFuture = new CompletableFuture<>();
+        channel.deleteMessagesByIds(messageIds).queue(
+            success -> deletionFuture.complete(null),
+            failure -> deletionFuture.completeExceptionally(failure)
+        );
+        return deletionFuture.thenCompose(v -> {
+            List<Message> remaining = messages.stream().skip(100).collect(Collectors.toList());
+            return deleteMessagesInChunks(remaining, channel);
         });
     }
 }

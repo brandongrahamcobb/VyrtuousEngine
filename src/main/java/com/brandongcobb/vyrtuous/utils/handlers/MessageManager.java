@@ -127,33 +127,32 @@ public class MessageManager {
         if (lowerName.endsWith(".json")) return "application/json";
         if (lowerName.endsWith(".xml")) return "application/xml";
         if (lowerName.endsWith(".html") || lowerName.endsWith(".htm")) return "text/html";
-        return "application/octet-stream"; // fallback
+        return "application/octet-stream";
     }
 
     public CompletableFuture<Void> completeSendResponse(Message message, String response) {
         List<CompletableFuture<Message>> futures = new ArrayList<>();
-        Pattern codeBlockPattern = Pattern.compile("(\\w+)\\s+([\\s\\S]+?)```", Pattern.MULTILINE);
+        Pattern codeBlockPattern = Pattern.compile("```(\\w+)?\\n([\\s\\S]*?)```");
         Matcher matcher = codeBlockPattern.matcher(response);
         int fileIndex = 0;
         int lastEnd = 0;
         while (matcher.find()) {
             if (matcher.start() > lastEnd) {
-                String before = response.substring(lastEnd, matcher.start()).trim();
-                if (!before.isEmpty()) {
-                    futures.addAll(sendInChunks(message, before));
+                String beforeCode = response.substring(lastEnd, matcher.start()).trim();
+                if (!beforeCode.isEmpty()) {
+                    futures.addAll(sendInChunks(message, beforeCode));
                 }
             }
-            String fileType = matcher.group(1);
+            String fileType = matcher.group(1) != null ? matcher.group(1) : "txt";
             String fileContent = matcher.group(2);
             File file = new File(tempDirectory, "response_" + (fileIndex++) + "." + fileType);
             try {
                 Files.writeString(file.toPath(), fileContent, StandardCharsets.UTF_8);
+                futures.add(completeSendDiscordMessage(message, "📄 Code block attached:", file));
             } catch (IOException e) {
-                e.printStackTrace();
-                return completeSendDiscordMessage(message, "Error writing code file: " + e.getMessage())
-                        .thenApply(m -> null);
+                String error = "❌ Error writing code block to file: " + e.getMessage();
+                futures.add(completeSendDiscordMessage(message, error));
             }
-            futures.add(completeSendDiscordMessage(message, "Code block attached:", file));
             lastEnd = matcher.end();
         }
         if (lastEnd < response.length()) {
@@ -168,9 +167,12 @@ public class MessageManager {
     private List<CompletableFuture<Message>> sendInChunks(Message message, String text) {
         List<CompletableFuture<Message>> chunks = new ArrayList<>();
         int maxLength = 2000;
-        for (int i = 0; i < text.length(); i += maxLength) {
-            int end = Math.min(i + maxLength, text.length());
-            chunks.add(completeSendDiscordMessage(message, text.substring(i, end)));
+        int index = 0;
+        while (index < text.length()) {
+            int end = Math.min(index + maxLength, text.length());
+            String chunk = text.substring(index, end);
+            chunks.add(completeSendDiscordMessage(message, chunk));
+            index = end;
         }
         return chunks;
     }

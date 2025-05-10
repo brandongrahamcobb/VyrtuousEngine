@@ -19,8 +19,6 @@
 package com.brandongcobb.vyrtuous.utils.inc;
 
 import com.brandongcobb.vyrtuous.utils.inc.*;
-import java.nio.file.Files;
-import java.util.List;
 
 public enum ModelRegistry {
 
@@ -32,6 +30,9 @@ public enum ModelRegistry {
     OPENAI_MODERATION_RESPONSE_SYS_INPUT("You are a moderation assistant."),
     OPENAI_MODERATION_RESPONSE_TEMPERATURE(0.7f),
     OPENAI_MODERATION_RESPONSE_TOP_P(1.0f),
+    OPENAI_MODERATION_RESPONSE_WARNING("Please adhere to the community guidelines. Your message was flagged for moderation."),
+
+    OPENAI_PERPLEXITY_SYS_INPUT("You determine how perplexing text is to you on a integer scale from 0 (not perplexing) to 200 (most perplexing."),
 
     OPENAI_RESPONSE_MODEL("gpt-4.1-mini"),
     OPENAI_RESPONSE_N(1),

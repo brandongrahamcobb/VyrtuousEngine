@@ -3,21 +3,18 @@ FROM eclipse-temurin:21-jdk
 # Set working directory
 WORKDIR /app
 
-# Copy the jar file into the container
-COPY Vyrtuous.jar /app/
+# Copy your built .jar
+COPY Vyrtuous.jar .
 
-# Copy the entry script
-COPY entry.sh /app/
+# Copy the source files (adjust path to match your real project layout)
+COPY src/main/java/com/brandongcobb/ /app/source/
 
-# Install bash and wget
+# Optional: copy other things like resources or entrypoint script
+COPY entry.sh .
 RUN apt-get update && apt-get install -y wget curl bash
 
-# Download and set executable permission for yq
 RUN wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64 -O /usr/local/bin/yq && \
-    chmod +x /usr/local/bin/yq
+    chmod +x /usr/local/bin/yq && chmod +x entry.sh
 
-# Make your entry script executable
-RUN chmod +x /app/entry.sh
-
-# Set the entrypoint
-ENTRYPOINT ["/bin/bash", "/app/entry.sh"]
+# Entry point
+ENTRYPOINT ["bash", "entry.sh"]

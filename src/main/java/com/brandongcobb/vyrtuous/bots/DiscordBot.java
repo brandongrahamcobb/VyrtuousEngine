@@ -19,7 +19,6 @@
 package com.brandongcobb.vyrtuous.bots;
 
 import com.brandongcobb.vyrtuous.cogs.*;
-import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import java.util.ArrayList;
 import java.util.List;

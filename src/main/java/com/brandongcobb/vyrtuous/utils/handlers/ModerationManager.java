@@ -19,6 +19,8 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
+import com.brandongcobb.vyrtuous.utils.handlers.*;
+import com.brandongcobb.vyrtuous.utils.inc.*;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;
@@ -44,14 +46,11 @@ public class ModerationManager {
 
     private Vyrtuous app;
     private final Object fileLock = new Object();
-    private Map<Long, Integer> userCounts;
     private Lock lock;
     private Logger logger;
     private File tempDirectory = new File(System.getProperty("java.io.tmpdir"));
     private File tempFile = new File(System.getProperty("java.io.tmpdir"), "config.yml");
-
-    public ModerationManager() {
-    }
+    private Map<Long, Integer> userCounts;
 
     public CompletableFuture<Void> completeHandleModeration(Message message, String reasonStr) {
         MessageManager mem = new MessageManager();
@@ -64,11 +63,11 @@ public class ModerationManager {
         if (member == null) {
             return CompletableFuture.completedFuture(null);
         }
-        String warningMsg = "Please adhere to the community guidelines. Your message was flagged for moderation.";
+        String warningMsg = ModelRegistry.OPENAI_MODERATION_RESPONSE_WARNING.asString();
         long userId = author.getIdLong();
         return CompletableFuture.supplyAsync(() -> {
-            Map<Long, Integer> userCounts = new HashMap<>();
             synchronized (fileLock) {
+                Map<Long, Integer> userCounts = new HashMap<>();
                 if (tempFile.exists()) {
                     try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
                         String line;
@@ -87,10 +86,9 @@ public class ModerationManager {
                         return null;
                     }
                 }
-            }
-            int flaggedCount = userCounts.getOrDefault(userId, 0) + 1;
-            userCounts.put(userId, flaggedCount);
-            synchronized (fileLock) {
+                int currentCount = userCounts.getOrDefault(userId, 0);
+                currentCount++;
+                userCounts.put(userId, currentCount);
                 try (BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile, false))) {
                     for (Map.Entry<Long, Integer> entry : userCounts.entrySet()) {
                         writer.write(entry.getKey() + ":" + entry.getValue());
@@ -100,22 +98,24 @@ public class ModerationManager {
                     logger.severe("Failed to write to tempFile: " + e.getMessage());
                     return null;
                 }
+                return currentCount;
             }
-            return flaggedCount;
         }).thenCompose(flaggedCount -> {
-            if (flaggedCount == null) return CompletableFuture.completedFuture(null);
+            if (flaggedCount == null) {
+                return CompletableFuture.completedFuture(null);
+            }
             message.delete().queue();
             return mem.completeSendDiscordMessage(message, warningMsg)
                 .thenCompose(msg -> {
                     if (flaggedCount >= 5) {
-                        return mem.completeSendDiscordMessage(message,
+                        CompletableFuture<Void> timeoutFuture = mem.completeSendDiscordMessage(message,
                                 "You have been timed out for 5 minutes due to repeated violations.")
-                            .thenRun(() -> member.timeoutFor(Duration.ofSeconds(300)).queue())
                             .thenRun(() -> {
-                                userCounts.clear();
+                                member.timeoutFor(Duration.ofSeconds(300)).queue();
                                 synchronized (fileLock) {
+                                    Map<Long, Integer> userCountsReset = new HashMap<>();
                                     try (BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile, false))) {
-                                        for (Map.Entry<Long, Integer> entry : userCounts.entrySet()) {
+                                        for (Map.Entry<Long, Integer> entry : userCountsReset.entrySet()) {
                                             writer.write(entry.getKey() + ":" + entry.getValue());
                                             writer.newLine();
                                         }
@@ -124,6 +124,7 @@ public class ModerationManager {
                                     }
                                 }
                             });
+                        return timeoutFuture;
                     } else {
                         return CompletableFuture.completedFuture(null);
                     }

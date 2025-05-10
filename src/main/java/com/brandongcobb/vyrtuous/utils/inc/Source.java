@@ -1,4 +1,4 @@
-/*  Maps.java
+/*  FileObject.java
  *
  *  Copyright (C) 2025  github.com/brandongrahamcobb
  *
@@ -18,14 +18,8 @@
 package com.brandongcobb.vyrtuous.utils.inc;
 
 import com.brandongcobb.vyrtuous.utils.inc.*;
-import com.brandongcobb.vyrtuous.records.ModelInfo;
-import java.nio.file.Files;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
-public enum FileObject {
+public enum Source {
     ACTIVITY_OBJECT(Helpers.FILE_ACTIVITY_OBJECT),
     AI_MANAGER(Helpers.FILE_AI_MANAGER),
     CONFIG_MANAGER(Helpers.FILE_CONFIG_MANAGER),
@@ -49,7 +43,7 @@ public enum FileObject {
 
     private final String fileContent;
 
-    FileObject(String fileContent) {
+    Source(String fileContent) {
         this.fileContent = fileContent;
     }
 }

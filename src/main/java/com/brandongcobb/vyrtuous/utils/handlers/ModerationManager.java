@@ -19,7 +19,6 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
 import java.io.BufferedReader;
 import java.io.BufferedWriter;
 import java.io.File;

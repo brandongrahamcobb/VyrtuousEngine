@@ -16,7 +16,7 @@ public class ProjectLoader {
                     try {
                         return Files.readString(p);
                     } catch (IOException e) {
-                        return ""; // skip unreadable files
+                        return "";
                     }
                 })
                 .collect(Collectors.joining("\n\n"));

@@ -38,7 +38,7 @@ public class Predicator {
     private Vyrtuous app;
     private JDA bot;
 
-    public Predicator(ConfigManager cm, JDA bot) {
+    public Predicator(JDA bot) {
         this.bot = bot;
     }
 

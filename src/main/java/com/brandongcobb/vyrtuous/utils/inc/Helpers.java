@@ -21,14 +21,14 @@ package com.brandongcobb.vyrtuous.utils.inc;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import java.util.Map;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.List;
-import java.util.HashMap;
 import java.util.Arrays;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class Helpers {
 
@@ -189,6 +189,4 @@ public class Helpers {
             return Long.parseLong(cleanedNumber);
         }
     }
-
-
 }

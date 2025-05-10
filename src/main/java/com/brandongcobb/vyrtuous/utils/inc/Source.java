@@ -22,7 +22,6 @@ import com.brandongcobb.vyrtuous.utils.inc.*;
 public enum Source {
     ACTIVITY_OBJECT(Helpers.FILE_ACTIVITY_OBJECT),
     AI_MANAGER(Helpers.FILE_AI_MANAGER),
-    CONFIG_MANAGER(Helpers.FILE_CONFIG_MANAGER),
     COST_OBJECT(Helpers.FILE_COST_OBJECT),
     DISCORD_BOT(Helpers.FILE_DISCORD_BOT),
     EVENT_LISTENERS(Helpers.FILE_EVENT_LISTENERS),

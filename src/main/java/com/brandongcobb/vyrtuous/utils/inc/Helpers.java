@@ -34,7 +34,6 @@ public class Helpers {
 
     public static String FILE_ACTIVITY_OBJECT;
     public static String FILE_AI_MANAGER;
-    public static String FILE_CONFIG_MANAGER;
     public static String FILE_COST_OBJECT;
     public static String FILE_DISCORD_BOT;
     public static String FILE_EVENT_LISTENERS;
@@ -60,7 +59,6 @@ public class Helpers {
     public static final Path PATH_ACTIVITY_OBJECT = Paths.get(DIR_BASE.toString(), "vyrtuous", "metadata", "Activity.java");
     public static final Path PATH_AI_MANAGER = Paths.get(DIR_BASE.toString(), "vyrtuous", "utils", "handlers", "AIManager.java");
     public static final Path PATH_COG = Paths.get(DIR_BASE.toString(), "vyrtuous", "cogs", "Cog.java");
-    public static final Path PATH_CONFIG_MANAGER = Paths.get(DIR_BASE.toString(), "vyrtuous", "utils", "handlers", "ConfigManager.java");
     public static final Path PATH_COST_OBJECT = Paths.get(DIR_BASE.toString(), "vyrtuous", "metadata", "Costs.java");
     public static final Path PATH_DISCORD_BOT = Paths.get(DIR_BASE.toString(), "vyrtuous", "bots", "DiscordBot.java");
     public static final Path PATH_EVENT_LISTENERS = Paths.get(DIR_BASE.toString(), "vyrtuous", "cogs", "EventListeners.java");
@@ -83,7 +81,6 @@ public class Helpers {
         try {
             FILE_ACTIVITY_OBJECT  = Files.readString(EnvironmentPaths.ACTIVITY_OBJECT.get());
             FILE_AI_MANAGER  = Files.readString(EnvironmentPaths.AI_MANAGER.get());
-            FILE_CONFIG_MANAGER  = Files.readString(EnvironmentPaths.CONFIG_MANAGER.get());
             FILE_COST_OBJECT  = Files.readString(EnvironmentPaths.COST_OBJECT.get());
             FILE_DISCORD_BOT  = Files.readString(EnvironmentPaths.DISCORD_BOT.get());
             FILE_EVENT_LISTENERS  = Files.readString(EnvironmentPaths.EVENT_LISTENERS.get());

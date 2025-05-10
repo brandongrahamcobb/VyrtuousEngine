@@ -54,6 +54,7 @@ public class AIManager {
     private String moderationApiUrl = Maps.OPENAI_ENDPOINT_URLS.get("moderations");
     private String responseApiUrl = Maps.OPENAI_ENDPOINT_URLS.get("response");
     private EncodingRegistry registry = Encodings.newDefaultEncodingRegistry();
+    private Map<String, Object> OPENAI_RESPONSE_FORMAT = new HashMap<>();
 
     public CompletableFuture<Long> completeCalculateMaxOutputTokens(String model, String prompt) {
         return CompletableFuture.supplyAsync(() -> {
@@ -150,7 +151,7 @@ public class AIManager {
         return buildRequestBody(
             content,
             model,
-            null,
+            OPENAI_RESPONSE_FORMAT,
             ModelRegistry.OPENAI_RESPONSE_STORE.asBoolean(),
             ModelRegistry.OPENAI_RESPONSE_STREAM.asBoolean(),
             Maps.OPENAI_RESPONSE_SYS_INPUT,

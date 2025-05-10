@@ -67,13 +67,12 @@ import java.nio.file.Files;
 
 public class MessageManager {
 
-    private ConfigManager cm;
     private Lock lock;
     private ObjectMapper mapper = new ObjectMapper();
-    private File tempDirectory = new File(System.getProperty("java.io.tmpdir"));
+    private File tempDirectory;
 
-    public MessageManager(ConfigManager cm) {
-        this.cm = cm.completeGetInstance();
+    public MessageManager() {
+        this.tempDirectory = new File(System.getProperty("java.io.tmpdir"));
     }
 
     public CompletableFuture<List<String>> completeProcessAttachments(List<Attachment> attachments) {

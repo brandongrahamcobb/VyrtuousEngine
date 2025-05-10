@@ -37,19 +37,14 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 public class DiscordBot {
 
     private JDA api;
-    private ConfigManager cm;
     private DiscordBot bot;
     private final Logger logger = Logger.getLogger("Vyrtuous");;
     private final ReentrantLock lock = new ReentrantLock();
 
-    public DiscordBot(ConfigManager cm) {
+    public DiscordBot() {
         this.bot = this;
-        this.cm = cm.completeGetInstance();
         String envDiscordApiKey = System.getenv("DISCORD_API_KEY");
-        CompletableFuture<String> apiKeyFuture = cm.completeGetConfigValue("discord_api_key", String.class);
-        if (envDiscordApiKey != null) {
-            apiKeyFuture = CompletableFuture.completedFuture(envDiscordApiKey);
-        }
+        CompletableFuture<String> apiKeyFuture = CompletableFuture.completedFuture(envDiscordApiKey);
         apiKeyFuture.thenAccept(apiKey -> {
             try {
                 if (apiKey == null || apiKey.trim().isEmpty()) {
@@ -65,7 +60,7 @@ public class DiscordBot {
                 cogs.add(new EventListeners());
                 cogs.add(new HybridCommands());
                 for (Cog cog : cogs) {
-                    cog.register(this.api, this.bot, this.cm);
+                    cog.register(this.api, this.bot);
                 }
                 logger.info("Discord bot successfully initialized.");
             } catch (Exception e) {

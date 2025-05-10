@@ -37,61 +37,11 @@ public class Predicator {
 
     private Vyrtuous app;
     private JDA bot;
-    private ConfigManager cm;
 
     public Predicator(ConfigManager cm, JDA bot) {
-        this.cm = cm.completeGetInstance();
         this.bot = bot;
     }
 
-    public CompletableFuture<Boolean> atHome(Guild guild) {
-        if (guild == null) return CompletableFuture.completedFuture(false);
-        return cm.completeGetConfigValue("discord_testing_guild_id", Long.class)
-            .thenApply(id -> Long.parseLong(guild.getId()) == (long) id);
-    }
-
-    public CompletableFuture<Boolean> releaseMode(User user, TextChannel channel) {
-        CompletableFuture<Long> ownerIdFuture = cm.completeGetConfigValue("discord_owner_id", Long.class);
-        CompletableFuture<Boolean> releaseModeFuture = cm.completeGetConfigValue("discord_release_mode", Boolean.class);
-        return ownerIdFuture.thenCombine(releaseModeFuture, (ownerId, releaseMode) ->
-            user.getIdLong() == ownerId ||
-            (boolean) releaseMode ||
-            channel instanceof PrivateChannel
-        );
-    }
-
-    public CompletableFuture<Boolean> isDeveloper(User user) {
-        if (user == null) return CompletableFuture.completedFuture(false);
-        return cm.completeGetConfigValue("discord_owner_id", Long.class)
-            .thenApply(ownerId -> user.getIdLong() == (Long) ownerId);
-    }
-
-    public CompletableFuture<Boolean> isVeganUser(User user) {
-        return cm.completeGetConfigValue("discord_testing_guild_ids", List.class)
-            .thenCompose(obj -> {
-                List<Long> guildIds = (List<Long>) obj;
-                CompletableFuture<Boolean> result = CompletableFuture.completedFuture(false);
-                for (Long guildId : guildIds) {
-                    result = result.thenCompose(res -> getGuildById(guildId).thenCompose(guild -> {
-                        if (guild != null) {
-                            Member member = guild.getMember(user);
-                            if (member == null) return CompletableFuture.completedFuture(false);
-                            Optional<Role> veganRoleOpt = guild.getRoles().stream()
-                                .filter(role -> role.getName().equalsIgnoreCase("vegan"))
-                                .findFirst();
-                            if (veganRoleOpt.isPresent()) {
-                                Role veganRole = veganRoleOpt.get();
-                                if (guild.getMembersWithRoles(veganRole).contains(member)) {
-                                    return CompletableFuture.completedFuture(true);
-                                }
-                            }
-                        }
-                        return CompletableFuture.completedFuture(false);
-                    }));
-                }
-                return result;
-            });
-    }
 
     public CompletableFuture<Guild> getGuildById(long guildId) {
         return CompletableFuture.supplyAsync(() -> {
@@ -104,13 +54,4 @@ public class Predicator {
         });
     }
 
-    public CompletableFuture<Boolean> isReleaseMode(TextChannel channel, User user) {
-        CompletableFuture<Long> ownerIdFuture = cm.completeGetConfigValue("discord_owner_id", Long.class);
-        CompletableFuture<Boolean> releaseModeFuture = cm.completeGetConfigValue("discord_release_mode", Boolean.class);
-        return ownerIdFuture.thenCombine(releaseModeFuture, (ownerId, releaseMode) ->
-            user.getIdLong() == ownerId ||
-            (boolean) releaseMode ||
-            channel instanceof PrivateChannel
-        );
-    }
 }

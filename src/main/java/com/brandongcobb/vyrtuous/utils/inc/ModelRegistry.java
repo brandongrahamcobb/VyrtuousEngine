@@ -18,46 +18,61 @@
  */
 package com.brandongcobb.vyrtuous.utils.inc;
 
-import com.brandongcobb.vyrtuous.records.ModelInfo;
-import java.util.Map;
+import com.brandongcobb.vyrtuous.utils.inc.*;
+import java.nio.file.Files;
+import java.util.List;
 
-public class ModelRegistry {
+public enum ModelRegistry {
 
-    public static final String[] OPENAI_RESPONSE_MODELS = {"gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini", "o1", "o3-mini", "o4-mini"};
+    OPENAI_MODERATION_STATUS(true),
+    OPENAI_MODERATION_MODEL("omni-moderation-latest"),
 
-    public static final Map<String, ModelInfo> OPENAI_CHAT_COMPLETION_MODEL_CONTEXT_LIMITS = Map.ofEntries(
-        Map.entry("ft:gpt-4o-mini-2024-07-18:spawd:vyrtuous:AjZpTNN2", new ModelInfo(Helpers.parseCommaNumber("16,384"), false)),
-        Map.entry("gpt-3.5-turbo", new ModelInfo(Helpers.parseCommaNumber("4,096"), false)),
-        Map.entry("gpt-4", new ModelInfo(Helpers.parseCommaNumber("8,192"), false)),
-        Map.entry("gpt-4-32k", new ModelInfo(Helpers.parseCommaNumber("32,768"), false)),
-        Map.entry("gpt-4-turbo", new ModelInfo(Helpers.parseCommaNumber("128,000"), false)),
-        Map.entry("gpt-4.1", new ModelInfo(Helpers.parseCommaNumber("300,000"), true)),
-        Map.entry("gpt-4.1-mini", new ModelInfo(Helpers.parseCommaNumber("1,047,576"), true)),
-        Map.entry("gpt-4.1-nano", new ModelInfo(Helpers.parseCommaNumber("1,047,576"), true)),
-        Map.entry("gpt-4o", new ModelInfo(Helpers.parseCommaNumber("128,000"), false)),
-        Map.entry("gpt-4o-audio", new ModelInfo(Helpers.parseCommaNumber("128,000"), false)),
-        Map.entry("gpt-4o-mini", new ModelInfo(Helpers.parseCommaNumber("128,000"), false)),
-        Map.entry("o1-mini", new ModelInfo(Helpers.parseCommaNumber("128,000"), true)),
-        Map.entry("o1-preview", new ModelInfo(Helpers.parseCommaNumber("128,000"), true)),
-        Map.entry("o3-mini", new ModelInfo(Helpers.parseCommaNumber("200,000"), true)),
-        Map.entry("o4-mini", new ModelInfo(Helpers.parseCommaNumber("200,000"), true))
-    );
+    OPENAI_MODERATION_RESPONSE_STORE(false),
+    OPENAI_MODERATION_RESPONSE_STREAM(false),
+    OPENAI_MODERATION_RESPONSE_SYS_INPUT("You are a moderation assistant."),
+    OPENAI_MODERATION_RESPONSE_TEMPERATURE(0.7f),
+    OPENAI_MODERATION_RESPONSE_TOP_P(1.0f),
 
-    public static final Map<String, ModelInfo> OPENAI_CHAT_COMPLETION_MODEL_OUTPUT_LIMITS = Map.ofEntries(
-        Map.entry("ft:gpt-4o-mini-2024-07-18:spawd:vyrtuous:AjZpTNN2", new ModelInfo(Helpers.parseCommaNumber("128,000"), false)),
-        Map.entry("gpt-3.5-turbo", new ModelInfo(Helpers.parseCommaNumber("4,096"), false)),
-        Map.entry("gpt-4", new ModelInfo(Helpers.parseCommaNumber("8,192"), false)),
-        Map.entry("gpt-4-32k", new ModelInfo(Helpers.parseCommaNumber("32,768"), false)),
-        Map.entry("gpt-4-turbo", new ModelInfo(Helpers.parseCommaNumber("4,096"), false)),
-        Map.entry("gpt-4.1", new ModelInfo(Helpers.parseCommaNumber("32,768"), true)),
-        Map.entry("gpt-4.1-mini", new ModelInfo(Helpers.parseCommaNumber("32,768"), true)),
-        Map.entry("gpt-4.1-nano", new ModelInfo(Helpers.parseCommaNumber("32,768"), true)),
-        Map.entry("gpt-4o", new ModelInfo(Helpers.parseCommaNumber("4,096"), false)),
-        Map.entry("gpt-4o-audio", new ModelInfo(Helpers.parseCommaNumber("16,384"), false)),
-        Map.entry("gpt-4o-mini", new ModelInfo(Helpers.parseCommaNumber("16,384"), false)),
-        Map.entry("o1-mini", new ModelInfo(Helpers.parseCommaNumber("16,384"), true)),
-        Map.entry("o1-preview", new ModelInfo(Helpers.parseCommaNumber("32,768"), true)),
-        Map.entry("o3-mini", new ModelInfo(Helpers.parseCommaNumber("100,000"), true)),
-        Map.entry("o4-mini", new ModelInfo(Helpers.parseCommaNumber("100,000"), true))
-    );
+    OPENAI_RESPONSE_MODEL("gpt-4.1-mini"),
+    OPENAI_RESPONSE_N(1),
+    OPENAI_RESPONSE_STATUS(true),
+    OPENAI_RESPONSE_STORE(false),
+    OPENAI_RESPONSE_STREAM(false),
+    OPENAI_RESPONSE_TOP_P(1.0f),
+    OPENAI_RESPONSE_TEMPERATURE(0.7f);
+
+    private final Object value;
+
+    ModelRegistry(Object value) {
+        this.value = value;
+    }
+
+    public Object getValue() {
+        return value;
+    }
+
+    public String asString() {
+        if (value instanceof String str) return str;
+        throw new IllegalStateException(name() + " is not a String");
+    }
+    
+    public Boolean asBoolean() {
+        if (value instanceof Boolean bool) return bool;
+        throw new IllegalStateException(name() + " is not a Boolean");
+    }
+    
+    public Float asFloat() {
+        if (value instanceof Float f) return f;
+        throw new IllegalStateException(name() + " is not a Float");
+    }
+    
+    public String[] asStringArray() {
+        if (value instanceof String[] arr) return arr;
+        throw new IllegalStateException(name() + " is not a String[]");
+    }
+
+    @SuppressWarnings("unchecked")
+    public <T> T asType(Class<T> clazz) {
+        return clazz.cast(value);
+    }
 }

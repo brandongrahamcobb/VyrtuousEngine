@@ -21,11 +21,6 @@ package com.brandongcobb.vyrtuous;
 
 import com.brandongcobb.vyrtuous.bots.DiscordBot;
 import com.brandongcobb.vyrtuous.metadata.MetadataContainer;
-import com.brandongcobb.vyrtuous.utils.handlers.Database;
-import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
-import com.brandongcobb.vyrtuous.utils.handlers.MinecraftUser;
-import com.brandongcobb.vyrtuous.utils.handlers.OAuthServer;
-import com.brandongcobb.vyrtuous.utils.handlers.OAuthUserSession;
 import com.brandongcobb.vyrtuous.utils.inc.Helpers;
 import com.zaxxer.hikari.HikariDataSource;
 import java.io.File;
@@ -54,11 +49,28 @@ import net.dv8tion.jda.api.JDA;
 
 public class Vyrtuous {
 
+    private static Vyrtuous app;
+
+    private Map<Long, String> userModelSettings = new HashMap<>();
+
     public static void main(String[] args) {
-        Vyrtuous app = new Vyrtuous();
-        ConfigManager cm = new ConfigManager(app);
-        cm.completeSetAndLoadConfig().thenRun(() -> {
-            DiscordBot bot = new DiscordBot(cm);
-        }).join();
+        app = new Vyrtuous();
+        DiscordBot bot = new DiscordBot();
+    }
+
+    public CompletableFuture<Map<Long, String>> completeGetUserModelSettings() {
+        return CompletableFuture.completedFuture(this.userModelSettings);
+    }
+
+    public static CompletableFuture<Vyrtuous> completeGetInstance() {
+        return CompletableFuture.completedFuture(app);
+    }
+
+    /*
+     * Setters
+     *
+     */
+    public void completeSetUserModelSettings(Map<Long, String> userModelSettings) {
+        this.userModelSettings = userModelSettings;
     }
 }

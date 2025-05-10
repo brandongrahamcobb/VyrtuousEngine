@@ -41,80 +41,80 @@ import java.util.concurrent.CompletionException;
 public class HybridCommands extends ListenerAdapter implements Cog {
 
     private JDA api;
-    private ConfigManager cm;
+    private Vyrtuous app;
     private DiscordBot bot;
 
     @Override
-    public void register (JDA api, DiscordBot bot, ConfigManager cm) {
+    public void register (JDA api, DiscordBot bot) {
         this.api = api;
         this.bot = bot.completeGetBot();
         api.addEventListener(this);
-        this.cm = cm.completeGetInstance();
     }
 
     @Override
     public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
-        if (event.getAuthor().isBot()) return;
-        cm.completeGetConfigValue("discord_command_prefix", String.class)
-          .thenAcceptAsync(prefix -> {
-            String prefixObj = (String) prefix;
-            String messageContent = event.getMessage().getContentRaw().trim();
-            if (!messageContent.startsWith(prefixObj)) return;
-            String[] args = messageContent.substring(prefixObj.length()).split("\\s+");
-            if (args.length == 0) return;
-            String command = args[0].toLowerCase();
-            User sender = event.getAuthor();
-            if (command.equals("openai")) {
-                if (args.length > 2 && "model".equalsIgnoreCase(args[1])) {
-                    cm.completeGetUserModelSettings().thenCompose(userModelSettings -> {
-                        Map<Long, String> userModelObject = (Map<Long, String>) userModelSettings;
-                        TextChannel channel = (TextChannel) event.getChannel();
-                        String arg = args[2].toLowerCase();
-                        if (Helpers.containsString(ModelRegistry.OPENAI_RESPONSE_MODELS, arg)) {
-                            userModelObject.put(sender.getIdLong(), arg);
-                            cm.completeSetUserModelSettings(userModelObject);
-                            channel.sendMessage("OpenAI model:" + arg + " for " + sender.getName()).queue();
-                        } else {
-                            String[] options = ModelRegistry.OPENAI_RESPONSE_MODELS;
-                            StringBuilder sb = new StringBuilder("[");
-                            for (int i = 0; i < options.length; i++) {
-                                sb.append(options[i]);
-                                if (i < options.length - 1) sb.append(", ");
-                            }
-                            sb.append("]");
-                            channel.sendMessage("Your options are " + sb.toString()).queue();
+        if (event.getAuthor().isBot()) {
+            return;
+        }
+
+        String messageContent = event.getMessage().getContentRaw().trim();
+        if (!messageContent.startsWith(".")) return;
+
+        String[] args = messageContent.substring(".".length()).split("\\s+");
+        if (args.length == 0) return;
+
+        String command = args[0].toLowerCase();
+        User sender = event.getAuthor();
+
+        if (command.equals("openai")) {
+            if (args.length > 2 && "model".equalsIgnoreCase(args[1])) {
+                app.completeGetUserModelSettings().thenCompose(userModelSettings -> {
+                    Map<Long, String> userModelObject = (Map<Long, String>) userModelSettings;
+                    TextChannel channel = (TextChannel) event.getChannel();
+                    String arg = args[2].toLowerCase();
+                    if (Helpers.containsString(Maps.OPENAI_RESPONSE_MODELS, arg)) {
+                        userModelObject.put(sender.getIdLong(), arg);
+                        app.completeSetUserModelSettings(userModelObject);
+                        channel.sendMessage("OpenAI model:" + arg + " for " + sender.getName()).queue();
+                    } else {
+                        String[] options = Maps.OPENAI_RESPONSE_MODELS;
+                        StringBuilder sb = new StringBuilder("[");
+                        for (int i = 0; i < options.length; i++) {
+                            sb.append(options[i]);
+                            if (i < options.length - 1) sb.append(", ");
                         }
-                        return null;
-                    });
-                }
-            } else if (command.equals("wipe")) {
-                boolean wipeAll = false, wipeBot = false, wipeCommands = false;
-                String targetUserId = null;
-                for (int i = 1; i < args.length; i++) {
-                    String arg = args[i].toLowerCase();
-                    switch (arg) {
-                        case "all" -> wipeAll = true;
-                        case "bot" -> wipeBot = true;
-                        case "commands" -> wipeCommands = true;
-                        case "user" -> {
-                            if (i + 1 < args.length) {
-                                String userMention = args[i + 1];
-                                User user = parseUserFromMention(userMention, event.getGuild());
-                                if (user != null) targetUserId = user.getId();
-                                i++;
-                            }
+                        sb.append("]");
+                        channel.sendMessage("Your options are " + sb.toString()).queue();
+                    }
+                    return null;
+                });
+            }
+        } else if (command.equals("wipe")) {
+            boolean wipeAll = false, wipeBot = false, wipeCommands = false;
+            String targetUserId = null;
+            for (int i = 1; i < args.length; i++) {
+                String arg = args[i].toLowerCase();
+                switch (arg) {
+                    case "all" -> wipeAll = true;
+                    case "bot" -> wipeBot = true;
+                    case "commands" -> wipeCommands = true;
+                    case "user" -> {
+                        if (i + 1 < args.length) {
+                            String userMention = args[i + 1];
+                            User user = parseUserFromMention(userMention, event.getGuild());
+                            if (user != null) targetUserId = user.getId();
+                            i++;
                         }
                     }
                 }
-                TextChannel channel = (TextChannel) event.getChannel();
-                String guildId = event.getGuild().getId();
-                String channelId = channel.getId();
-                wipeMessages(guildId, channelId, wipeAll, wipeBot, wipeCommands, targetUserId)
-                  .thenRun(() -> channel.sendMessage("Message wipe completed.").queue())
-                  .exceptionally(ex -> { return null; });
             }
-          })
-          .exceptionally(ex -> { return null; });
+            TextChannel channel = (TextChannel) event.getChannel();
+            String guildId = event.getGuild().getId();
+            String channelId = channel.getId();
+            wipeMessages(guildId, channelId, wipeAll, wipeBot, wipeCommands, targetUserId)
+              .thenRun(() -> channel.sendMessage("Message wipe completed.").queue())
+              .exceptionally(ex -> { return null; });
+        }
     }
 
     private User parseUserFromMention(String mention, Guild guild) {
@@ -125,6 +125,7 @@ public class HybridCommands extends ListenerAdapter implements Cog {
         return null;
     }
 
+
     public CompletableFuture<Void> wipeMessages(
             String guildId,
             String channelId,
@@ -133,35 +134,28 @@ public class HybridCommands extends ListenerAdapter implements Cog {
             boolean wipeCommands,
             String userId
     ) {
-        return cm.completeGetConfigValue("discord_command_prefix", String.class).thenCompose(prefix -> {
-            String prefixObj = (String) prefix;
-            Guild guild = this.api.getGuildById(guildId);
-            if (guild == null) {
-                return CompletableFuture.failedFuture(new Exception("Guild not found"));
-            }
-            TextChannel channel = guild.getTextChannelById(channelId);
-            if (channel == null) {
-                return CompletableFuture.failedFuture(new Exception("Channel not found"));
-            }
-            MessageHistory history = channel.getHistory();
-            return fetchAllMessages(history).thenCompose(messages -> {
-                List<Message> toDelete = messages.stream()
-                        .filter(msg -> {
-                            if (userId != null && !msg.getAuthor().getId().equals(userId))
-                                return false;
-                            if (wipeBot && !msg.getAuthor().isBot())
-                                return false;
-                            if (wipeCommands) {
-                                String content = msg.getContentDisplay();
-                                if (content.startsWith(prefixObj)) return true;
-                                return false;
-                            }
-                            if (wipeAll) return true;
+        Guild guild = this.api.getGuildById(guildId);
+        if (guild == null) {
+            return CompletableFuture.failedFuture(new Exception("Guild not found"));
+        }
+        TextChannel channel = guild.getTextChannelById(channelId);
+        if (channel == null) {
+            return CompletableFuture.failedFuture(new Exception("Channel not found"));
+        }
+        MessageHistory history = channel.getHistory();
+        return fetchAllMessages(history).thenCompose(messages -> {
+            List<Message> toDelete = messages.stream()
+                    .filter(msg -> {
+                        if (userId != null && !msg.getAuthor().getId().equals(userId))
                             return false;
-                        })
-                        .collect(Collectors.toList());
-                return deleteMessagesInChunks(toDelete, channel);
-            });
+                        if (wipeBot && !msg.getAuthor().isBot())
+                            return false;
+                        if (wipeCommands && msg.getContentDisplay().startsWith("."))
+                            return true;
+                        return wipeAll;
+                    })
+                    .collect(Collectors.toList());
+            return deleteMessagesInChunks(toDelete, channel);
         });
     }
 

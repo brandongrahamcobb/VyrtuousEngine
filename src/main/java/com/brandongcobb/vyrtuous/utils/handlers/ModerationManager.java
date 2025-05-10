@@ -44,7 +44,6 @@ import net.dv8tion.jda.api.entities.User;
 public class ModerationManager {
 
     private Vyrtuous app;
-    private ConfigManager cm;
     private final Object fileLock = new Object();
     private Map<Long, Integer> userCounts;
     private Lock lock;
@@ -52,12 +51,11 @@ public class ModerationManager {
     private File tempDirectory = new File(System.getProperty("java.io.tmpdir"));
     private File tempFile = new File(System.getProperty("java.io.tmpdir"), "config.yml");
 
-    public ModerationManager(ConfigManager cm) {
-        this.cm = cm.completeGetInstance();
+    public ModerationManager() {
     }
 
     public CompletableFuture<Void> completeHandleModeration(Message message, String reasonStr) {
-        MessageManager mem = new MessageManager(cm);
+        MessageManager mem = new MessageManager();
         User author = message.getAuthor();
         Guild guild = message.getGuild();
         if (guild == null || author == null) {
@@ -67,68 +65,55 @@ public class ModerationManager {
         if (member == null) {
             return CompletableFuture.completedFuture(null);
         }
-        return cm.completeGetConfigValue("discord_role_pass", Long.class).thenCompose(passRoleId -> {
-            boolean hasPassRole = member.getRoles().stream()
-                .anyMatch(role -> role.getId().equals(passRoleId));
-            if (hasPassRole) {
-                return CompletableFuture.completedFuture(null);
-            }
-            long userId = author.getIdLong();
-            return CompletableFuture.supplyAsync(() -> {
-                Map<Long, Integer> userCounts = new HashMap<>();
-                synchronized (fileLock) {
-                    if (tempFile.exists()) {
-                        try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
-                            String line;
-                            while ((line = reader.readLine()) != null) {
-                                String[] parts = line.split(":");
-                                if (parts.length == 2) {
-                                    try {
-                                        long id = Long.parseLong(parts[0]);
-                                        int count = Integer.parseInt(parts[1]);
-                                        userCounts.put(id, count);
-                                    } catch (NumberFormatException ignored) {}
-                                }
+        String warningMsg = "Please adhere to the community guidelines. Your message was flagged for moderation.";
+        long userId = author.getIdLong();
+        return CompletableFuture.supplyAsync(() -> {
+            Map<Long, Integer> userCounts = new HashMap<>();
+            synchronized (fileLock) {
+                if (tempFile.exists()) {
+                    try (BufferedReader reader = new BufferedReader(new FileReader(tempFile))) {
+                        String line;
+                        while ((line = reader.readLine()) != null) {
+                            String[] parts = line.split(":");
+                            if (parts.length == 2) {
+                                try {
+                                    long id = Long.parseLong(parts[0]);
+                                    int count = Integer.parseInt(parts[1]);
+                                    userCounts.put(id, count);
+                                } catch (NumberFormatException ignored) {}
                             }
-                        } catch (IOException e) {
-                            logger.severe("Failed to read tempFile: " + e.getMessage());
-                            return null;
-                        }
-                    }
-                }
-                int flaggedCount = userCounts.getOrDefault(userId, 0) + 1;
-                userCounts.put(userId, flaggedCount);
-                synchronized (fileLock) {
-                    try (BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile, false))) {
-                        for (Map.Entry<Long, Integer> entry : userCounts.entrySet()) {
-                            writer.write(entry.getKey() + ":" + entry.getValue());
-                            writer.newLine();
                         }
                     } catch (IOException e) {
-                        logger.severe("Failed to write to tempFile: " + e.getMessage());
+                        logger.severe("Failed to read tempFile: " + e.getMessage());
                         return null;
                     }
                 }
-                return flaggedCount;
-            }).thenCompose(flaggedCount -> {
-                if (flaggedCount == null) return CompletableFuture.completedFuture(null);
-                message.delete().queue();
-                return cm.completeGetConfigValue("discord_moderation_warning", String.class).thenCompose(warning -> {
-                    String warningMsg = warning + ". Your message was flagged for: " + reasonStr;
-                    CompletableFuture<Void> action = CompletableFuture.completedFuture(null);
-                    if (flaggedCount == 1) {
-                        action = mem.completeSendDiscordMessage(message, warningMsg).thenApply(msg -> null);
-                    } else if (flaggedCount >= 2 && flaggedCount <= 4) {
-                        if (flaggedCount == 4) {
-                            action = mem.completeSendDiscordMessage(message, warningMsg).thenApply(msg -> null);
-                        }
-                    } else if (flaggedCount >= 5) {
-                        action = mem.completeSendDiscordMessage(message, warningMsg)
-                            .thenCompose(msg -> mem.completeSendDiscordMessage(message,
-                                    "You have been timed out for 5 minutes due to repeated violations."))
+            }
+            int flaggedCount = userCounts.getOrDefault(userId, 0) + 1;
+            userCounts.put(userId, flaggedCount);
+            synchronized (fileLock) {
+                try (BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile, false))) {
+                    for (Map.Entry<Long, Integer> entry : userCounts.entrySet()) {
+                        writer.write(entry.getKey() + ":" + entry.getValue());
+                        writer.newLine();
+                    }
+                } catch (IOException e) {
+                    logger.severe("Failed to write to tempFile: " + e.getMessage());
+                    return null;
+                }
+            }
+            return flaggedCount;
+        }).thenCompose(flaggedCount -> {
+            if (flaggedCount == null) return CompletableFuture.completedFuture(null);
+            message.delete().queue();
+            return mem.completeSendDiscordMessage(message, warningMsg)
+                .thenCompose(msg -> {
+                    if (flaggedCount >= 5) {
+                        return mem.completeSendDiscordMessage(message,
+                                "You have been timed out for 5 minutes due to repeated violations.")
                             .thenRun(() -> member.timeoutFor(Duration.ofSeconds(300)).queue())
-                            .thenRunAsync(() -> {
-                                userCounts.put(userId, 0);
+                            .thenRun(() -> {
+                                userCounts.clear();
                                 synchronized (fileLock) {
                                     try (BufferedWriter writer = new BufferedWriter(new FileWriter(tempFile, false))) {
                                         for (Map.Entry<Long, Integer> entry : userCounts.entrySet()) {
@@ -140,10 +125,10 @@ public class ModerationManager {
                                     }
                                 }
                             });
+                    } else {
+                        return CompletableFuture.completedFuture(null);
                     }
-                    return action;
                 });
-            });
         });
     }
 }

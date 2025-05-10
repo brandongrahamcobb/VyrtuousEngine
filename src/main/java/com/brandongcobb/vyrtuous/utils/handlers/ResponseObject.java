@@ -287,6 +287,7 @@ public class ResponseObject extends MetadataContainer{
                         if (!(contentEntry instanceof Map<?, ?> contentMap)) continue;
                         Object text = contentMap.get("text");
                         if (text instanceof String textStr && !textStr.isBlank()) {
+                            System.out.println(textStr);
                             put(responsesOutputContentKey, textStr);
                             break outer;
                         }
@@ -364,6 +365,7 @@ public class ResponseObject extends MetadataContainer{
                 ObjectMapper objectMapper = new ObjectMapper();
                 String json = this.get(outputKey);
                 Map<String, Integer> responseMap = objectMapper.readValue(json, new TypeReference<Map<String, Integer>>() {});
+                System.out.println(json);
                 return responseMap.get("perplexity");
             } catch (Exception e) {
                 throw new CompletionException(e);

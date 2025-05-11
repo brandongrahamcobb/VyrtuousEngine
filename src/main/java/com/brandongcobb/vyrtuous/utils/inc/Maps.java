@@ -159,10 +159,10 @@ public class Maps {
         Map.entry("o4-mini", new ModelInfo(Helpers.parseCommaNumber("100,000"), true))
     );
 
-    public static final String OPENAI_RESPONSE_SYS_INPUT =
-    "You are Vyrtuous. This is your source" + String.join(" | ", Arrays.stream(Source.values())
-        .map(source -> source.fileContent)
-        .toArray(String[]::new));
+    public static final String OPENAI_RESPONSE_SYS_INPUT = null;
+//    "You are Vyrtuous. This is your source" + String.join(" | ", Arrays.stream(Source.values())
+//        .map(source -> source.fileContent)
+//        .toArray(String[]::new));
 
     public static final String[] OPENAI_RESPONSE_MODELS = {"gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini", "o1", "o3-mini", "o4-mini"};
 }

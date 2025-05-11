@@ -40,7 +40,7 @@ public enum Source {
     RESPONSE_OBJECT(Helpers.FILE_RESPONSE_OBJECT),
     VYRTUOUS(Helpers.FILE_VYRTUOUS);
 
-    private final String fileContent;
+    public final String fileContent;
 
     Source(String fileContent) {
         this.fileContent = fileContent;

@@ -135,44 +135,73 @@ public class MessageManager {
         Matcher matcher = codeBlockPattern.matcher(response);
         int fileIndex = 0;
         int lastEnd = 0;
+    
         while (matcher.find()) {
+            // Handle text before the code block
             if (matcher.start() > lastEnd) {
                 String beforeCode = response.substring(lastEnd, matcher.start()).trim();
                 if (!beforeCode.isEmpty()) {
                     futures.addAll(sendInChunks(message, beforeCode));
                 }
             }
+    
             String fileType = matcher.group(1) != null ? matcher.group(1) : "txt";
-            String fileContent = matcher.group(2);
-            File file = new File(tempDirectory, "response_" + (fileIndex++) + "." + fileType);
-            try {
-                Files.writeString(file.toPath(), fileContent, StandardCharsets.UTF_8);
-                futures.add(completeSendDiscordMessage(message, "📄 Code block attached:", file));
-            } catch (IOException e) {
-                String error = "❌ Error writing code block to file: " + e.getMessage();
-                futures.add(completeSendDiscordMessage(message, error));
+            String codeContent = matcher.group(2).trim();
+    
+            if (codeContent.length() < 1900) {
+                // Send short code block inline
+                String codeMessage = "```" + fileType + "\n" + codeContent + "\n```";
+                futures.add(completeSendDiscordMessage(message, codeMessage));
+            } else {
+                // Send long code block as a file
+                File file = new File(tempDirectory, "response_" + (fileIndex++) + "." + fileType);
+                try {
+                    Files.writeString(file.toPath(), codeContent, StandardCharsets.UTF_8);
+                    futures.add(completeSendDiscordMessage(message, "📄 Long code block attached:", file));
+                } catch (IOException e) {
+                    String error = "❌ Error writing code block to file: " + e.getMessage();
+                    futures.add(completeSendDiscordMessage(message, error));
+                }
             }
+    
             lastEnd = matcher.end();
         }
+    
+        // Handle any remaining text after the last code block
         if (lastEnd < response.length()) {
             String remaining = response.substring(lastEnd).trim();
             if (!remaining.isEmpty()) {
                 futures.addAll(sendInChunks(message, remaining));
             }
         }
+    
         return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
     }
-
+    
     private List<CompletableFuture<Message>> sendInChunks(Message message, String text) {
         List<CompletableFuture<Message>> chunks = new ArrayList<>();
         int maxLength = 2000;
         int index = 0;
+    
         while (index < text.length()) {
             int end = Math.min(index + maxLength, text.length());
-            String chunk = text.substring(index, end);
-            chunks.add(completeSendDiscordMessage(message, chunk));
+    
+            // Avoid breaking in the middle of a word or sentence if possible
+            if (end < text.length()) {
+                int lastNewline = text.lastIndexOf("\n", end);
+                int lastSpace = text.lastIndexOf(" ", end);
+                if (lastNewline > index) end = lastNewline;
+                else if (lastSpace > index) end = lastSpace;
+            }
+    
+            String chunk = text.substring(index, end).trim();
+            if (!chunk.isEmpty()) {
+                chunks.add(completeSendDiscordMessage(message, chunk));
+            }
+    
             index = end;
         }
+    
         return chunks;
     }
 

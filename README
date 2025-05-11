@@ -1,3 +1,4 @@
+```markdown
 # Vyrtuous Project
 
 Vyrtuous is a Java-based application designed to integrate with OpenAI and Discord. This guide will walk you through cloning the repository, building the jar file, setting up necessary API keys, and running the application in Docker containers.
@@ -142,3 +143,4 @@ java -jar Vyrtuous.jar --openai-key="your-openai-api-key" --discord-key="your-di
 This project is licensed under the GPL v3+ license. See the [LICENSE](LICENSE) file for details.
 
 ---
+```

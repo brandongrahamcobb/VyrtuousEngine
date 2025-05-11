@@ -124,6 +124,7 @@ public class AIManager {
             if ("moderation".equals(requestType)) {
                 body.put("input", content);
             } else {
+                body.put("instructions", systemPrompt);
                 List<Map<String, Object>> messages = new ArrayList<>();
                 Map<String, Object> msgMap = new HashMap<>();
                 msgMap.put("role", "user");

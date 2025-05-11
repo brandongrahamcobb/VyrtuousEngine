@@ -118,6 +118,7 @@ public class AIManager {
         return completeCalculateMaxOutputTokens(model, content).thenApplyAsync(tokens -> {
             Map<String, Object> body = new HashMap<>();
             body.put("model", model);
+            body.put("text", Map.of("format", textFormat));
             if ("moderation".equals(requestType)) {
                 body.put("input", content);
             } else {

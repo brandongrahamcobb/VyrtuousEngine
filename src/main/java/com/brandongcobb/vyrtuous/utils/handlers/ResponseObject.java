@@ -381,27 +381,22 @@ public class ResponseObject extends MetadataContainer{
             }
         });
     }
-//    public CompletableFuture<Integer> completeGetPerplexity() {
-//        return CompletableFuture.supplyAsync(() -> {
-//            try {
-//                MetadataKey<String> outputKey = new MetadataKey<>("output_content", STRING);
-//                ObjectMapper objectMapper = new ObjectMapper();
-//                String json = this.get(outputKey);
-//                Map<String, Integer> responseMap = objectMapper.readValue(json, new TypeReference<Map<String, Integer>>() {});
-//                System.out.println(json);
-//                return responseMap.get("perplexity");
-//            } catch (Exception e) {
-//                throw new CompletionException(e);
-//            }
-//        });
-//    }
 
-    public CompletableFuture<String> completeGetPreviousResponseId() {
+    public CompletableFuture<Integer> completeGetPerplexity() {
         return CompletableFuture.supplyAsync(() -> {
-            MetadataKey<String> previousResponseIdKey = new MetadataKey<>("previous_response_id", STRING);
-            return this.get(previousResponseIdKey);
+            try {
+                MetadataKey<String> outputKey = new MetadataKey<>("output_content", STRING);
+                ObjectMapper objectMapper = new ObjectMapper();
+                String json = this.get(outputKey);
+                Map<String, Integer> responseMap = objectMapper.readValue(json, new TypeReference<Map<String, Integer>>() {});
+                System.out.println(json);
+                return responseMap.get("perplexity");
+            } catch (Exception e) {
+                throw new CompletionException(e);
+            }
         });
     }
+
 
     /*
      *    Setters

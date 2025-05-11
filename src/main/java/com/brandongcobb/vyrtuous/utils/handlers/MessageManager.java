@@ -22,7 +22,6 @@ import com.brandongcobb.vyrtuous.Vyrtuous;
 import com.brandongcobb.vyrtuous.metadata.*;
 import com.brandongcobb.vyrtuous.utils.handlers.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.zaxxer.hikari.HikariDataSource;
 import java.io.File;
 import java.io.InputStream;
 import java.io.IOException;

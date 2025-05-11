@@ -28,7 +28,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
-import javax.annotation.Nonnull;
 import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Message.MentionType;
 import net.dv8tion.jda.api.entities.Message;
@@ -52,7 +51,7 @@ public class EventListeners extends ListenerAdapter implements Cog {
     }
 
     @Override
-    public void onMessageReceived(@Nonnull MessageReceivedEvent event) {
+    public void onMessageReceived(MessageReceivedEvent event) {
         Message message = event.getMessage();
         String messageContent = message.getContentDisplay();
         if (message.getAuthor().isBot() || messageContent.startsWith(".")) return;

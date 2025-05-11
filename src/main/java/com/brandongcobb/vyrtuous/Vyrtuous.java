@@ -22,7 +22,6 @@ package com.brandongcobb.vyrtuous;
 import com.brandongcobb.vyrtuous.bots.DiscordBot;
 import com.brandongcobb.vyrtuous.metadata.MetadataContainer;
 import com.brandongcobb.vyrtuous.utils.inc.Helpers;
-import com.zaxxer.hikari.HikariDataSource;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;

@@ -370,16 +370,31 @@ public class ResponseObject extends MetadataContainer{
         return CompletableFuture.supplyAsync(() -> {
             try {
                 MetadataKey<String> outputKey = new MetadataKey<>("output_content", STRING);
-                ObjectMapper objectMapper = new ObjectMapper();
-                String json = this.get(outputKey);
-                Map<String, Integer> responseMap = objectMapper.readValue(json, new TypeReference<Map<String, Integer>>() {});
-                System.out.println(json);
-                return responseMap.get("perplexity");
+                String content = (String) this.get(outputKey);
+                if (content == null || content.isBlank()) {
+                    throw new RuntimeException("Output content is empty");
+                }
+                // Parse the plain string content into an integer
+                return Integer.parseInt(content.trim());
             } catch (Exception e) {
                 throw new CompletionException(e);
             }
         });
     }
+//    public CompletableFuture<Integer> completeGetPerplexity() {
+//        return CompletableFuture.supplyAsync(() -> {
+//            try {
+//                MetadataKey<String> outputKey = new MetadataKey<>("output_content", STRING);
+//                ObjectMapper objectMapper = new ObjectMapper();
+//                String json = this.get(outputKey);
+//                Map<String, Integer> responseMap = objectMapper.readValue(json, new TypeReference<Map<String, Integer>>() {});
+//                System.out.println(json);
+//                return responseMap.get("perplexity");
+//            } catch (Exception e) {
+//                throw new CompletionException(e);
+//            }
+//        });
+//    }
 
     public CompletableFuture<String> completeGetPreviousResponseId() {
         return CompletableFuture.supplyAsync(() -> {

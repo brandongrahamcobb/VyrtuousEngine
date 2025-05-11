@@ -96,7 +96,6 @@ public class EventListeners extends ListenerAdapter implements Cog {
                                                     senderId,
                                                     ModelRegistry.OPENAI_RESPONSE_MODEL.asString()
                                                 );
-                                                System.out.println(setting);
                                                 return aim.completeResolveModel(fullContent, multimodal[0], setting)
                                                     .thenCompose(model -> {
                                                         CompletableFuture<String> previousResponseIdFuture =

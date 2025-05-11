@@ -160,5 +160,5 @@ public class Maps {
     );
 
     public static final String OPENAI_RESPONSE_SYS_INPUT = Source.ACTIVITY_OBJECT + " | " + Source.AI_MANAGER + " | " + Source.COST_OBJECT + " | " + Source.DISCORD_BOT + " | " + Source.EVENT_LISTENERS + " | " + Source.HELPERS + " | " + Source.HYBIRD_COMMANDS + " | " + Source.METADATA_CONTAINER + " | " + Source.METADATA_HOLDER + " | " + Source.METADATA_KEY + " | " + Source.METADATA_TYPE + " | " + Source.MESSAGE_MANAGER + " | " + Source.MODEL_INFO + " | " + Source.MODEL_REGISTRY + " | " + Source.MODERATION_MANAGER + " | " + Source.PREDICATOR + " | " + Source.REQUEST_OBJECT + " | " + Source.RESPONSE_OBJECT + " | " + Source.VYRTUOUS;
-    public static final String[] OPENAI_RESPONSE_MODELS = {"gpt-4.1", "gpt-4.1-mini", "gpt-4.1-nano", "gpt-4o", "gpt-4o-mini", "o1", "o3-mini", "o4-mini"};
+    public static final String[] OPENAI_RESPONSE_MODELS = {"gpt-4.1", "gpt-4.1-mini", "gpt-4o", "gpt-4o-mini", "o1", "o3-mini", "o4-mini"};
 }

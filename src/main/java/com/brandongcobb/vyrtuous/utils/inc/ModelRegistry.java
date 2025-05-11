@@ -32,6 +32,7 @@ public enum ModelRegistry {
     OPENAI_MODERATION_RESPONSE_TOP_P(1.0f),
     OPENAI_MODERATION_RESPONSE_WARNING("Please adhere to the community guidelines. Your message was flagged for moderation."),
 
+    OPENAI_PERPLEXITY_MODEL("gpt-4o-mini"),
     OPENAI_PERPLEXITY_SYS_INPUT("You determine how perplexing text is to you on a integer scale from 0 (not perplexing) to 200 (most perplexing."),
 
     OPENAI_RESPONSE_MODEL("gpt-4.1-nano"),

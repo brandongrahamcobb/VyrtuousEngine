@@ -23,10 +23,18 @@ import java.util.Map;
 
 public class Costs {
 
+    private static final MetadataType<String> STRING = new MetadataString();
+    private static final MetadataType<Long> LONG = new MetadataLong();
+    private static final MetadataType<Integer> INTEGER = new MetadataInteger();
+    private static final MetadataType<Double> DOUBLE = new MetadataDouble();
+    private static final MetadataType<Float> FLOAT = new MetadataFloat();
+    private static final MetadataType<Boolean> BOOLEAN = new MetadataBoolean();
+    private static final MetadataType<Map<String, Object>> MAP = new MetadataMap();
+
     public static void parseCosts(Map<String, Object> responseMap) {
         // Object type ("list")
         MetadataContainer container = new MetadataContainer();
-        MetadataKey<String> costObjectTypeKey = new MetadataKey<>("object", String.class);
+        MetadataKey<String> costObjectTypeKey = new MetadataKey<>("object", STRING);
         String costObjectType = (String) responseMap.get("object");
         container.put(costObjectTypeKey, costObjectType);
 
@@ -36,8 +44,8 @@ public class Costs {
             Map<String, Object> bucket = buckets.get(i);
 
             // Each bucket's start_time and end_time
-            MetadataKey<Long> bucketStartTimeKey = new MetadataKey<>("bucket_" + i + "_start_time", Long.class);
-            MetadataKey<Long> bucketEndTimeKey = new MetadataKey<>("bucket_" + i + "_end_time", Long.class);
+            MetadataKey<Long> bucketStartTimeKey = new MetadataKey<>("bucket_" + i + "_start_time", LONG);
+            MetadataKey<Long> bucketEndTimeKey = new MetadataKey<>("bucket_" + i + "_end_time", LONG);
             Long bucketStartTime = ((Number) bucket.get("start_time")).longValue();
             Long bucketEndTime = ((Number) bucket.get("end_time")).longValue();
             container.put(bucketStartTimeKey, bucketStartTime);
@@ -49,12 +57,12 @@ public class Costs {
                 Map<String, Object> result = results.get(j);
 
                 // Organization cost result fields
-                MetadataKey<Double> resultAmountValueKey = new MetadataKey<>("bucket_" + i + "_result_" + j + "_amount_value", Double.class);
-                MetadataKey<String> resultAmountCurrencyKey = new MetadataKey<>("bucket_" + i + "_result_" + j + "_amount_currency", String.class);
-                MetadataKey<String> resultProjectIdKey = new MetadataKey<>("bucket_" + i + "_result_" + j + "_project_id", String.class);
-                MetadataKey<String> resultProjectNameKey = new MetadataKey<>("bucket_" + i + "_result_" + j + "_project_name", String.class);
-                MetadataKey<String> resultOrganizationIdKey = new MetadataKey<>("bucket_" + i + "_result_" + j + "_organization_id", String.class);
-                MetadataKey<String> resultOrganizationNameKey = new MetadataKey<>("bucket_" + i + "_result_" + j + "_organization_name", String.class);
+                MetadataKey<Double> resultAmountValueKey = new MetadataKey<>("bucket_" + i + "_result_" + j + "_amount_value", DOUBLE);
+                MetadataKey<String> resultAmountCurrencyKey = new MetadataKey<>("bucket_" + i + "_result_" + j + "_amount_currency", STRING);
+                MetadataKey<String> resultProjectIdKey = new MetadataKey<>("bucket_" + i + "_result_" + j + "_project_id", STRING);
+                MetadataKey<String> resultProjectNameKey = new MetadataKey<>("bucket_" + i + "_result_" + j + "_project_name", STRING);
+                MetadataKey<String> resultOrganizationIdKey = new MetadataKey<>("bucket_" + i + "_result_" + j + "_organization_id", STRING);
+                MetadataKey<String> resultOrganizationNameKey = new MetadataKey<>("bucket_" + i + "_result_" + j + "_organization_name", STRING);
 
                 Map<String, Object> amount = (Map<String, Object>) result.get("amount");
 

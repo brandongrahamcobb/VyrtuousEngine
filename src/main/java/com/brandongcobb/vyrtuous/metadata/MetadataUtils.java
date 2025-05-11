@@ -1,3 +1,7 @@
+package com.brandongcobb.vyrtuous.metadata;
+
+import com.brandongcobb.vyrtuous.metadata.*;
+
 public class MetadataUtils {
 
     public static <T> String serialize(T value, MetadataType<T> type) {

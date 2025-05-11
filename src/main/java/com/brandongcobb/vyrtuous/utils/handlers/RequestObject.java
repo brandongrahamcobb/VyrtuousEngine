@@ -19,46 +19,53 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
+import com.brandongcobb.vyrtuous.records.ModelInfo;
+import com.brandongcobb.vyrtuous.utils.handlers.ResponseObject;
 import com.brandongcobb.vyrtuous.utils.inc.Helpers;
 import com.brandongcobb.vyrtuous.utils.inc.ModelRegistry;
-import com.brandongcobb.vyrtuous.records.ModelInfo;
-import com.brandongcobb.vyrtuous.metadata.MetadataContainer;
-import com.brandongcobb.vyrtuous.metadata.MetadataKey;
-import com.brandongcobb.vyrtuous.utils.handlers.ResponseObject;
-import com.brandongcobb.vyrtuous.records.ModelInfo;
+import com.brandongcobb.vyrtuous.metadata.*;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class RequestObject extends MetadataContainer {
 
+    private static final MetadataType<String> STRING = new MetadataString();
+    private static final MetadataType<Long> LONG = new MetadataLong();
+    private static final MetadataType<Integer> INTEGER = new MetadataInteger();
+    private static final MetadataType<Double> DOUBLE = new MetadataDouble();
+    private static final MetadataType<Float> FLOAT = new MetadataFloat();
+    private static final MetadataType<Boolean> BOOLEAN = new MetadataBoolean();
+    private static final MetadataType<Map<String, Object>> MAP = new MetadataMap();
+    private static final MetadataType<List<String>> LIST = new MetadataList(STRING);
+
     public RequestObject(Map<String, Object> requestMap) {
-        MetadataKey<String> modelKey = new MetadataKey<>("model", String.class);
+        MetadataKey<String> modelKey = new MetadataKey<>("model", new MetadataString());
         String model = (String) requestMap.get("model");
         if (model == null) {
             throw new NullPointerException("Request map is missing the mandatory 'model' field.");
         }
         put(modelKey, model);
-        MetadataKey<Float> temperatureKey = new MetadataKey<>("temperature", Float.class);
+        MetadataKey<Float> temperatureKey = new MetadataKey<>("temperature", FLOAT);
         Object tempObj = requestMap.get("temperature");
         if (tempObj != null) {
             // Parse or cast the value to Float
             Float temperature = Float.parseFloat(tempObj.toString());
             put(temperatureKey, temperature);
         }
-        MetadataKey<Float> topPKey = new MetadataKey<>("top_p", Float.class);
+        MetadataKey<Float> topPKey = new MetadataKey<>("top_p", FLOAT);
         Object topPObj = requestMap.get("top_p");
         if (topPObj != null) {
             Float topP = Float.parseFloat(topPObj.toString());
             put(topPKey, topP);
         }
-        MetadataKey<Boolean> streamKey = new MetadataKey<>("stream", Boolean.class);
+        MetadataKey<Boolean> streamKey = new MetadataKey<>("stream", BOOLEAN);
         Object streamObj = requestMap.get("stream");
         if (streamObj != null) {
             Boolean stream = Boolean.parseBoolean(streamObj.toString());
             put(streamKey, stream);
         }
-        MetadataKey<List<Map<String, Object>>> inputKey = new MetadataKey<>("input", List.class);
+        MetadataKey<List<Map<String, Object>>> inputKey = new MetadataKey<>("input", LIST);
         @SuppressWarnings("unchecked")
         List<Map<String, Object>> input = (List<Map<String, Object>>) requestMap.get("input");
         if (input != null) {
@@ -67,20 +74,20 @@ public class RequestObject extends MetadataContainer {
             throw new NullPointerException("Request map is missing the mandatory 'input' field.");
         }
         if (requestMap.containsKey("metadata")) {
-            MetadataKey<List<Map<String, String>>> metadataKey = new MetadataKey<>("metadata", List.class);
+            MetadataKey<List<Map<String, String>>> metadataKey = new MetadataKey<>("metadata", LIST);
             @SuppressWarnings("unchecked")
             List<Map<String, String>> metadata = (List<Map<String, String>>) requestMap.get("metadata");
             put(metadataKey, metadata);
         }
         if (requestMap.containsKey("max_output_tokens")) {
-            MetadataKey<Long> maxOutputTokensKey = new MetadataKey<>("max_output_tokens", Long.class);
+            MetadataKey<Long> maxOutputTokensKey = new MetadataKey<>("max_output_tokens", LONG);
             Object maxOutputTokensObj = requestMap.get("max_output_tokens");
             if (maxOutputTokensObj != null) {
                 Long maxOutputTokens = Long.parseLong(maxOutputTokensObj.toString());
                 put(maxOutputTokensKey, maxOutputTokens);
             }
         } else if (requestMap.containsKey("max_tokens")) {
-            MetadataKey<Long> maxTokensKey = new MetadataKey<>("max_tokens", Long.class);
+            MetadataKey<Long> maxTokensKey = new MetadataKey<>("max_tokens", LONG);
             Object maxTokensObj = requestMap.get("max_tokens");
             if (maxTokensObj != null) {
                 Long maxTokens = Long.parseLong(maxTokensObj.toString());

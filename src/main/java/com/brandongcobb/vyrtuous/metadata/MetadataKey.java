@@ -25,7 +25,7 @@ import java.util.Objects;
     private final String name;
     private final MetadataType<?> type;
 
-    public MetadataKey(String name, Class<?> type) {
+    public MetadataKey(String name, MetadataType<?> type) {
         this.name = name;
         this.type = type;
     }
@@ -34,7 +34,7 @@ import java.util.Objects;
         return name;
     }
 
-    public Class<?> getType() {
+    public MetadataType<?> getType() {
         return type;
     }
 

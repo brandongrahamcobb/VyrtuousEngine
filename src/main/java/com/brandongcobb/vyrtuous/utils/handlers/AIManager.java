@@ -52,7 +52,7 @@ import org.apache.http.util.EntityUtils;
 public class AIManager {
 
     private String moderationApiUrl = Maps.OPENAI_ENDPOINT_URLS.get("moderations");
-    private String responseApiUrl = Maps.OPENAI_ENDPOINT_URLS.get("response");
+    private String responseApiUrl = Maps.OPENAI_ENDPOINT_URLS.get("responses");
     private EncodingRegistry registry = Encodings.newDefaultEncodingRegistry();
     private Map<String, Object> OPENAI_RESPONSE_FORMAT = new HashMap<>();
 
@@ -89,6 +89,7 @@ public class AIManager {
                 try (CloseableHttpResponse resp = client.execute(post)) {
                     int code = resp.getStatusLine().getStatusCode();
                     String respBody = EntityUtils.toString(resp.getEntity(), "UTF-8");
+                    System.out.println(respBody);
                     if (code >= 200 && code < 300) {
                         Map<String, Object> respMap = mapper.readValue(respBody, new TypeReference<>() {});
                         return new ResponseObject(respMap);

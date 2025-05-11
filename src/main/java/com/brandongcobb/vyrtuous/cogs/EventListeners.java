@@ -134,8 +134,6 @@ public class EventListeners extends ListenerAdapter implements Cog {
             })
             .exceptionally(ex -> {
                 ex.printStackTrace();
-                mem.completeSendResponse(message, "An internal error occurred while processing your message.")
-                    .thenApply(ignored -> null);
                 return null;
             });
     }

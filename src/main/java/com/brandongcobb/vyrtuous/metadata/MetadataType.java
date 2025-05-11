@@ -29,4 +29,8 @@ public interface MetadataType<T> {
     default MetadataRenderer<T> getRenderer() {
         throw new UnsupportedOperationException("No codec available of this type.");
     }
+
+    default MetadataBehavior<T> getBehavior() {
+        throw new UnsupportedOperationException("No behavior defined for this type.");
+    }
 }

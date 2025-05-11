@@ -23,7 +23,7 @@ import java.util.Objects;
  public final class MetadataKey<T> {
 
     private final String name;
-    private final Class<?> type;
+    private final MetadataType<?> type;
 
     public MetadataKey(String name, Class<?> type) {
         this.name = name;

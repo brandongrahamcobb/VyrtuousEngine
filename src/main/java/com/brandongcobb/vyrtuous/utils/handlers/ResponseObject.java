@@ -383,7 +383,7 @@ public class ResponseObject extends MetadataContainer{
 
     public CompletableFuture<String> completeGetPreviousResponseId() {
         return CompletableFuture.supplyAsync(() -> {
-            MetadataKey<String> previousResponseIdKey = new MetadataKey<>("previous_response_id", String.class);
+            MetadataKey<String> previousResponseIdKey = new MetadataKey<>("previous_response_id", STRING);
             return this.get(previousResponseIdKey);
         });
     }

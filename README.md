@@ -84,7 +84,7 @@ The plugin's configuration can be set in one of two ways:
 export DISCORD_API_KEY=""
 export POSTGRES_HOST="localhost"
 export POSTGRES_DATABASE=""
-export POSTGRES_USER="postgres"
+export POSTGRES_USER=""
 export POSTGRES_PASSWORD=""
 export POSTGRES_PORT="5432"
 export DISCORD_CLIENT_ID=""

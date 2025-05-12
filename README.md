@@ -81,9 +81,24 @@ The plugin's configuration can be set in one of two ways:
 
 - Set environment variables in your shell or via a `.bashrc` or `.zshrc` file:
 ```bash
-export DISCORD_API_KEY=your_discord_api_key
-export PATREON_CLIENT_ID=your_patreon_client_id
-# Add other relevant variables
+export DISCORD_API_KEY=""
+export POSTGRES_HOST="localhost"
+export POSTGRES_DATABASE=""
+export POSTGRES_USER="postgres"
+export POSTGRES_PASSWORD=""
+export POSTGRES_PORT="5432"
+export DISCORD_CLIENT_ID=""
+export DISCORD_CLIENT_SECRET=""
+export DISCORD_REDIRECT_URI=""
+export DISCORD_ROLE_PASS=""
+export DISCORD_TESTING_GUILD_ID=""
+export PATREON_CLIENT_ID=""
+export PATREON_CLIENT_SECRET=""
+export PATREON_REDIRECT_URI=""
+export SPARK_DISCORD_ENDPOINT=""
+export SPARK_PATREON_ENDPOINT=""
+export SPARK_PORT="8000"
+export DISCORD_OWNER_ID=""
 ```
 - To load the variables immediately without restarting the terminal:
 ```bash

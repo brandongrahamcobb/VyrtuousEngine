@@ -45,6 +45,7 @@ public class EventListeners extends ListenerAdapter implements Cog {
 
     @Override
     public void register (JDA api, DiscordBot bot) {
+        this.app = Vyrtuous.getInstance();
         this.bot = bot.completeGetBot();
         this.api = api;
         api.addEventListener(this);
@@ -88,8 +89,7 @@ public class EventListeners extends ListenerAdapter implements Cog {
                                                 .thenApply(ignored -> null)
                                         );
                                 } else {
-                                    return app.completeGetInstance().thenCompose(instance ->
-                                        instance.completeGetUserModelSettings()
+                                    return Vyrtuous.getInstance().completeGetUserModelSettings()
                                             .thenCompose(userModelSettings -> {
                                                 String setting = userModelSettings.getOrDefault(
                                                     senderId,
@@ -126,8 +126,7 @@ public class EventListeners extends ListenerAdapter implements Cog {
                                                                 });
                                                         });
                                                     });
-                                            })
-                                    );
+                                            });
                                 }
                             }));
             })

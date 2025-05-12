@@ -61,8 +61,8 @@ public class Vyrtuous {
         return CompletableFuture.completedFuture(this.userModelSettings);
     }
 
-    public static CompletableFuture<Vyrtuous> completeGetInstance() {
-        return CompletableFuture.completedFuture(app);
+    public static Vyrtuous getInstance() {
+        return app;
     }
 
     /*

@@ -114,6 +114,82 @@ source ~/.bashrc  # or ~/.zshrc
 - Changes to `config.yml` require a server restart to take effect.
 - Alternatively, editing the `config.yml` file directly in `plugins/Lucy/` allows quick configuration updates without messing with environment variables.
 
+Certainly! Here's an example section you could add to your README, explaining how to run SQL scripts in PostgreSQL and how to create a database across different operating systems:
+
+---
+
+## Setting Up PostgreSQL Database
+
+### Creating a Database
+
+Before deploying the plugin, you need a PostgreSQL database instance. The process varies slightly depending on your operating system but follows similar principles.
+
+#### Common Steps (All OSs)
+1. **Install PostgreSQL** if not already installed.
+2. **Create a user** with the necessary permissions.
+3. **Create the database** for your plugin.
+
+---
+
+### For Linux / macOS / Windows (Command Line)
+
+Once PostgreSQL is installed, you can create a new database with the `psql` command-line tool.
+
+**Step-by-step:**
+
+1. Open your terminal or command prompt.
+2. Connect to PostgreSQL as the superuser (often `postgres`):
+
+```bash
+psql -U postgres
+```
+(You will be prompted for your password.)
+
+3. Create a new database:
+```sql
+CREATE DATABASE <your-db>;
+```
+4. Create a user (if needed):
+```sql
+CREATE USER <your-user> WITH PASSWORD '<your-password>';
+GRANT ALL PRIVILEGES ON DATABASE <your-db> TO <your-user>;
+```
+5. Exit psql:
+```sql
+\q
+```
+6. Update your plugin's configuration to connect to `lucy` with `lucy` and the password.
+
+---
+
+### Running a SQL Script File
+
+If you have an SQL script containing your schema or initial data, you can run it like this:
+```bash
+psql -U <your-user> -d <your-db> -f file.sql
+```
+
+---
+
+### Specific OS Notes:
+
+- **Linux:**
+  Use your distribution's package manager (e.g., `apt`, `yum`) to install PostgreSQL, then use `psql` as shown.
+- **macOS:**
+  Install via Homebrew (`brew install postgresql`), then start the service (`brew services start postgresql`).
+- **Windows:**
+  Use the [PostgreSQL installer](https://www.postgresql.org/download/windows/). After installation, use `psql` from the Command Prompt or PowerShell. You may need to add PostgreSQL's `bin` directory to your PATH.
+
+---
+
+### Final Tips:
+- Make sure the PostgreSQL service is running before attempting to connect.
+- Use a GUI client like pgAdmin for easier management if you prefer a graphical interface.
+- Store your credentials securely and do not include passwords in scripts or config files in version-controlled repositories.
+
+---
+
+This guide helps users across all operating systems set up the necessary database environment for your plugin.
 ---
 
 # Usage
@@ -126,21 +202,21 @@ The plugin exposes a robust and flexible API designed for other developers and p
 
 ### Accessing User Data
 
-- **Retrieve a User Object:**  
+- **Retrieve a User Object:**
   Use the provided service to asynchronously fetch a user instance associated with a specific UUID. This user object serves as the gateway to all related data.
 
-- **Get User Properties:**  
+- **Get User Properties:**
   From the user object, individual properties such as experience points, faction name, level, and platform-specific IDs (e.g., Discord, Patreon) can be accessed through dedicated getter methods. These methods return `CompletableFuture` objects to allow asynchronous, non-blocking operations.
 
-- **Modify User Data:**  
+- **Modify User Data:**
   If supported, setter methods are available for updating user properties dynamically, with changes persisted seamlessly.
 
 ### Detecting Data Changes
 
-- **Event Listeners:**  
+- **Event Listeners:**
   The system provides a registration mechanism where external plugins can listen for specific user data updates, such as experience or faction changes. When a monitored property is modified, registered listeners are triggered with the new data, enabling real-time reactions.
 
-- **Callback Registration:**  
+- **Callback Registration:**
   For specific properties, developers can register callbacks that execute when data alterations occur, allowing dynamic updates of roles, ranks, or external markers in response to user activity.
 
 ### Usage Patterns

@@ -49,7 +49,6 @@ The database currently stores the following user information:
 ```bash
 git clone https://github.com/brandongrahamcobb/jVyrtuous/Lucy.git
 ```
-Replace `https://github.com/yourusername/your-repo-name.git` with the actual URL of your repository.
 
 ### Building the Plugin
 

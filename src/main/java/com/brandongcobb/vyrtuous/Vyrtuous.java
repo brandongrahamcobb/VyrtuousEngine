@@ -58,7 +58,7 @@ public class Vyrtuous {
     }
 
     public CompletableFuture<Map<Long, String>> completeGetUserModelSettings() {
-        return CompletableFuture.completedFuture(this.userModelSettings);
+        return CompletableFuture.completedFuture(app.userModelSettings);
     }
 
     public static Vyrtuous getInstance() {
@@ -70,6 +70,6 @@ public class Vyrtuous {
      *
      */
     public void completeSetUserModelSettings(Map<Long, String> userModelSettings) {
-        this.userModelSettings = userModelSettings;
+        app.userModelSettings = userModelSettings;
     }
 }

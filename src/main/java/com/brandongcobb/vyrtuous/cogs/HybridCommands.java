@@ -67,7 +67,7 @@ public class HybridCommands extends ListenerAdapter implements Cog {
 
         if (command.equals("openai")) {
             if (args.length > 2 && "model".equalsIgnoreCase(args[1])) {
-                app.completeGetUserModelSettings().thenCompose(userModelSettings -> {
+                Vyrtuous.getInstance().completeGetUserModelSettings().thenCompose(userModelSettings -> {
                     Map<Long, String> userModelObject = (Map<Long, String>) userModelSettings;
                     TextChannel channel = (TextChannel) event.getChannel();
                     String arg = args[2].toLowerCase();

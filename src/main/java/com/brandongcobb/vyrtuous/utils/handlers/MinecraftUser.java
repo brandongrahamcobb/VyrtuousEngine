@@ -37,9 +37,9 @@ public class MinecraftUser implements User {
     private String minecraftId;
     public Map<MinecraftUser, OAuthUserSession> sessions;
 
-    public MinecraftUser(ConfigManager cm, Database db) {
-        this.cm = cm.completeGetInstance();
-        this.db = db;
+    public MinecraftUser(String minecraftId) {
+        this.db = Database.completeGetInstance();
+        this.minecraftId = minecraftId;
     }
 
     @Override

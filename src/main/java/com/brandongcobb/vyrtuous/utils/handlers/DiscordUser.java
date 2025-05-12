@@ -60,7 +60,6 @@ public class DiscordUser implements User {
 
     private String accessToken;
     private Vyrtuous app;
-    private ConfigManager cm;
     private Connection[] conn;
     private Connection connection;
     private LocalDateTime createDate = LocalDateTime.now();
@@ -83,9 +82,9 @@ public class DiscordUser implements User {
     private Timestamp timestamp = Timestamp.valueOf(createDate);
     private final String USER_INFO_URL = "https://discord.com/api/v10/users/@me";
 
-    public DiscordUser(ConfigManager cm, Database db, long discordId) {
+    public DiscordUser(long discordId) {
         this.accessToken = accessToken;
-        this.cm = cm.completeGetInstance();
+        this.db = Database.completeGetInstance();
         this.discordId = discordId;
         this.exp = exp;
         this.factionName = factionName;

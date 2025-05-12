@@ -20,53 +20,112 @@
 package com.brandongcobb.vyrtuous;
 
 import com.brandongcobb.vyrtuous.bots.DiscordBot;
-import com.brandongcobb.vyrtuous.metadata.MetadataContainer;
-import com.brandongcobb.vyrtuous.utils.handlers.Database;
-import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
-import com.brandongcobb.vyrtuous.utils.handlers.MinecraftUser;
-import com.brandongcobb.vyrtuous.utils.handlers.OAuthServer;
-import com.brandongcobb.vyrtuous.utils.handlers.OAuthUserSession;
-import com.brandongcobb.vyrtuous.utils.inc.Helpers;
-import com.zaxxer.hikari.HikariDataSource;
-import java.io.File;
-import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.sql.Connection;
-import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.Executor;
-import java.util.function.Consumer;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.CompletionException;
-import java.util.Iterator;
-import java.util.logging.Level;
+import com.brandongcobb.vyrtuous.utils.handlers.*;
+import com.brandongcobb.vyrtuous.utils.inc.*;
+import com.brandongcobb.vyrtuous.utils.sec.*;
+import org.bukkit.command.Command;
+import org.bukkit.command.CommandSender;
+import org.bukkit.entity.Player;
+import org.bukkit.plugin.java.JavaPlugin;
+import org.bukkit.scheduler.BukkitRunnable;
+import java.net.URLEncoder;
 import java.util.logging.Logger;
-import java.util.List;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.Map;
-import java.util.Timer;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ExecutorService;
-import net.dv8tion.jda.api.JDA;
 
-public class Vyrtuous {
+public class Vyrtuous extends JavaPlugin{
 
-    public static void main(String[] args) {
-        Vyrtuous app = new Vyrtuous();
+    private static Vyrtuous app;
+    private BukkitRunnable callbackRunnable;
+    private DiscordOAuth discordOAuth;
+    private PatreonOAuth patreonOAuth;
+    private Map<MinecraftUser, OAuthUserSession> sessions = new ConcurrentHashMap<>();
+    private Logger logger = Logger.getLogger("Vyrtuous");
+
+    public static Vyrtuous getInstance() {
+        return app;
+    }
+
+    public void onEnable() {
+        app = this;
         ConfigManager cm = new ConfigManager(app);
-        cm.completeSetAndLoadConfig().thenRun(() -> {
-            Database db = new Database(cm);
-            DiscordBot bot = new DiscordBot(cm);
+        cm.completeSetAndLoadConfig();
+        Database db = new Database();
+        OAuthServer oa = new OAuthServer();
+        oa.completeConnectSpark().thenRun(() -> {
+            DiscordBot bot = new DiscordBot();
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 try {
                     db.completeCloseDatabase();
+                    oa.stop();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }));
-        }).join(); // Block main thread here
+        }).join();
+    }
+
+    @Override
+    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
+        if (!(sender instanceof Player)) return false;
+        Player currentPlayer = (Player)sender;
+        if (cmd.getName().equalsIgnoreCase("patreon") || cmd.getName().equalsIgnoreCase("discord")) {
+            try {
+                if (callbackRunnable != null) callbackRunnable.cancel();
+                MinecraftUser minecraftUser = new MinecraftUser(currentPlayer.getUniqueId().toString());
+                OAuthUserSession session = new OAuthUserSession(this, minecraftUser, cmd.getName());
+                sessions.put(minecraftUser, session);
+                String state = URLEncoder.encode(currentPlayer.getUniqueId().toString(), "UTF-8");
+                if (cmd.getName().equalsIgnoreCase("patreon")) {
+                    PatreonOAuth poa = new PatreonOAuth();
+                    poa.completeGetAuthorizationUrl().thenAccept(url -> {
+                        String authUrl = url + "&state=" + state;
+                        currentPlayer.sendMessage("Please visit the following URL to authorize: " + authUrl);
+                    });
+                } else {
+                    DiscordOAuth doa = new DiscordOAuth();
+                    doa.completeGetAuthorizationUrl().thenAccept(url -> {
+                        String authUrl = url + "&state=" + state;
+                        currentPlayer.sendMessage("Please visit the following URL to authorize: " + authUrl);
+                    });
+                }
+                callbackRunnable = new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        sessions.remove(minecraftUser);
+                        currentPlayer.sendMessage("Waiting for callback has timed out.");
+                    }
+                };
+                callbackRunnable.runTaskLater(this, 20 * 60 * 10); // 10 min
+                return true;
+            } catch (Exception e) {
+                logger.warning("Error starting OAuth flow: " + e.getMessage());
+            }
+        }
+        if (cmd.getName().equalsIgnoreCase("code")) {
+            MinecraftUser minecraftUser = new MinecraftUser(currentPlayer.getUniqueId().toString());
+            if (args.length < 1) {
+                sender.sendMessage("Please provide an access code after /code.");
+                return false;
+            }
+            OAuthUserSession session = sessions.get(minecraftUser);
+            if (session != null && session.getAccessToken() != null) {
+                String providedCode = args[0];
+                if (providedCode.equals(session.getAccessToken())) {
+                    sessions.remove(currentPlayer.getUniqueId().toString());
+                    if (callbackRunnable != null) {
+                        callbackRunnable.cancel();
+                        callbackRunnable = null;
+                    }
+                    currentPlayer.sendMessage("Authentication successful. Happy mapling!");
+                } else {
+                    currentPlayer.sendMessage("Invalid code, please try again.");
+                }
+            } else {
+                sender.sendMessage("No pending authentication or token not yet received.");
+            }
+            return true;
+        }
+        return false;
     }
 }

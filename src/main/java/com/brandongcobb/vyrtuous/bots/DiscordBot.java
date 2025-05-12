@@ -19,7 +19,7 @@
 package com.brandongcobb.vyrtuous.bots;
 
 import com.brandongcobb.vyrtuous.cogs.*;
-import com.brandongcobb.vyrtuous.utils.handlers.ConfigManager;
+import com.brandongcobb.vyrtuous.utils.handlers.*;
 import com.brandongcobb.vyrtuous.Vyrtuous;
 import java.util.ArrayList;
 import java.util.List;
@@ -37,16 +37,13 @@ import net.dv8tion.jda.api.requests.GatewayIntent;
 public class DiscordBot {
 
     private JDA api;
-    private ConfigManager cm;
-    private DiscordBot bot;
     private final Logger logger = Logger.getLogger("Vyrtuous");;
     private final ReentrantLock lock = new ReentrantLock();
 
-    public DiscordBot(ConfigManager cm) {
-        this.bot = this;
-        this.cm = cm.completeGetInstance();
-        CompletableFuture<Void> future = cm.completeGetConfigValue("discord_api_key", String.class)
-            .thenCombine(cm.completeGetConfigValue("discord_owner_id", Long.class), (apiKey, ownerId) -> {
+    public DiscordBot() {
+        ConfigManager cm = ConfigManager.getInstance();
+        CompletableFuture<Void> future = cm.completeGetConfigValue("DISCORD_API_KEY", String.class)
+            .thenCombine(cm.completeGetConfigValue("DISCORD_OWNER_ID", Long.class), (apiKey, ownerId) -> {
                 try {
                     if (apiKey == null || ownerId == null) {
                         throw new IllegalArgumentException("API Key or Owner ID is null");
@@ -59,9 +56,8 @@ public class DiscordBot {
                         .build();
                     List<Cog> cogs = new ArrayList<>();
                     cogs.add(new EventListeners());
-                    cogs.add(new HybridCommands());
                     for (Cog cog : cogs) {
-                        cog.register(this.api, this.bot, this.cm);
+                        cog.register(this.api, this);
                     }
                 } catch (Exception e) {
                     logger.log(Level.SEVERE, "Error during DiscordBot setup", e);
@@ -78,9 +74,4 @@ public class DiscordBot {
             });
         future.join();
     }
-
-    public DiscordBot completeGetBot() {
-        return this.bot;
-    }
-
 }

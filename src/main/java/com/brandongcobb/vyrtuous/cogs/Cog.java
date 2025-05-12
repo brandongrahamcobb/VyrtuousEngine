@@ -23,5 +23,5 @@ import net.dv8tion.jda.api.JDA;
 
 public interface Cog {
 
-    void register(JDA api, DiscordBot bot, ConfigManager cm);
+    void register(JDA api, DiscordBot bot);
 }

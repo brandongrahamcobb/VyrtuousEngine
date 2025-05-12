@@ -35,35 +35,35 @@ import java.util.logging.Level;
 public class Database {
 
     private ConfigManager cm;
-    private Database instance;
+    private static Database instance;
     private final ExecutorService dbExecutor = Executors.newFixedThreadPool(4);
     private HikariDataSource dbPool;
     private final Logger logger = Logger.getLogger("Vyrtuous");
 
-    public Database(ConfigManager cm) {
-        this.cm = cm.completeGetInstance();
+    public Database() {
         completeConnectDatabase(() -> {});
         instance = this;
     }
 
-    public CompletableFuture<Database> completeGetInstance() {
-        return CompletableFuture.completedFuture(instance);
+    public static Database completeGetInstance() {
+        return instance;
     }
 
     private CompletableFuture<Void> completeConnectDatabase(Runnable afterConnect) {
+        ConfigManager cm = ConfigManager.getInstance();
         return CompletableFuture.allOf(
-                cm.completeGetConfigValue("postgres_host", String.class),
-                cm.completeGetConfigValue("postgres_database", String.class),
-                cm.completeGetConfigValue("postgres_user", String.class),
-                cm.completeGetConfigValue("postgres_password", String.class),
-                cm.completeGetConfigValue("postgres_port", String.class)
+                cm.completeGetConfigValue("POSTGRES_HOST", String.class),
+                cm.completeGetConfigValue("POSTGRES_DATABASE", String.class),
+                cm.completeGetConfigValue("POSTGRES_USER", String.class),
+                cm.completeGetConfigValue("POSTGRES_PASSWORD", String.class),
+                cm.completeGetConfigValue("POSTGRES_PORT", String.class)
         ).thenApplyAsync(v -> {
             try {
-                String host = String.valueOf(cm.completeGetConfigValue("postgres_host", String.class).get());
-                String db = String.valueOf(cm.completeGetConfigValue("postgres_database", String.class).get());
-                String user = String.valueOf(cm.completeGetConfigValue("postgres_user", String.class).get());
-                String password = String.valueOf(cm.completeGetConfigValue("postgres_password", String.class).get());
-                String port = String.valueOf(cm.completeGetConfigValue("postgres_port", String.class).get());
+                String host = String.valueOf(cm.completeGetConfigValue("POSTGRES_HOST", String.class).get());
+                String db = String.valueOf(cm.completeGetConfigValue("POSTGRES_DATABASE", String.class).get());
+                String user = String.valueOf(cm.completeGetConfigValue("POSTGRES_USER", String.class).get());
+                String password = String.valueOf(cm.completeGetConfigValue("POSTGRES_PASSWORD", String.class).get());
+                String port = String.valueOf(cm.completeGetConfigValue("POSTGRES_PORT", String.class).get());
                 String jdbcUrl = String.format("jdbc:postgresql://%s:%s/%s", host, port, db);
                 logger.info("Connecting to: " + jdbcUrl);
                 HikariConfig hikariConfig = new HikariConfig();

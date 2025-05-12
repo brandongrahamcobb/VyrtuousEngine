@@ -33,25 +33,22 @@ import java.net.URLEncoder;
 public class OAuthServer {
 
     private Vyrtuous app;
-    private ConfigManager cm;
-
-    public OAuthServer(ConfigManager cm) {
-        this.cm = cm.completeGetInstance();
-    }
+    private ConfigManager configManager;
 
     public CompletableFuture<Void> completeConnectSpark() {
-        return cm.completeGetConfigValue("spark_port", Integer.class)
-             .thenCompose(portObj -> {
-                int port = (int) portObj;
-                Spark.port(port);
-                CompletableFuture<String> discordEndpointFuture = cm.completeGetConfigValue("spark_discord_endpoint", String.class);
-                CompletableFuture<String> patreonEndpointFuture = cm.completeGetConfigValue("spark_patreon_endpoint", String.class);
+        ConfigManager cm = ConfigManager.getInstance();
+        return cm.completeGetConfigValue("SPARK_PORT", Integer.class)
+             .thenCompose(port -> {
+                int portObj = (int) port;
+                Spark.port(portObj);
+                CompletableFuture<String> discordEndpointFuture = ConfigManager.getInstance().completeGetConfigValue("SPARK_DISCORD_ENDPOINT", String.class);
+                CompletableFuture<String> patreonEndpointFuture = ConfigManager.getInstance().completeGetConfigValue("SPARK_PATREON_ENDPOINT", String.class);
                 return discordEndpointFuture.thenCombine(patreonEndpointFuture, (discordEndpoint, patreonEndpoint) -> {
                     Spark.get(discordEndpoint, (req, res) -> {
                         String code = req.queryParams("code");
                         String stateParam = req.queryParams("state");
                         String userId = URLDecoder.decode(stateParam, "UTF-8");
-                        DiscordOAuth dAuth = new DiscordOAuth(this.cm);
+                        DiscordOAuth dAuth = new DiscordOAuth();
                         dAuth.completeExchangeCodeForToken(code).thenAccept(accessToken -> {
                         });
                         return "Discord OAuth callback received. You may now use /code with your token in Minecraft.";
@@ -60,7 +57,7 @@ public class OAuthServer {
                         String code = req.queryParams("code");
                         String stateParam = req.queryParams("state");
                         String userId = URLDecoder.decode(stateParam, "UTF-8");
-                        PatreonOAuth pAuth = new PatreonOAuth(this.cm);
+                        PatreonOAuth pAuth = new PatreonOAuth();
                         pAuth.completeExchangeCodeForToken(code).thenAccept(accessToken -> {
                         });
                         return "Patreon OAuth callback received. You may now use /code with your token in Minecraft.";

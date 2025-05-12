@@ -47,18 +47,15 @@ public class PatreonOAuth {
     private Vyrtuous app;
     private String clientId;
     private String clientSecret;
-    private ConfigManager cm;
+    private ConfigManager configManager;
     private String redirectUri;
     private String minecraftId;
 
-    public PatreonOAuth(ConfigManager cm) {
-        this.cm = cm.completeGetInstance();
-    }
-
     public CompletableFuture<String> completeGetAuthorizationUrl() {
-        return cm.completeGetConfigValue("patreon_client_id", String.class)
+        ConfigManager cm = ConfigManager.getInstance();
+        return cm.completeGetConfigValue("PATREON_CLIENT_ID", String.class)
             .thenCombine(
-                cm.completeGetConfigValue("patreon_redirect_uri", String.class),
+                cm.completeGetConfigValue("PATREON_REDIRECT_URI", String.class),
                 (clientId, redirectUri) -> {
                     return "https://www.patreon.com/oauth2/authorize" +
                            "?response_type=code" +
@@ -70,9 +67,10 @@ public class PatreonOAuth {
     }
 
     public CompletableFuture<String> completeExchangeCodeForToken(String code) {
-        CompletableFuture<String> clientIdFuture = cm.completeGetConfigValue("patreon_client_id", String.class);
-        CompletableFuture<String> clientSecretFuture = cm.completeGetConfigValue("patreon_client_secret", String.class);
-        CompletableFuture<String> redirectUriFuture = cm.completeGetConfigValue("patreon_redirect_uri", String.class);
+        ConfigManager cm = ConfigManager.getInstance();
+        CompletableFuture<String> clientIdFuture = cm.completeGetConfigValue("PATREON_CLIENT_ID", String.class);
+        CompletableFuture<String> clientSecretFuture = cm.completeGetConfigValue("PATREON_CLIENT_SECRET", String.class);
+        CompletableFuture<String> redirectUriFuture = cm.completeGetConfigValue("PATREON_REDIRECT_URI", String.class);
         return CompletableFuture.allOf(clientIdFuture, clientSecretFuture, redirectUriFuture)
             .thenCompose(v -> {
                 String clientId = clientIdFuture.join();

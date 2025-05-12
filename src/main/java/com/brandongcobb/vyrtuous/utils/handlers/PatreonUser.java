@@ -66,9 +66,8 @@ public class PatreonUser implements User {
     private Timestamp timestamp;
     private UserManager userManager;
 
-    public PatreonUser(ConfigManager cm, Database db) {
-        this.cm = cm.completeGetInstance();
-        this.db = db;
+    public PatreonUser() {
+        this.db = Database.completeGetInstance();
         this.discordId = 0L;
         this.exp = 0;
         this.factionName = "";

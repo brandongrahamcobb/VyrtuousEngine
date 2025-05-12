@@ -33,7 +33,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
 import java.net.HttpURLConnection;
-import java.nio.charset.StandardCharsets; // For StandardCharsets
+import java.nio.charset.StandardCharsets;
 import java.lang.StringBuilder;
 import java.util.concurrent.CompletableFuture;
 import com.google.gson.JsonObject;
@@ -43,19 +43,15 @@ import com.google.gson.JsonParser;
 public class DiscordOAuth {
 
     private Vyrtuous app;
-    private ConfigManager cm;
+    private ConfigManager configManager;
     private String clientId;
     private String clientSecret;
-    private String discordId;
     private String redirectUri;
 
-    public DiscordOAuth(ConfigManager cm) {
-        this.cm = cm.completeGetInstance();
-    }
-
     public CompletableFuture<String> completeGetAuthorizationUrl() {
-        return cm.completeGetConfigValue("discord_client_id", String.class)
-                    .thenCombine(cm.completeGetConfigValue("discord_redirect_uri", String.class),
+        ConfigManager cm = ConfigManager.getInstance();
+        return cm.completeGetConfigValue("DISCORD_CLIENT_ID", String.class)
+                    .thenCombine(cm.completeGetConfigValue("DISCORD_REDIRECT_URI", String.class),
                         (clientId, redirectUri) -> {
                             return "https://discord.com/api/oauth2/authorize" +
                                 "?client_id=" + clientId +
@@ -69,9 +65,10 @@ public class DiscordOAuth {
     }
 
     public CompletableFuture<String> completeExchangeCodeForToken(String code) {
-        CompletableFuture<String> clientIdFuture = cm.completeGetConfigValue("discord_client_id", String.class);
-        CompletableFuture<String> clientSecretFuture = cm.completeGetConfigValue("discord_client_secret", String.class);
-        CompletableFuture<String> redirectUriFuture = cm.completeGetConfigValue("discord_redirect_uri", String.class);
+        ConfigManager cm = ConfigManager.getInstance();
+        CompletableFuture<String> clientIdFuture = cm.completeGetConfigValue("DISCORD_CLIENT_ID", String.class);
+        CompletableFuture<String> clientSecretFuture = cm.completeGetConfigValue("DISCORD_CLIENT_SECRET", String.class);
+        CompletableFuture<String> redirectUriFuture = cm.completeGetConfigValue("DISCORD_REDIRECT_URI", String.class);
         return CompletableFuture.allOf(clientIdFuture, clientSecretFuture, redirectUriFuture)
             .thenCompose(v -> {
                 String clientId = clientIdFuture.join();

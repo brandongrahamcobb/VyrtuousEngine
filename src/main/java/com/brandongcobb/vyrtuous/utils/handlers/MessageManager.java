@@ -19,7 +19,6 @@
 package com.brandongcobb.vyrtuous.utils.handlers;
 
 import com.brandongcobb.vyrtuous.Vyrtuous;
-import com.brandongcobb.vyrtuous.metadata.*;
 import com.brandongcobb.vyrtuous.utils.handlers.*;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.zaxxer.hikari.HikariDataSource;
@@ -67,115 +66,9 @@ import java.nio.file.Files;
 
 public class MessageManager {
 
-    private ConfigManager cm;
     private Lock lock;
     private ObjectMapper mapper = new ObjectMapper();
     private File tempDirectory = new File(System.getProperty("java.io.tmpdir"));
-
-    public MessageManager(ConfigManager cm) {
-        this.cm = cm.completeGetInstance();
-    }
-
-    public CompletableFuture<List<String>> completeProcessAttachments(List<Attachment> attachments) {
-        List<String> results = Collections.synchronizedList(new ArrayList<>());
-        List<CompletableFuture<Void>> futures = new ArrayList<>();
-        for (Attachment attachment : attachments) {
-            CompletableFuture<Void> future = CompletableFuture.runAsync(() -> {
-                try {
-                    String url = attachment.getUrl();
-                    String fileName = attachment.getFileName();
-                    String contentType = attachment.getContentType();
-                    File tempFile = new File(tempDirectory, fileName);
-                    try (InputStream in = new URL(url).openStream()) {
-                        Files.copy(in, tempFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                    }
-                    if (contentType != null && contentType.startsWith("text/")) {
-                        String textContent = Files.readString(tempFile.toPath(), StandardCharsets.UTF_8);
-                        results.add(textContent);
-                    } else {
-                        results.add("Skipped non-text attachment: " + fileName);
-                    }
-                } catch (Exception e) {
-                    e.printStackTrace();
-                }
-            });
-            futures.add(future);
-        }
-        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]))
-            .thenApply(v -> results)
-            .exceptionally(ex -> {
-                ex.printStackTrace();
-                return List.of("Error occurred");
-            });
-    }
-
-    private String encodeImage(byte[] imageBytes) {
-        return Base64.getEncoder().encodeToString(imageBytes);
-    }
-
-    private String getContentTypeFromFileName(String fileName) {
-        String lowerName = fileName.toLowerCase(Locale.ROOT);
-        if (lowerName.endsWith(".png")) return "image/png";
-        if (lowerName.endsWith(".jpg") || lowerName.endsWith(".jpeg")) return "image/jpeg";
-        if (lowerName.endsWith(".gif")) return "image/gif";
-        if (lowerName.endsWith(".bmp")) return "image/bmp";
-        if (lowerName.endsWith(".webp")) return "image/webp";
-        if (lowerName.endsWith(".svg")) return "image/svg+xml";
-        if (lowerName.endsWith(".txt")) return "text/plain";
-        if (lowerName.endsWith(".md")) return "text/markdown";
-        if (lowerName.endsWith(".csv")) return "text/csv";
-        if (lowerName.endsWith(".json")) return "application/json";
-        if (lowerName.endsWith(".xml")) return "application/xml";
-        if (lowerName.endsWith(".html") || lowerName.endsWith(".htm")) return "text/html";
-        return "application/octet-stream";
-    }
-
-    public CompletableFuture<Void> completeSendResponse(Message message, String response) {
-        List<CompletableFuture<Message>> futures = new ArrayList<>();
-        Pattern codeBlockPattern = Pattern.compile("```(\\w+)?\\n([\\s\\S]*?)```");
-        Matcher matcher = codeBlockPattern.matcher(response);
-        int fileIndex = 0;
-        int lastEnd = 0;
-        while (matcher.find()) {
-            if (matcher.start() > lastEnd) {
-                String beforeCode = response.substring(lastEnd, matcher.start()).trim();
-                if (!beforeCode.isEmpty()) {
-                    futures.addAll(sendInChunks(message, beforeCode));
-                }
-            }
-            String fileType = matcher.group(1) != null ? matcher.group(1) : "txt";
-            String fileContent = matcher.group(2);
-            File file = new File(tempDirectory, "response_" + (fileIndex++) + "." + fileType);
-            try {
-                Files.writeString(file.toPath(), fileContent, StandardCharsets.UTF_8);
-                futures.add(completeSendDiscordMessage(message, "📄 Code block attached:", file));
-            } catch (IOException e) {
-                String error = "❌ Error writing code block to file: " + e.getMessage();
-                futures.add(completeSendDiscordMessage(message, error));
-            }
-            lastEnd = matcher.end();
-        }
-        if (lastEnd < response.length()) {
-            String remaining = response.substring(lastEnd).trim();
-            if (!remaining.isEmpty()) {
-                futures.addAll(sendInChunks(message, remaining));
-            }
-        }
-        return CompletableFuture.allOf(futures.toArray(new CompletableFuture[0]));
-    }
-
-    private List<CompletableFuture<Message>> sendInChunks(Message message, String text) {
-        List<CompletableFuture<Message>> chunks = new ArrayList<>();
-        int maxLength = 2000;
-        int index = 0;
-        while (index < text.length()) {
-            int end = Math.min(index + maxLength, text.length());
-            String chunk = text.substring(index, end);
-            chunks.add(completeSendDiscordMessage(message, chunk));
-            index = end;
-        }
-        return chunks;
-    }
 
     public CompletableFuture<Message> completeSendDM(User user, String content) {
         return user.openPrivateChannel()

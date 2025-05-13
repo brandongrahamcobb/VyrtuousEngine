@@ -208,12 +208,12 @@ public class AIManager {
             .thenCompose(resp -> resp.completeGetPerplexity())
             .thenApply(perplexityObj -> {
                 Integer perplexity = (Integer) perplexityObj;
-                if (perplexity < 100) return "gpt-4.1-nano";
+                if (perplexity < 100) return "o4-mini";
                 if (perplexity > 100 && perplexity < 150 && Boolean.TRUE.equals(multiModal))
                     return "o4-mini";
                 if (perplexity > 175 && perplexity < 200 && Boolean.TRUE.equals(multiModal))
-                    return "gpt-4.1";
-                return "o3-mini";
+                    return "o4-mini";
+                return "o4-mini";
             });
     }
 }

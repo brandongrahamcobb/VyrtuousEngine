@@ -34,8 +34,8 @@ This package provides a set of classes and interfaces to manage, store, and inte
 
    Example using `javac`:
 ```bash
-javac -d out/ src/com/brandongcobb/metadata/*.java
-   jar cf metadata.jar -C out/ .
+   javac -d out/ src/com/brandongcobb/metadata/*.java
+   jar cf Metadata.jar -C out/ bin/.
 ```
 ### 2. Add the JAR to Your Project
 
@@ -45,9 +45,10 @@ javac -d out/ src/com/brandongcobb/metadata/*.java
   <groupId>com.brandongcobb</groupId>
   <artifactId>metadata</artifactId>
   <version>1.0.0</version>
-  <scope>system</scope>
-  <systemPath>metadata.jar</systemPath>
 </dependency>
+```
+```bash
+mvn install:install-file -Dfile=bin/Metadata.jar -DgroupId=com.brandongcobb -DartifactId=metadata -Dversion=1.0.0 -Dpackaging=jar
 ```
 *Alternatively, deploy the JAR to your Maven repository or reference it as a local file.*
 

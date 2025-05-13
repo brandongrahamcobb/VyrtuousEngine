@@ -10,9 +10,7 @@ import com.vaadin.flow.component.menubar.MenuBarVariant;
 import com.vaadin.flow.component.orderedlayout.FlexComponent.Alignment;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.router.RouterLink;
-import com.vaadin.flow.server.PWA;
 
-@PWA(name = "Vegan Store Admin", shortName = "Admin")
 public class MainLayout extends AppLayout {
 
     public MainLayout() {

@@ -38,11 +38,12 @@ public class Application {//extends JavaPlugin {
     private static Application instance;
     private static Logger logger = Logger.getLogger("Application");
 
-    public static Application  getInstance() {
+    public static Application getInstance() {
         return instance;
     }
 
     public static void main(String[] args) {
+        instance = new Application();
         ConfigManager cm = new ConfigManager();
         cm.completeSetAndLoadConfig();
         Database db = new Database();

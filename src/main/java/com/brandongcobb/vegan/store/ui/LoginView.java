@@ -1,5 +1,6 @@
 package com.brandongcobb.vegan.store.ui;
 
+import com.vaadin.flow.component.html.Anchor;
 import com.vaadin.flow.component.login.LoginForm;
 import com.vaadin.flow.component.orderedlayout.FlexComponent;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -8,7 +9,6 @@ import com.vaadin.flow.router.BeforeEnterObserver;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
 import com.vaadin.flow.server.auth.AnonymousAllowed;
-
 /**
  * A login view rendered by Spring Security if the user is not authenticated.
  */
@@ -27,7 +27,9 @@ public class LoginView extends VerticalLayout implements BeforeEnterObserver {
         login.setAction("login");
         // login.setOpened(true); LoginForm is always visible in the layout
         login.setForgotPasswordButtonVisible(false);
-        add(login);
+        Anchor registerLink = new Anchor("register", "Don’t have an account? Sign up");
+        registerLink.getStyle().set("margin-top","1em");
+        add(login, registerLink);
     }
 
     @Override

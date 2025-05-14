@@ -50,7 +50,8 @@ public class SecurityConfig {
               // Public UI endpoints
               .requestMatchers(new AntPathRequestMatcher("/"),
                                new AntPathRequestMatcher("/login"),
-                               new AntPathRequestMatcher("/store")).permitAll()
+                               new AntPathRequestMatcher("/store"),
+                               new AntPathRequestMatcher("/register")).permitAll()
 
               // Any other request requires authentication
               .anyRequest().authenticated()

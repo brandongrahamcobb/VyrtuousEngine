@@ -7,6 +7,9 @@ import java.math.BigDecimal;
 @Table(name = "products")
 public class Product {
 
+    @Column(name="image_url", length=1000)
+    private String imageUrl;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
@@ -35,6 +38,15 @@ public class Product {
         this.price = price;
         this.stock = stock;
         this.category = category;
+        this.imageUrl = null;
+    }
+
+    public String getImageUrl() {
+        return imageUrl;
+    }
+
+    public void setImageUrl(String imageUrl) {
+        this.imageUrl = imageUrl;
     }
 
     public Long getId() {

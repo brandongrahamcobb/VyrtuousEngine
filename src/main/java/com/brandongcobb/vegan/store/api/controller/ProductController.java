@@ -28,7 +28,8 @@ public class ProductController {
                         p.getPrice(),
                         p.getStock(),
                         p.getCategory().getId(),
-                        p.getCategory().getName()
+                        p.getCategory().getName(),
+                        p.getImageUrl()
                 ))
                 .collect(Collectors.toList());
     }
@@ -44,7 +45,8 @@ public class ProductController {
                 p.getPrice(),
                 p.getStock(),
                 p.getCategory().getId(),
-                p.getCategory().getName()
+                p.getCategory().getName(),
+                p.getImageUrl()
         );
     }
 }

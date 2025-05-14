@@ -1,14 +1,16 @@
 package com.brandongcobb.vegan.store.ui;
 
-import com.brandongcobb.vegan.store.domain.Category;
 import com.brandongcobb.vegan.store.domain.Product;
+import com.brandongcobb.vegan.store.service.FileStorageService;
 import com.brandongcobb.vegan.store.service.StoreService;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.combobox.ComboBox;
-import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.formlayout.FormLayout;
 import com.vaadin.flow.component.grid.Grid;
+import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.H2;
+import com.vaadin.flow.component.html.Image;
+import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -20,8 +22,13 @@ import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.validator.IntegerRangeValidator;
 import com.vaadin.flow.router.PageTitle;
 import com.vaadin.flow.router.Route;
+import com.vaadin.flow.component.upload.Upload;
+import com.vaadin.flow.component.upload.receivers.MemoryBuffer;
 import org.springframework.beans.factory.annotation.Autowired;
+import com.brandongcobb.vegan.store.domain.Category;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 
+import java.io.InputStream;
 import java.math.BigDecimal;
 import java.util.Optional;
 
@@ -30,6 +37,7 @@ import java.util.Optional;
 public class ProductView extends VerticalLayout {
 
     private final StoreService service;
+    private final FileStorageService storageService;
     private final Grid<Product> grid = new Grid<>(Product.class, false);
     private final TextField nameField = new TextField("Name");
     private final TextArea descriptionField = new TextArea("Description");
@@ -41,10 +49,15 @@ public class ProductView extends VerticalLayout {
     private final Button clear  = new Button("Clear");
     private final Binder<Product> binder = new Binder<>(Product.class);
     private Product currentProduct;
+    private final MemoryBuffer buffer = new MemoryBuffer();
+    private final Upload upload = new Upload(buffer);
+    private final Image preview = new Image();
 
     @Autowired
-    public ProductView(StoreService service) {
+    public ProductView(StoreService service,
+                       FileStorageService storageService) {
         this.service = service;
+        this.storageService = storageService;
         setSizeFull();
         configureGrid();
         configureForm();
@@ -106,6 +119,22 @@ public class ProductView extends VerticalLayout {
         save.addClickListener(e -> saveProduct());
         delete.addClickListener(e -> confirmDelete());
         clear.addClickListener(e -> clearForm());
+
+        upload.setAcceptedFileTypes("image/png","image/jpeg");
+        upload.addSucceededListener(evt -> {
+            if (currentProduct == null || currentProduct.getId() == null) {
+                Notification.show("Please save the product before uploading an image", 3000, Notification.Position.MIDDLE);
+                return;
+            }
+            String filename = evt.getFileName();
+            try (InputStream is = buffer.getInputStream()) {
+                String url = storageService.store(filename, is);
+                currentProduct.setImageUrl(url);
+                preview.setSrc(url);
+            } catch (Exception ex) {
+                Notification.show("Upload failed: " + ex.getMessage());
+            }
+        });
     }
 
     private void buildLayout() {
@@ -113,6 +142,7 @@ public class ProductView extends VerticalLayout {
 
         FormLayout form = new FormLayout();
         form.add(nameField, descriptionField, priceField, stockField, categoryCombo);
+        form.add(upload, preview);
         form.setResponsiveSteps(
             new FormLayout.ResponsiveStep("0",   1),
             new FormLayout.ResponsiveStep("600px",2)
@@ -124,6 +154,16 @@ public class ProductView extends VerticalLayout {
         VerticalLayout formContainer = new VerticalLayout(header, form, buttons);
         formContainer.setWidth("420px");
         formContainer.setPadding(true);
+
+
+        grid.addComponentColumn(p -> {
+            String src = p.getImageUrl() != null
+                ? p.getImageUrl()
+                : "frontend/images/placeholder.png";  // put your placeholder here
+            Image img = new Image(src, p.getName());
+            img.setHeight("50px");
+            return img;
+        }).setHeader("Thumb");
 
         HorizontalLayout main = new HorizontalLayout(grid, formContainer);
         main.setSizeFull();

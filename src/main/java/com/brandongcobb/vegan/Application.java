@@ -26,11 +26,10 @@ package com.brandongcobb.vegan;
 import com.brandongcobb.vegan.utils.handlers.*;
 import java.io.*;
 import java.net.URI;
+import java.util.concurrent.CompletableFuture;
+import java.util.logging.Logger;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-import java.util.concurrent.CompletableFuture;
-
-import java.util.logging.Logger;
 
 @SpringBootApplication
 public class Application {//extends JavaPlugin {

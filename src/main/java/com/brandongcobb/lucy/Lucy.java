@@ -23,26 +23,14 @@ import com.brandongcobb.lucy.bots.DiscordBot;
 import com.brandongcobb.lucy.commands.*;
 import com.brandongcobb.lucy.listeners.*;
 import com.brandongcobb.lucy.utils.handlers.*;
-import com.brandongcobb.lucy.utils.inc.*;
 import com.brandongcobb.lucy.utils.sec.*;
 import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.command.Command;
-import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.scheduler.BukkitRunnable;
 import java.io.File;
-import java.net.URLEncoder;
 import java.util.logging.Logger;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.HashMap;
 import java.util.Map;
-import java.util.UUID;
-import java.util.List;
-import java.util.Collections;
-import java.util.Arrays;
-import org.bukkit.Server;
 
 public class Lucy extends JavaPlugin{
 

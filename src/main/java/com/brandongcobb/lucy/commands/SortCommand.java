@@ -1,7 +1,9 @@
 package com.brandongcobb.lucy.commands;
 
 import com.brandongcobb.lucy.Lucy;
-import org.bukkit.Bukkit;
+import java.io.File;
+import java.io.IOException;
+import java.util.*;
 import org.bukkit.ChatColor;
 import org.bukkit.Sound;
 import org.bukkit.block.Block;
@@ -18,41 +20,24 @@ import org.bukkit.inventory.meta.PotionMeta;
 import org.bukkit.Location;
 import org.bukkit.Material;
 
-import java.io.File;
-import java.io.IOException;
-import java.util.*;
-
-/**
- * /sort command: combines stacks, sorts by name or material,
- * supports player vs. targeted chest (with per-chest security),
- * cooldowns, and permission checks.
- */
 public class SortCommand implements CommandExecutor {
 
     private final Lucy plugin = Lucy.getInstance();
 
-    // cooldowns per player
     private final Map<UUID, Long> cooldowns = new HashMap<>();
 
-    // inventory types
     private static final int INV_PLAYER       = 0;
     private static final int INV_CHEST        = 1;
     private static final int INV_DOUBLE_CHEST = 2;
 
     @Override
-    public boolean onCommand(CommandSender sender,
-                             Command cmd,
-                             String label,
-                             String[] args)
-    {
+    public boolean onCommand(CommandSender sender, Command cmd, String label, String[] args) {
         if (!(sender instanceof Player)) {
             sender.sendMessage(ChatColor.RED + "Only players can use this.");
             return true;
         }
         Player player = (Player) sender;
         UUID uuid = player.getUniqueId();
-
-        // cooldown
         long now = System.currentTimeMillis();
         int cdSeconds = plugin.getConfig().getInt("cooldown.cooldown-time");
         if (cooldowns.containsKey(uuid)) {
@@ -64,11 +49,7 @@ public class SortCommand implements CommandExecutor {
             }
         }
         cooldowns.put(uuid, now);
-
-        // determine inventory type
         int invType = getInvType(player, args);
-
-        // chest permission & ownership
         if (invType != INV_PLAYER) {
             Location loc = player.getTargetBlock((Set<Material>)null, 5).getLocation();
             YamlConfiguration data = loadDataConfig();
@@ -80,22 +61,15 @@ public class SortCommand implements CommandExecutor {
                 return true;
             }
         }
-
-        // perform sort
         Inventory inv = (invType == INV_PLAYER)
             ? player.getInventory()
             : ((Chest) player.getTargetBlock((Set<Material>)null, 5).getState()).getInventory();
-
         combineStacks(inv);
-
         List<ItemStack> unsorted = getUnsortedList(invType, inv);
         List<ItemStack> sorted   = getSortedList(player, args, unsorted);
         addItemList(invType, inv, sorted);
-
-        // feedback
         player.playSound(player.getLocation(),
             Sound.BLOCK_WOODEN_TRAPDOOR_CLOSE, 1f, 1f);
-
         if (invType == INV_PLAYER && plugin.getConfig()
             .getBoolean("messages.inv-message-send")) {
             player.sendMessage(color(plugin.getConfig()
@@ -105,7 +79,6 @@ public class SortCommand implements CommandExecutor {
             player.sendMessage(color(plugin.getConfig()
                 .getString("messages.chest-message")));
         }
-
         return true;
     }
 
@@ -151,24 +124,19 @@ public class SortCommand implements CommandExecutor {
     private void combineStacks(Inventory inv) {
         ItemStack[] items = inv.getContents();
         boolean changed = false;
-
         for (int i = 0; i < items.length; i++) {
             ItemStack base = items[i];
             if (base == null || base.getAmount() >= base.getMaxStackSize()) continue;
             int needed = base.getMaxStackSize() - base.getAmount();
-
             for (int j = i + 1; j < items.length && needed > 0; j++) {
                 ItemStack next = items[j];
                 if (next == null || next.getType() != base.getType()) continue;
-
-                // if either has meta, only merge if both are tipped arrows with same meta
                 if (next.hasItemMeta() || base.hasItemMeta()) {
                     if (base.getType() != Material.TIPPED_ARROW) continue;
                     PotionMeta m1 = (PotionMeta)base.getItemMeta();
                     PotionMeta m2 = (PotionMeta)next.getItemMeta();
                     if (!m1.equals(m2)) continue;
                 }
-
                 int move = Math.min(needed, next.getAmount());
                 base.setAmount(base.getAmount() + move);
                 next.setAmount(next.getAmount() - move);
@@ -194,16 +162,11 @@ public class SortCommand implements CommandExecutor {
         return out;
     }
 
-    private ArrayList<ItemStack> getSortedList(Player player,
-                                               String[] args,
-                                               List<ItemStack> items)
-    {
+    private ArrayList<ItemStack> getSortedList(Player player, String[] args, List<ItemStack> items) {
         ArrayList<ItemStack> list = new ArrayList<>(items);
         if (list.isEmpty()) return list;
-
         boolean matMode = player.hasMetadata("sort-type");
         String key = args.length > 0 ? args[0].toLowerCase() : "";
-
         switch (key) {
             case "down": case "d":
                 return matMode ? sortMaterialDown(list) : sortNameUp(list);
@@ -215,19 +178,18 @@ public class SortCommand implements CommandExecutor {
         }
     }
 
-    // name ↑
     private static ArrayList<ItemStack> sortNameUp(ArrayList<ItemStack> l) {
         return bubbleSort(l, false);
     }
-    // name ↓
+
     private static ArrayList<ItemStack> sortNameDown(ArrayList<ItemStack> l) {
         return bubbleSort(l, true);
     }
-    // material ↑ == same as nameUp
+
     private static ArrayList<ItemStack> sortMaterialUp(ArrayList<ItemStack> l) {
         return bubbleSort(l, false);
     }
-    // material ↓
+
     private static ArrayList<ItemStack> sortMaterialDown(ArrayList<ItemStack> l) {
         return bubbleSort(l, true);
     }

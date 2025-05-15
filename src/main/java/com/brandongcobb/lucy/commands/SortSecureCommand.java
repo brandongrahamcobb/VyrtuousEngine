@@ -2,6 +2,8 @@ package com.brandongcobb.lucy.commands;
 
 import com.brandongcobb.lucy.listeners.*;
 import com.brandongcobb.lucy.*;
+import java.io.File;
+import java.io.IOException;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -12,12 +14,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.inventory.Inventory;
-import org.bukkit.inventory.ItemStack;
-
-import java.io.File;
-import java.io.IOException;
-import java.util.UUID;
 
 public class SortSecureCommand implements CommandExecutor {
 
@@ -46,7 +42,6 @@ public class SortSecureCommand implements CommandExecutor {
             player.sendMessage(ChatColor.RED + "§cError loading secure data.");
             return true;
         }
-
         if (data.contains(key)) {
             player.sendMessage(color(plugin.getConfig().getString("messages.secure-message-duplicate")));
         } else {

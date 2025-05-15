@@ -9,8 +9,6 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.metadata.FixedMetadataValue;
 
-import java.util.UUID;
-
 public class SortToggleCommand implements CommandExecutor {
 
     private final Lucy plugin = Lucy.getInstance();
@@ -32,7 +30,6 @@ public class SortToggleCommand implements CommandExecutor {
              }
              return true;
          }
-    // toggle others
         Player target = Bukkit.getPlayer(args[0]);
         if (target == null || !target.isOnline()) {
             player.sendMessage(color(plugin.getConfig().getString("debug.toggle-player-offline")));

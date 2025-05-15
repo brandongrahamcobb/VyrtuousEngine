@@ -5,10 +5,10 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.brandongcobb</groupId>
-    <artifactId>Vyrtuous</artifactId>
+    <artifactId>Lucy</artifactId>
     <version>0.1</version>
 
-    <name>Vyrtuous</name>
+    <name>Lucy</name>
 
     <properties>
         <java.version>21</java.version>
@@ -67,7 +67,7 @@
                   <manifest>
                     <addClasspath>true</addClasspath>
                     <classpathPrefix>lib/</classpathPrefix>
-                    <mainClass>com.brandongcobb.vyrtuous.Vyrtuous</mainClass>
+                    <mainClass>com.brandongcobb.lucy.Lucy</mainClass>
                   </manifest>
                 </archive>
               </configuration>

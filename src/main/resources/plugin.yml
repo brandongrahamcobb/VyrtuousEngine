@@ -1,6 +1,6 @@
-name: Vyrtuous
+name: Lucy
 version: 0.1
-main: com.brandongcobb.vyrtuous.Vyrtuous
+main: com.brandongcobb.lucy.Lucy
 api-version: 1.0
 website: www.github.com/brandongrahamcobb
 commands:
@@ -10,6 +10,24 @@ commands:
   discord:
     usage: /discord
     description:
+  fly:
+    usage: /fly
+    description:
   patreon:
     usage: /patreon
+    description:
+  sort:
+    usage: /sort [type]
+    description:
+  sort-secure:
+    usage: /sort-secure
+    description:
+  sort-toggle:
+    usage: /sort-toggle
+    description:
+  sort-type:
+    usage: /sort-type [type]
+    description:
+  speed:
+    usage: /speed
     description:

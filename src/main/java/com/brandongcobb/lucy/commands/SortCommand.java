@@ -25,6 +25,7 @@ public class SortCommand implements CommandExecutor {
     private final Lucy plugin = Lucy.getInstance();
 
     private final Map<UUID, Long> cooldowns = new HashMap<>();
+    private final File dataFile = new File(plugin.getDataFolder(), "data.yml");
 
     private static final int INV_PLAYER       = 0;
     private static final int INV_CHEST        = 1;
@@ -49,6 +50,10 @@ public class SortCommand implements CommandExecutor {
             }
         }
         cooldowns.put(uuid, now);
+        if (args.length==1 && isInteger(args[0])) {
+            int radius = Integer.parseInt(args[0]);
+            return sortRadiusChests(player, radius);
+        }
         int invType = getInvType(player, args);
         if (invType != INV_PLAYER) {
             Location loc = player.getTargetBlock((Set<Material>)null, 5).getLocation();
@@ -82,6 +87,73 @@ public class SortCommand implements CommandExecutor {
         return true;
     }
 
+    private boolean sortRadiusChests(Player p, int r) {
+        YamlConfiguration data = loadDataConfig();
+        Location origin = p.getLocation();
+        UUID me = p.getUniqueId();
+        int minX = origin.getBlockX() - r;
+        int maxX = origin.getBlockX() + r;
+        int minY = Math.max(0, origin.getBlockY() - r);
+        int maxY = Math.min(255, origin.getBlockY() + r);
+        int minZ = origin.getBlockZ() - r;
+        int maxZ = origin.getBlockZ() + r;
+        int sortedCount = 0;
+        for (int x = minX; x <= maxX; x++) {
+            for (int y = minY; y <= maxY; y++) {
+                for (int z = minZ; z <= maxZ; z++) {
+                    Location loc = new Location(origin.getWorld(), x, y, z);
+                    if (!(loc.getBlock().getState() instanceof Chest)) continue;
+                    String key   = locationKey(loc);
+                    String owner = data.getString(key, null);
+                    if (owner == null || !owner.equals(me.toString())) {
+                        continue;
+                    }
+                    Chest chest = (Chest)loc.getBlock().getState();
+                    Inventory inv   = chest.getInventory();
+
+                    combineStacks(inv);
+                    List<ItemStack> unsorted = getUnsortedList(INV_CHEST, inv);
+                    List<ItemStack> sorted   = getSortedList(p, new String[]{}, unsorted);
+                    addItemList(INV_CHEST, inv, sorted);
+
+                    sortedCount++;
+                }
+            }
+        }
+        saveDataConfig(data);
+        p.sendMessage(ChatColor.GREEN
+                + "Sorted " + sortedCount
+                + " of your chest(s) within a radius of " + r + ".");
+        p.playSound(p.getLocation(),
+                Sound.BLOCK_WOODEN_TRAPDOOR_CLOSE, 1f, 1f);
+        return true;
+    }
+
+    private void saveDataConfig(YamlConfiguration cfg) {
+        try {
+            cfg.save(dataFile);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private static String locationKey(Location l) {
+        return l.getWorld().getName()
+                + "~" + l.getBlockX()
+                + "~" + l.getBlockY()
+                + "~" + l.getBlockZ();
+    }
+
+    private boolean isInteger(String s) {
+        try {
+            Integer.parseInt(s);
+            return true;
+        } catch (NumberFormatException e) {
+            return false;
+        }
+    }
+
+
     private int getInvType(Player player, String[] args) {
         if (args.length > 0 && args[0].equalsIgnoreCase("internalPlayerSort")) {
             return INV_PLAYER;
@@ -112,13 +184,6 @@ public class SortCommand implements CommandExecutor {
             ex.printStackTrace();
         }
         return cfg;
-    }
-
-    private static String locationKey(Location l) {
-        return l.getWorld().getName()
-            + "~" + l.getBlockX()
-            + "~" + l.getBlockY()
-            + "~" + l.getBlockZ();
     }
 
     private void combineStacks(Inventory inv) {

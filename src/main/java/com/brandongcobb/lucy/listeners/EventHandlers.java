@@ -27,6 +27,8 @@ import org.bukkit.ChatColor;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.block.BlockPlaceEvent;
+import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.ClickType;
@@ -37,6 +39,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 import com.brandongcobb.lucy.utils.handlers.*;
+import org.bukkit.configuration.file.YamlConfiguration;
+import java.io.File;
+import java.io.IOException;
 import java.sql.Timestamp;
 import java.util.UUID;
 import org.bukkit.Bukkit;
@@ -46,6 +51,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerToggleFlightEvent;
 import org.bukkit.event.player.PlayerToggleSneakEvent;
+import org.bukkit.Location;
 import java.util.Set;
 
 public class EventHandlers implements Listener {
@@ -54,7 +60,7 @@ public class EventHandlers implements Listener {
     private MinecraftUser minecraftUser;
     private Timestamp timestamp;
     private final Lucy plugin = Lucy.getInstance();
-
+    private final File dataFile = new File(plugin.getDataFolder(), "data.yml");
     public EventHandlers() {
         this.timestamp = new Timestamp(System.currentTimeMillis());
     }
@@ -95,13 +101,68 @@ public class EventHandlers implements Listener {
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent e) {
         if (e.getAction() != Action.LEFT_CLICK_BLOCK) return;
-        if (e.getClickedBlock() == null) return;
-
-        if (!(e.getClickedBlock().getState() instanceof Chest)) return;
+        Block b = e.getClickedBlock();
+        if (b == null || !(b.getState() instanceof Chest)) return;
+        Player p = e.getPlayer();
+        if (!p.hasMetadata("sort-listener")) {
+            return;
+        }
         e.setCancelled(true);
-        e.getPlayer().performCommand("sort internalChestSort");
+        p.performCommand("sort internalChestSort");
+        p.updateInventory();
     }
-  
+
+    @EventHandler
+    public void onChestPlace(BlockPlaceEvent e) {
+        Block b = e.getBlockPlaced();
+        Material type = b.getType();
+        if (type != Material.CHEST && type != Material.TRAPPED_CHEST) return;
+        UUID owner = e.getPlayer().getUniqueId();
+        Location loc = b.getLocation();
+        YamlConfiguration cfg = new YamlConfiguration();
+        try {
+            if (!dataFile.exists()) {
+                dataFile.getParentFile().mkdirs();
+                dataFile.createNewFile();
+            }
+            cfg.load(dataFile);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return;
+        }
+        String key = locationKey(loc);
+        cfg.set(key, owner.toString());
+        try {
+            cfg.save(dataFile);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+
+    @EventHandler
+    public void onChestBreak(BlockBreakEvent e) {
+        Block b = e.getBlock();
+        if (b.getType() != Material.CHEST && b.getType() != Material.TRAPPED_CHEST)
+            return;
+        YamlConfiguration cfg = new YamlConfiguration();
+        try {
+            if (!dataFile.exists()) {
+                dataFile.getParentFile().mkdirs();
+                dataFile.createNewFile();
+            }
+            cfg.load(dataFile);
+        } catch (Exception ex) {
+            ex.printStackTrace();
+            return;
+        }
+        cfg.set(locationKey(b.getLocation()), null);
+        try {
+            cfg.save(dataFile);
+        } catch (IOException ex) {
+            ex.printStackTrace();
+        }
+    }
+
     @EventHandler
     public void onInventoryClick(InventoryClickEvent e) {
         if (e.getClick() != ClickType.MIDDLE) return;
@@ -115,13 +176,11 @@ public class EventHandlers implements Listener {
         }
         e.setCancelled(true);
     }
-  
-    /** used by CommandSortSecure to build the map key */
+
     public static String locationKey(org.bukkit.Location l) {
         return l.getWorld().getName()
                + "~" + l.getBlockX()
                + "~" + l.getBlockY()
                + "~" + l.getBlockZ();
         }
-
 }

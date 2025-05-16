@@ -1,6 +1,6 @@
 ---
 
-# Lucy Plugin
+# PatreonPlugin Plugin
 
 ## Overview
 
@@ -47,7 +47,7 @@ The database currently stores the following user information:
 
 ### Cloning the Repository###
 ```bash
-git clone https://github.com/brandongrahamcobb/jVyrtuous/Lucy.git
+git clone https://github.com/brandongrahamcobb/jVyrtuous/PatreonPlugin.git
 ```
 
 ### Building the Plugin
@@ -56,12 +56,12 @@ Navigate into the cloned directory and run Maven to package the plugin:
 ```bash
 mvn clean package
 ```
-This will compile the code and create a Jar file named `Lucy-0.1.jar` in the `target/` directory.
+This will compile the code and create a Jar file named `PatreonPlugin-0.1.jar` in the `target/` directory.
 
 ### Installing in Minecraft Server
 
 - Locate your server's `plugins/` folder.
-- Copy the `target/Lucy-0.1.jar` file into `plugins/`.
+- Copy the `target/PatreonPlugin-0.1.jar` file into `plugins/`.
 
 Your server will automatically load the plugin when started or restarted.
 
@@ -74,7 +74,7 @@ The plugin's configuration can be set in one of two ways:
 ### 1. Using the Provided `config.yml` in the Plugin Folder
 
 - Navigate to your server's folder.
-- Inside `plugins/Lucy/`, replace or create the `config.yml` file with your custom settings.
+- Inside `plugins/PatreonPlugin/`, replace or create the `config.yml` file with your custom settings.
 - Restart the server to load the new configuration.
 
 ### 2. Using Environment Variables (Recommended)
@@ -112,7 +112,7 @@ source ~/.bashrc  # or ~/.zshrc
 
 - Make sure your environment variables are correctly set before starting the server to ensure the plugin picks them up.
 - Changes to `config.yml` require a server restart to take effect.
-- Alternatively, editing the `config.yml` file directly in `plugins/Lucy/` allows quick configuration updates without messing with environment variables.
+- Alternatively, editing the `config.yml` file directly in `plugins/PatreonPlugin/` allows quick configuration updates without messing with environment variables.
 
 Certainly! Here's an example section you could add to your README, explaining how to run SQL scripts in PostgreSQL and how to create a database across different operating systems:
 

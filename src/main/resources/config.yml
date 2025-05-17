@@ -1,0 +1,58 @@
+
+###############################################################
+# OAuthPlugin Configuration
+###############################################################
+
+# Set to true to enable the corresponding OAuth flow.
+ENABLE_DISCORD: false
+ENABLE_PATREON: false
+
+###############################################################
+# Discord OAuth Settings
+###############################################################
+DISCORD_CLIENT_ID: ""
+DISCORD_CLIENT_SECRET: ""
+DISCORD_REDIRECT_URI: "http://yourdomain.com:4567/oauth/discord_callback"
+
+###############################################################
+# Patreon OAuth Settings
+###############################################################
+PATREON_CLIENT_ID: ""
+PATREON_CLIENT_SECRET: ""
+PATREON_REDIRECT_URI: "http://yourdomain.com:4567/oauth/patreon_callback"
+
+###############################################################
+# Database (Postgres) Settings
+###############################################################
+POSTGRES_DATABASE: ""
+POSTGRES_USER: "postgres"
+POSTGRES_HOST: "localhost"
+POSTGRES_PASSWORD: ""
+POSTGRES_PORT: "5432"
+
+###############################################################
+# Internal Webserver (Spark) Settings
+###############################################################
+SPARK_DISCORD_ENDPOINT: "/oauth/discord_callback"
+SPARK_PATREON_ENDPOINT: "/oauth/patreon_callback"
+SPARK_PORT: 4567
+
+###############################################################
+# Customizable Messages
+# Use {url} placeholder for authorization links.
+###############################################################
+MSG_ONLY_PLAYERS: "Only players may run this command."
+MSG_PROVIDE_CODE: "Please provide an access code after /code."
+MSG_NO_PENDING_AUTH: "No pending authentication or code received. Start with /discord or /patreon."
+MSG_INVALID_CODE: "Invalid code, please try again."
+MSG_PROCESSING_AUTH: "Processing authentication..."
+MSG_DISCORD_LINK_SUCCESS: "Discord account linked successfully."
+MSG_DISCORD_LINK_FAIL: "Failed to link Discord account."
+MSG_PATREON_LINK_SUCCESS: "Patreon account linked successfully."
+MSG_PATREON_LINK_FAIL: "Failed to link Patreon account."
+MSG_AUTHORIZE_DISCORD: "Please visit to authorize: {url}"
+MSG_AUTHORIZE_PATREON: "Please visit to authorize: {url}"
+MSG_DISCORD_TIMEOUT: "Discord auth timed out."
+MSG_PATREON_TIMEOUT: "Patreon auth timed out."
+MSG_DISCORD_CALLBACK: "Discord OAuth callback received. You may now use /code with your token in Minecraft."
+MSG_PATREON_CALLBACK: "Patreon OAuth callback received. You may now use /code with your token in Minecraft."

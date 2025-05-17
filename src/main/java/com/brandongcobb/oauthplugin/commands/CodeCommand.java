@@ -42,11 +42,12 @@ public class CodeCommand implements CommandExecutor {
         BukkitRunnable timeout = session.getTimeoutTask();
         if (timeout != null) timeout.cancel();
         player.sendMessage("Processing authentication...");
-        UserManager um = new UserManager(com.brandongcobb.patreon.utils.handlers.Database.completeGetInstance());
+        // Initialize UserManager with the plugin's Database instance
+        UserManager um = new UserManager(Database.completeGetInstance());
         java.sql.Timestamp ts = new java.sql.Timestamp(System.currentTimeMillis());
         if ("discord".equals(session.getCommand())) {
             // Exchange code for token and link Discord
-            new com.brandongcobb.patreon.utils.sec.DiscordOAuth()
+            new com.brandongcobb.oauthplugin.utils.sec.DiscordOAuth()
                 .completeExchangeCodeForToken(authCode)
                 .thenAccept(accessToken -> {
                     if (accessToken == null || accessToken.isEmpty()) {
@@ -66,7 +67,7 @@ public class CodeCommand implements CommandExecutor {
                 });
         } else if ("patreon".equals(session.getCommand())) {
             // Exchange code for token and link Patreon
-            new com.brandongcobb.patreon.utils.sec.PatreonOAuth()
+            new com.brandongcobb.oauthplugin.utils.sec.PatreonOAuth()
                 .completeExchangeCodeForToken(authCode)
                 .thenAccept(accessToken -> {
                     OAuthService svc = new OAuthService();

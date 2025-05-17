@@ -19,7 +19,6 @@
  */
 package com.brandongcobb.oauthplugin;
 
-import com.brandongcobb.oauthplugin.bots.DiscordBot;
 import com.brandongcobb.oauthplugin.commands.*;
 import com.brandongcobb.oauthplugin.listeners.*;
 import com.brandongcobb.oauthplugin.utils.handlers.*;
@@ -60,7 +59,10 @@ public class OAuthPlugin extends JavaPlugin{
     public void onEnable() {
         app = this;
         ConfigManager cm = new ConfigManager(app);
-        cm.completeSetAndLoadConfig();
+        boolean verify = cm.setLoadAndVerifyStartup();
+        if (!verify) {
+            return;
+        }
         Database db = new Database();
         OAuthServer oa = new OAuthServer();
         oa.completeConnectSpark().thenRun(() -> {
@@ -72,7 +74,6 @@ public class OAuthPlugin extends JavaPlugin{
             getCommand("code").setExecutor(new CodeCommand());
             getCommand("discord").setExecutor(new DiscordCommand());
             getCommand("patreon").setExecutor(new PatreonCommand());
-            DiscordBot bot = new DiscordBot();
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 try {
                     db.completeCloseDatabase();

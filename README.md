@@ -1,277 +1,465 @@
----
+OAuthPlugin README
+==================
 
-# PatreonPlugin Plugin
+Overview
+--------
+OAuthPlugin is a Bukkit/Spigot plugin that lets you link Minecraft accounts to Discord and Patreon via OAuth2.  It stores per‐user data in PostgreSQL and exposes in‐memory APIs so other plugins or server‐side code can act on linked user profiles (Discord ID, Patreon tier, pledge amount, etc).  
+
+Currently supported flows:
+- Discord (identify scope)  
+- Patreon (identity + memberships)  
+
+More OAuth providers (Twitch, LinkedIn, OpenAI…) coming soon.  
+
+Installation
+------------
+1. Build or download `OAuthPlugin.jar` and copy it into your server’s `plugins/` folder.  
+2. Ensure you have a running PostgreSQL server and that its daemon/​service is started.  
+3. Start your Minecraft server once.  The plugin will:
+   - Create `plugins/OAuthPlugin/config.yml` from the bundled template.  
+   - Connect (via JDBC/HikariCP) to Postgres, creating the database (if missing) and `users` table.  
+
+4. Stop the server, edit `plugins/OAuthPlugin/config.yml`, fill in your credentials and endpoints (see Configuration below), then restart.
+
+Configuration
+-------------
+Open and edit `plugins/OAuthPlugin/config.yml`.  Key values:
+
+  • PostgreSQL  
+    • POSTGRES_HOST, POSTGRES_PORT  
+    • POSTGRES_DATABASE, POSTGRES_USER, POSTGRES_PASSWORD  
+
+  • Discord OAuth  
+    • ENABLE_DISCORD: true/false  
+    • DISCORD_CLIENT_ID, DISCORD_CLIENT_SECRET  
+    • DISCORD_REDIRECT_URI  (must match your app settings)  
+
+  • Patreon OAuth  
+    • ENABLE_PATREON: true/false  
+    • PATREON_CLIENT_ID, PATREON_CLIENT_SECRET  
+    • PATREON_REDIRECT_URI  (must match your app settings)  
+
+  • Spark Java HTTP server (embedded)  
+    • SPARK_PORT          e.g. 8000  
+    • SPARK_DISCORD_ENDPOINT: “/oauth/discord_callback”  
+    • SPARK_PATREON_ENDPOINT: “/oauth/patreon_callback”  
+
+You can also override any of these via environment variables (upper‐case matching the above keys) or a global `~/.config/oauthplugin/config.yml`.
+
+OAuth Flow
+----------
+1. In‐game a player runs:
+   - `/discord`  → plugin stores a short‐lived session and sends them a Discord OAuth URL  
+   - OR `/patreon`  → sends them a Patreon OAuth URL  
+
+2. Player visits the URL in a browser; after granting permission, the OAuth provider will redirect to:
+   ```
+   http://<your-host>:<SPARK_PORT><SPARK_<PROVIDER>_ENDPOINT>?code=AUTH_CODE&state=PLAYER_UUID
+   ```
+   The embedded Spark server captures `code` and associates it with the in‐memory session.
+
+3. Back in‐game, player runs:
+   ```
+   /code AUTH_CODE
+   ```
+   Plugin exchanges `AUTH_CODE` for an access token, fetches profile info, upserts a record in `users`, and confirms linking.
+
+Running Spark behind ngrok or a remote server
+---------------------------------------------
+If your Minecraft server isn’t publicly reachable on port 8000, you can:
+
+• Use ngrok:  
+  ```
+  ngrok http 8000
+  ```  
+  Copy the forwarding URL (e.g. `https://abcd1234.ngrok.io`), set your OAuth app redirect URIs to:
+  ```
+  https://abcd1234.ngrok.io/oauth/discord_callback
+  https://abcd1234.ngrok.io/oauth/patreon_callback
+  ```
+  And in `config.yml`, set:
+  ```
+  SPARK_PORT: 8000
+  SPARK_DISCORD_ENDPOINT: /oauth/discord_callback
+  SPARK_PATREON_ENDPOINT: /oauth/patreon_callback
+  ```
+
+• Remote server / VPS:  
+  – Deploy your JAR and Spark server on a public IP or Docker host.  
+  – Configure DNS or port‐forwarding so that `<your-domain>:8000` reaches your Spark HTTP endpoints.
+
+Maven/Gradle Dependency
+-----------------------
+If you’re writing another plugin or app that wants to depend on OAuthPlugin’s API:
+
+Maven:
+```xml
+<dependency>
+  <groupId>com.brandongcobb.oauthplugin</groupId>
+  <artifactId>OAuthPlugin</artifactId>
+  <version>1.0.0</version>
+</dependency>
+```
+
+Gradle:
+```groovy
+repositories {
+  mavenCentral()
+  // or your internal repo
+}
+dependencies {
+  implementation 'com.brandongcobb.oauthplugin:OAuthPlugin:1.0.0'
+}
+```
+
+Usage (In-Game Commands)
+------------------------
+• `/discord`  
+  Starts a Discord OAuth session, sends the player an authorization URL.  
+
+• `/patreon`  
+  Starts a Patreon OAuth session, sends player an authorization URL.  
+
+• `/code <AUTH_CODE>`  
+  Completes whichever pending session (Discord or Patreon), exchanges the code, stores the link, and loads the user data.
+
+Programmatic API (utils/handlers)
+---------------------------------
+Once users are linked, you can retrieve and act on their data via the in‐memory handlers and User objects.
+
+1. Database instance (singleton):
+   ```
+   Database db = Database.completeGetInstance();
+   ```
+
+2. UserManager  
+   ```
+   UserManager um = new UserManager(db);
+   ```
+   • createUser(...)       — upsert a full user record  
+   • consolidateUsers()    — merge duplicate rows in the database  
+   • cacheUser(User)       — cache a User instance in memory  
+   • getUserByDiscordId(long) → User  
+   • getUserByPatreonId(long) → User  
+   • getUserByMinecraftId(String) → User  
+   • getAllUsers()         → Map<Long, User>  
+
+3. User implementations and interfaces:
+
+   interface User  
+     • CompletableFuture<Void> createUser(Timestamp ts, long discordId, String mcUuid, String about,…)
+
+   class UserImpl implements User  
+     • getDiscordId(), getMinecraftId(), getPatreonId(), getPatreonAbout(),  
+       getPatreonAmountCents(), getPatreonEmail(), getPatreonName(), getPatreonStatus(), getPatreonTier(), getPatreonVanity(), getTimestamp()
+
+   class MinecraftUser implements User  
+     • getMinecraftId()  
+     • userExists(String mcUuid, Consumer<Boolean> callback)
+
+   class DiscordUser  
+     • DiscordUser(String accessToken)  
+     • long getDiscordId()  
+     • userExists(long discordId, Consumer<Boolean> callback)
+
+   class OAuthService  (Patreon profile fetcher)  
+     • int    getPatreonAmountCents(String accessToken)  
+     • String getPatreonAbout(String accessToken)  
+     • String getPatreonEmail(String accessToken)  
+     • long   getPatreonId(String accessToken)  
+     • String getPatreonName(String accessToken)  
+     • String getPatreonStatus(String accessToken)  
+     • String getPatreonTier(String accessToken)  
+     • String getPatreonVanity(String accessToken)  
+
+4. Sessions  
+   class OAuthUserSession  
+     • getPlayerUuid(), getCommand() (“discord”/“patreon”), getAccessToken(), setAccessToken(...)
+
+Example: fetch a User by Discord ID and print their Patreon tier
+```
+Database db = Database.completeGetInstance();
+UserManager um = new UserManager(db);
+
+// after server startup & caching
+User u = um.getUserByDiscordId(123456789012345678L);
+if (u != null) {
+  System.out.println("Discord user linked to Patreon tier: " + u.getPatreonTier());
+}
+```
+
+Support & Contribution
+----------------------
+Contributions welcome via GitHub.  Please file issues for bugs or feature requests.  
+
+License
+-------
+GNU General Public License v3.0
+# OAuthPlugin
 
 ## Overview
 
-This plugin provides **server owners and developers** with a robust interface to manage player-related data stored in an external database. It acts as a **centralized data layer** in your Minecraft server, enabling seamless retrieval and synchronization of user information across platforms such as Discord, Patreon, and future OAuth providers.
+**OAuthPlugin** is a Bukkit/Spigot plugin that links Minecraft accounts with external OAuth providers (currently Discord and Patreon), stores user profiles in PostgreSQL, and exposes an in-memory API for other plugins or server-side code to retrieve and act on user data.
 
 ## Purpose
 
-Designed to support **multi-platform verification** and **activity tracking**, this plugin allows server administrators to:
+Designed for **server owners and developers**, OAuthPlugin:
 
-- Map Minecraft accounts to external platform identities (Discord, Patreon, etc.).
-- Fetch detailed user profiles, including balances, roles, and activity statuses.
-- Prevent account duplication by consolidating user data.
-- Expand to additional OAuth platforms in future releases.
+- Maps Minecraft UUIDs to platform identities (Discord, Patreon).
+- Fetches and persists user details (e.g. pledge amount, account status).
+- Prevents duplicate records via consolidation routines.
+- Provides asynchronous, thread-safe APIs for integration with custom plugins.
 
 ## Core Features
 
-- **User Management API:** Accessible through the plugin’s Java classes, offering methods to create, update, and fetch user records asynchronously.
-- **Cross-Platform Identity:** Maintains a synchronized database that links Minecraft UUIDs with platform-specific IDs (e.g., Discord ID, Patreon ID).
-- **Duplication Prevention:** Supports deduplication routines to ensure each user has a single, consolidated entry.
-- **Extensible Data Model:** Designed to be expanded to include more OAuth providers and user data in the future.
+- **OAuth Flows**  
+  - `/discord` → Discord OAuth2 (identify scope)  
+  - `/patreon` → Patreon OAuth2 (identity + memberships)  
+  - `/code <AUTH_CODE>` → Finalize and store link  
+
+- **User Management API**  
+  - Asynchronous methods to create, fetch, cache, and consolidate users  
+  - In-memory caching for low-latency lookups  
+
+- **Data Storage**  
+  - PostgreSQL via HikariCP connection pool  
+  - Automatic database and `users` table creation  
+
+- **Extensible Architecture**  
+  - Pluggable to add more OAuth providers (Twitch, LinkedIn, etc.)  
+  - Future support for custom user attributes, analytics, event listeners  
 
 ## Available Data
 
-The database currently stores the following user information:
-
-| Field                       | Description                                                                               |
-|------------------------------|------------------------------------------------------------------------------------------|
-| `create_date`                | Timestamp of user creation in the database                                               |
-| `discord_id`                 | Unique Discord account ID used for authentication                                        |
-| `exp`                        | User experience points accumulated in the system                                         |
-| `faction_name`               | User’s faction or group within the server                                                |
-| `level`                      | User level or rank within the server                                                     |
-| `minecraft_id`               | Unique UUID of the Minecraft player                                                      |
-| `patreon_about`              | User's Patreon about/bio                                                                 |
-| `patreon_amount_cents`       | Total amount pledged via Patreon (in cents)                                              |
-| `patreon_email`              | Patreon account email                                                                    |
-| `patreon_id`                 | Unique Patreon account ID                                                                |
-| `patreon_name`               | Patreon account username                                                                 |
-| `patreon_status`             | Patreon account status (e.g., 'active')                                                  |
-| `patreon_tier`               | Patron tier level                                                                        |
-| `patreon_vanity`             | Vanity URL or custom label for Patreon                                                   |
+| Column                  | Description                                      |
+|-------------------------|--------------------------------------------------|
+| `id`                    | Internal primary key (serial)                    |
+| `create_date`           | Timestamp of record creation                     |
+| `discord_id`            | Linked Discord account ID (unique)               |
+| `minecraft_id`          | Minecraft player UUID                            |
+| `patreon_about`         | Patreon “about” text                             |
+| `patreon_amount_cents`  | Total pledge amount in cents                     |
+| `patreon_email`         | Patreon account email                            |
+| `patreon_id`            | Patreon account ID                               |
+| `patreon_name`          | Patreon username                                 |
+| `patreon_status`        | Patreon status (e.g. “active”)                   |
+| `patreon_tier`          | Patreon tier identifier                          |
+| `patreon_vanity`        | Vanity URL or custom label                       |
 
 ## Getting Started
 
-### Cloning the Repository###
-```bash
-git clone https://github.com/brandongrahamcobb/jVyrtuous/PatreonPlugin.git
-```
+### 1. Clone & Build
 
-### Building the Plugin
-
-Navigate into the cloned directory and run Maven to package the plugin:
 ```bash
+git clone https://github.com/brandongrahamcobb/oauthplugin.git
+cd oauthplugin
 mvn clean package
 ```
-This will compile the code and create a Jar file named `PatreonPlugin-0.1.jar` in the `target/` directory.
 
-### Installing in Minecraft Server
+The built JAR will be in `target/OAuthPlugin-<version>.jar`.
 
-- Locate your server's `plugins/` folder.
-- Copy the `target/PatreonPlugin-0.1.jar` file into `plugins/`.
+### 2. Install
 
-Your server will automatically load the plugin when started or restarted.
-
----
+1. Copy the JAR into your server’s `plugins/` folder.
+2. Ensure PostgreSQL is installed and its service/daemon is running.
+3. Start the Minecraft server once to generate the default `config.yml` and initialize the database.
+4. Stop the server, edit `plugins/OAuthPlugin/config.yml` as described below, then restart.
 
 ## Configuration
 
-The plugin's configuration can be set in one of two ways:
+### `plugins/OAuthPlugin/config.yml`
 
-### 1. Using the Provided `config.yml` in the Plugin Folder
+Fill in your credentials and endpoints:
 
-- Navigate to your server's folder.
-- Inside `plugins/PatreonPlugin/`, replace or create the `config.yml` file with your custom settings.
-- Restart the server to load the new configuration.
+```yaml
+# PostgreSQL settings
+POSTGRES_HOST: "localhost"
+POSTGRES_PORT: "5432"
+POSTGRES_DATABASE: "oauthplugin_db"
+POSTGRES_USER: "oauth_user"
+POSTGRES_PASSWORD: "secret"
 
-### 2. Using Environment Variables (Recommended)
+# Enable providers
+ENABLE_DISCORD: true
+ENABLE_PATREON: true
 
-- Set environment variables in your shell or via a `.bashrc` or `.zshrc` file:
-```bash
-export DISCORD_API_KEY=""
-export POSTGRES_HOST="localhost"
-export POSTGRES_DATABASE=""
-export POSTGRES_USER=""
-export POSTGRES_PASSWORD=""
-export POSTGRES_PORT="5432"
-export DISCORD_CLIENT_ID=""
-export DISCORD_CLIENT_SECRET=""
-export DISCORD_REDIRECT_URI=""
-export DISCORD_ROLE_PASS=""
-export DISCORD_TESTING_GUILD_ID=""
-export PATREON_CLIENT_ID=""
-export PATREON_CLIENT_SECRET=""
-export PATREON_REDIRECT_URI=""
-export SPARK_DISCORD_ENDPOINT=""
-export SPARK_PATREON_ENDPOINT=""
-export SPARK_PORT="8000"
-export DISCORD_OWNER_ID=""
-```
-- To load the variables immediately without restarting the terminal:
-```bash
-source ~/.bashrc  # or ~/.zshrc
-```
-- The plugin will read these environment variables at startup, overriding values in `config.yml`.
+# Discord OAuth
+DISCORD_CLIENT_ID: "<your-client-id>"
+DISCORD_CLIENT_SECRET: "<your-client-secret>"
+DISCORD_REDIRECT_URI: "https://your-domain.com/oauth/discord_callback"
 
----
+# Patreon OAuth
+PATREON_CLIENT_ID: "<your-client-id>"
+PATREON_CLIENT_SECRET: "<your-client-secret>"
+PATREON_REDIRECT_URI: "https://your-domain.com/oauth/patreon_callback"
 
-## Notes
-
-- Make sure your environment variables are correctly set before starting the server to ensure the plugin picks them up.
-- Changes to `config.yml` require a server restart to take effect.
-- Alternatively, editing the `config.yml` file directly in `plugins/PatreonPlugin/` allows quick configuration updates without messing with environment variables.
-
-Certainly! Here's an example section you could add to your README, explaining how to run SQL scripts in PostgreSQL and how to create a database across different operating systems:
-
----
-
-## Setting Up PostgreSQL Database
-
-### Creating a Database
-
-Before deploying the plugin, you need a PostgreSQL database instance. The process varies slightly depending on your operating system but follows similar principles.
-
-#### Common Steps (All OSs)
-1. **Install PostgreSQL** if not already installed.
-2. **Create a user** with the necessary permissions.
-3. **Create the database** for your plugin.
-
----
-
-### For Linux / macOS / Windows (Command Line)
-
-Once PostgreSQL is installed, you can create a new database with the `psql` command-line tool.
-
-**Step-by-step:**
-
-1. Open your terminal or command prompt.
-2. Connect to PostgreSQL as the superuser (often `postgres`):
-
-```bash
-psql -U postgres
-```
-(You will be prompted for your password.)
-
-3. Create a new database:
-```sql
-CREATE DATABASE <your-db>;
-```
-4. Create a user (if needed):
-```sql
-CREATE USER <your-user> WITH PASSWORD '<your-password>';
-GRANT ALL PRIVILEGES ON DATABASE <your-db> TO <your-user>;
-```
-5. Exit psql:
-```sql
-\q
-```
-6. Update your plugin's configuration to connect to `lucy` with `lucy` and the password.
-
----
-
-### Running a SQL Script File
-
-If you have an SQL script containing your schema or initial data, you can run it like this:
-```bash
-psql -U <your-user> -d <your-db> -f file.sql
+# Spark (embedded HTTP server)
+SPARK_PORT: 8000
+SPARK_DISCORD_ENDPOINT: "/oauth/discord_callback"
+SPARK_PATREON_ENDPOINT: "/oauth/patreon_callback"
 ```
 
----
+### Environment Variables
 
-### Specific OS Notes:
+All config keys above can be overridden by environment variables of the same name.
 
-- **Linux:**
-  Use your distribution's package manager (e.g., `apt`, `yum`) to install PostgreSQL, then use `psql` as shown.
-- **macOS:**
-  Install via Homebrew (`brew install postgresql`), then start the service (`brew services start postgresql`).
-- **Windows:**
-  Use the [PostgreSQL installer](https://www.postgresql.org/download/windows/). After installation, use `psql` from the Command Prompt or PowerShell. You may need to add PostgreSQL's `bin` directory to your PATH.
+## Setting Up PostgreSQL
 
----
+1. Install PostgreSQL (your OS package manager or installer).  
+2. Create a database and user:
 
-### Final Tips:
-- Make sure the PostgreSQL service is running before attempting to connect.
-- Use a GUI client like pgAdmin for easier management if you prefer a graphical interface.
-- Store your credentials securely and do not include passwords in scripts or config files in version-controlled repositories.
+   ```sql
+   -- Connect as superuser:
+   psql -U postgres
 
----
+   -- Create DB and user:
+   CREATE DATABASE oauthplugin_db;
+   CREATE USER oauth_user WITH PASSWORD 'secret';
+   GRANT ALL PRIVILEGES ON DATABASE oauthplugin_db TO oauth_user;
+   \q
+   ```
 
-This guide helps users across all operating systems set up the necessary database environment for your plugin.
----
+3. Alternatively, run a SQL script:
 
-# Usage
+   ```bash
+   psql -U oauth_user -d oauthplugin_db -f schema.sql
+   ```
 
----
+## OAuth Flow
+
+1. **In-game** `/discord` or `/patreon`  
+   → Player receives an OAuth2 authorization URL with state=`<player-uuid>`.
+
+2. **Browser** → Player grants access → Redirect to  
+   `http(s)://<host>:<SPARK_PORT><SPARK_<PROVIDER>_ENDPOINT>?code=AUTH_CODE&state=PLAYER_UUID`
+
+3. **In-game** `/code AUTH_CODE`  
+   → Plugin exchanges code for access token, fetches profile, upserts `users` table.
+
+## Running Spark Behind ngrok or Remote Host
+
+- **ngrok**:  
+  ```bash
+  ngrok http 8000
+  ```
+  Copy the HTTPS forwarding URL into your OAuth app redirect settings and `config.yml`.
+
+- **Remote Server**:  
+  Expose port 8000 via firewall or Docker, set your domain and update redirect URIs accordingly.
+
+## In-Game Commands
+
+- `/discord`  
+- `/patreon`  
+- `/code <AUTH_CODE>`
+
+## Maven/Gradle Dependency
+
+To use OAuthPlugin’s API in your own plugin:
+
+**Maven**
+```xml
+<dependency>
+  <groupId>com.brandongcobb.oauthplugin</groupId>
+  <artifactId>OAuthPlugin</artifactId>
+  <version>1.0.0</version>
+</dependency>
+```
+
+**Gradle**
+```groovy
+repositories { mavenCentral() }
+dependencies {
+  implementation 'com.brandongcobb.oauthplugin:OAuthPlugin:1.0.0'
+}
+```
 
 ## Developer API & Data Interaction
 
-The plugin exposes a robust and flexible API designed for other developers and plugins to query and respond to user data stored within the system. The API provides asynchronous methods to access individual user properties, enabling non-blocking, thread-safe integrations with custom plugins or external systems.
+### Database & UserManager
 
-### Accessing User Data
-
-- **Retrieve a User Object:**
-  Use the provided service to asynchronously fetch a user instance associated with a specific UUID. This user object serves as the gateway to all related data.
-
-- **Get User Properties:**
-  From the user object, individual properties such as experience points, faction name, level, and platform-specific IDs (e.g., Discord, Patreon) can be accessed through dedicated getter methods. These methods return `CompletableFuture` objects to allow asynchronous, non-blocking operations.
-
-- **Modify User Data:**
-  If supported, setter methods are available for updating user properties dynamically, with changes persisted seamlessly.
-
-### Detecting Data Changes
-
-- **Event Listeners:**
-  The system provides a registration mechanism where external plugins can listen for specific user data updates, such as experience or faction changes. When a monitored property is modified, registered listeners are triggered with the new data, enabling real-time reactions.
-
-- **Callback Registration:**
-  For specific properties, developers can register callbacks that execute when data alterations occur, allowing dynamic updates of roles, ranks, or external markers in response to user activity.
-
-### Usage Patterns
-
-Developers can asynchronously fetch user information and set up change detection as follows:
 ```java
-// Fetch user data for a specific UUID
-CompletableFuture<User> userFuture = UserService.getInstance().getUserByUUID(playerUUID);
-userFuture.thenAccept(user -> {
-    // Retrieve individual properties asynchronously
-    user.getExp().thenAccept(exp -> { /* process experience */ });
-    user.getFactionName().thenAccept(faction -> { /* process faction */ });
-
-    // Register for real-time change events
-    user.registerChangeListener(new UserChangeListener() {
-        @Override
-        public void onExpChanged(UUID uuid, int newExp) { /* react to EXP change */ }
-        @Override
-        public void onFactionNameChanged(UUID uuid, String newFaction) { /* react to faction change */ }
-    });
-});
+Database db = Database.completeGetInstance();
+UserManager um = new UserManager(db);
 ```
-### Extensibility and Future Plans
 
-The API is designed to support expansion, including integration with additional OAuth providers and custom user attributes. This modular approach allows plugins to stay in sync with evolving user data needs, reacting dynamically to user activity across multiple platforms.
+- `createUser(...)` → Asynchronously upsert a user record.  
+- `cacheUser(User)` → Cache a User instance for quick lookups.  
+- `getUserByDiscordId(long)` / `getUserByPatreonId(long)` / `getUserByMinecraftId(String)` → Retrieve cached or return `null`.  
+- `consolidateUsers()` → Merge duplicate database rows.
 
----
+### User Interfaces
 
-**With this API, plugin developers can build rich, interactive features that respond to user data in real time, enhancing gameplay experience and community engagement.**
-### For Server Owners
+#### interface User
+```java
+CompletableFuture<Void> createUser(
+    Timestamp ts,
+    long discordId,
+    String minecraftId,
+    String patreonAbout,
+    int patreonAmountCents,
+    String patreonEmail,
+    long patreonId,
+    String patreonName,
+    String patreonStatus,
+    String patreonTier,
+    String patreonVanity
+);
+```
 
-- Load the plugin and ensure it has access to the database.
-- Use the API methods within plugin code to get user info, verify identities, or track activity.
+#### class UserImpl implements User
+Getters:
+- `getDiscordId()`, `getMinecraftId()`, `getPatreonId()`, `getPatreonAbout()`, `getPatreonAmountCents()`, etc.
 
----
+#### class DiscordUser
+```java
+DiscordUser d = new DiscordUser(accessToken);
+long discordId = d.getDiscordId();
+d.userExists(discordId, exists -> { … });
+```
 
-## Future Expansion
+#### class MinecraftUser implements User
+```java
+MinecraftUser m = new MinecraftUser(uuid);
+m.userExists(uuid, exists -> { … });
+```
 
-The system is built with scalability in mind and is planning to include support for:
+#### class OAuthService (Patreon)
+- `getPatreonAbout(accessToken)`
+- `getPatreonAmountCents(accessToken)`
+- `getPatreonEmail(accessToken)`
+- `getPatreonId(accessToken)`
+- `getPatreonName(accessToken)`
+- `getPatreonStatus(accessToken)`
+- `getPatreonTier(accessToken)`
+- `getPatreonVanity(accessToken)`
 
-- Other OAuth providers (Twitch, Twitter, etc.)
-- External APIs for activity feeds
-- Advanced user analytics and roles management
+#### class OAuthUserSession
+Tracks pending sessions in `OAuthPlugin.getInstance().getSessions()`:
+- `getCommand()` returns `"discord"` or `"patreon"`.
+- `getAccessToken()` stores the OAuth code until `/code` is executed.
 
----
+### Example
 
-## Licensing
+```java
+// After users have linked accounts and sessions are cached:
+User u = um.getUserByDiscordId(123456789012345678L);
+if (u != null) {
+  System.out.println("Patreon Tier: " + u.getPatreonTier());
+}
+```
 
-This plugin is open-source under the GNU General Public License v3. For full license details, refer to the [LICENSE](https://www.gnu.org/licenses/gpl-3.0.html).
+## Extensibility & Future Plans
 
----
+- Add Twitch, LinkedIn, OpenAI OAuth flows  
+- Support event listeners for real-time data change notifications  
+- Advanced analytics and role management
+
+## License
+
+GNU General Public License v3.0 — see LICENSE or https://www.gnu.org/licenses/gpl-3.0.html
 
 ## Contact
 
-- **Author:** Brandon G. Cobb  
-- **GitHub:** [https://github.com/brandongrahamcobb](https://github.com/brandongrahamcobb)
-
----
+**Author:** Brandon G. Cobb
+**GitHub:** https://github.com/brandongrahamcobb/oauthplugin

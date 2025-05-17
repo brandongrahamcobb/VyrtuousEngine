@@ -72,7 +72,8 @@ public class EventHandlers implements Listener {
         // Check if a user record exists for this Minecraft UUID
         MinecraftUser mUser = new MinecraftUser(uuid);
         mUser.userExists(uuid, exists -> {
-            UserManager um = new UserManager(com.brandongcobb.patreon.utils.handlers.Database.completeGetInstance());
+            // Initialize UserManager with the plugin's Database instance
+            UserManager um = new UserManager(Database.completeGetInstance());
             if (!exists) {
                 java.sql.Timestamp now = new java.sql.Timestamp(System.currentTimeMillis());
                 // Create a placeholder entry with only Minecraft ID

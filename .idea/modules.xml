@@ -3,6 +3,7 @@
   <component name="ProjectModuleManager">
     <modules>
       <module fileurl="file://$PROJECT_DIR$/Lucy.iml" filepath="$PROJECT_DIR$/Lucy.iml" />
+      <module fileurl="file://$PROJECT_DIR$/OAuthPlugin.iml" filepath="$PROJECT_DIR$/OAuthPlugin.iml" />
     </modules>
   </component>
 </project>

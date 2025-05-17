@@ -1,6 +1,6 @@
-name: PatreonPlugin
+name: OAuthPlugin
 version: 0.1
-main: com.brandongcobb.patreon.PatreonPlugin
+main: com.brandongcobb.oauthplugin.OAuthPlugin
 api-version: 1.0
 website: www.github.com/brandongrahamcobb
 commands:
